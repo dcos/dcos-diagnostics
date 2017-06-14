@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dcos/3dt/runner"
+	"github.com/dcos/dcos-diagnostics/runner"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ const (
 	checkTypeNodePreStart  = "node-prestart"
 	checkTypeNodePostStart = "node-poststart"
 
-	defaultRunnerConfig    = "/opt/mesosphere/etc/dcos-3dt-runner-config.json"
+	defaultRunnerConfig    = "/opt/mesosphere/etc/dcos-diagnostics-runner-config.json"
 )
 
 var (

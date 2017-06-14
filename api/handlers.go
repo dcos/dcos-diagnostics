@@ -23,7 +23,7 @@ func httpError(w http.ResponseWriter, msg string, code int) {
 }
 
 // Route handlers
-// /api/v1/system/health, get a units status, used by 3dt puller
+// /api/v1/system/health, get a units status, used by dcos-diagnostics puller
 func unitsHealthStatus(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {

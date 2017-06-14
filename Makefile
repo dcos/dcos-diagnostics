@@ -1,7 +1,3 @@
-PLATFORM := $(shell uname)
-REV := $(shell git rev-parse --short HEAD)
-LDFLAGS := -X github.com/dcos/3dt/api.Revision=$(REV)
-
 all: test install
 
 test:
@@ -18,4 +14,4 @@ install:
 	go install -v -ldflags '$(LDFLAGS)'
 
 clean:
-	rm -f ./3dt
+	rm -f ./dcos-diagnostics

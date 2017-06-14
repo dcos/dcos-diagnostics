@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-go/dcos"
 )
 
@@ -393,7 +393,7 @@ func (mr *MonitoringResponse) GetMasterAgentNodes() ([]Node, []Node, error) {
 	}
 
 	if len(masterNodes) == 0 && len(agentNodes) == 0 {
-		return masterNodes, agentNodes, errors.New("No nodes found in memory, perhaps 3dt was started without -pull flag")
+		return masterNodes, agentNodes, errors.New("No nodes found in memory, perhaps dcos-diagnostics was started without -pull flag")
 	}
 
 	return masterNodes, agentNodes, nil

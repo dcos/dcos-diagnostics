@@ -16,7 +16,7 @@ type key int
 
 var dtKey key = 1
 
-// BaseRoute a base 3dt endpoint location.
+// BaseRoute a base dcos-diagnostics endpoint location.
 const BaseRoute string = "/system/health/v1"
 
 type routeHandler struct {
@@ -69,7 +69,7 @@ func noCacheMiddleware(next http.Handler, dt *Dt) http.Handler {
 		}
 
 		if !dt.Cfg.FlagPull {
-			e := "3dt was not started with -pull flag"
+			e := "dcos-diagnostics was not started with -pull flag"
 			logrus.Error(e)
 			http.Error(w, e, http.StatusServiceUnavailable)
 			return

@@ -1,14 +1,14 @@
 package api
 
 import (
+	"os"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
-	"os"
 )
 
 // SystemdUnits used to make GetUnitsProperties thread safe.

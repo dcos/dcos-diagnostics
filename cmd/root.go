@@ -19,8 +19,8 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dcos/3dt/api"
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/api"
+	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,12 +34,12 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "3dt",
+	Use:   "dcos-diagnostics",
 	Short: "DC/OS diagnostics service",
 	Long: `DC/OS diagnostics service provides health information about cluster.
 
-3dt daemon start an http server and polls the components health.
-3dt check provides CLI functionality to run checks on DC/OS cluster.
+dcos-diagnostics daemon start an http server and polls the components health.
+dcos-diagnostics check provides CLI functionality to run checks on DC/OS cluster.
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -68,8 +68,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	RootCmd.PersistentFlags().BoolVar(&version, "version", false, "Print 3dt version")
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.3dt.yaml)")
+	RootCmd.PersistentFlags().BoolVar(&version, "version", false, "Print dcos-diagnostics version")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.dcos-diagnostics.yaml)")
 	RootCmd.PersistentFlags().BoolVar(&diag, "diag", false,
 		"Check DC/OS components health.")
 	RootCmd.PersistentFlags().BoolVar(&defaultConfig.FlagVerbose, "verbose", defaultConfig.FlagVerbose,
@@ -80,7 +80,7 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	viper.SetConfigName("dcos-3dt-config") // name of config file (without extension)
+	viper.SetConfigName("dcos-diagnostics-config") // name of config file (without extension)
 	viper.AddConfigPath("/opt/mesosphere/etc/")
 	viper.AutomaticEnv()
 
