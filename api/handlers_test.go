@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/gorilla/mux"
 	assertPackage "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -146,7 +146,7 @@ func (st *fakeDCOSTools) Get(url string, timeout time.Duration) (body []byte, st
 			  "dcos_version":"1.6",
 			  "node_role":"master",
 			  "mesos_id":"master-123",
-			  "3dt_version": "0.0.7"
+			  "dcos_diagnostics_version": "0.0.7"
 			}`
 	}
 
@@ -177,7 +177,7 @@ func (st *fakeDCOSTools) Get(url string, timeout time.Duration) (body []byte, st
 			  "dcos_version":"1.6",
 			  "node_role":"agent",
 			  "mesos_id":"agent-123",
-			  "3dt_version": "0.0.7"
+			  "dcos_diagnostics_version": "0.0.7"
 			}`
 	}
 	return []byte(response), 200, nil
@@ -259,7 +259,7 @@ func (s *HandlersTestSuit) SetupTest() {
 				UnitID:     "dcos-ddt.service",
 				UnitHealth: 0,
 				UnitTitle:  "Diag service",
-				PrettyName: "3dt",
+				PrettyName: "dcos-diagnostics",
 			},
 		},
 		Hostname:    "localhost",

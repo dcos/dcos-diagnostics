@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
@@ -57,7 +57,7 @@ type UnitsHealthResponseJSONStruct struct {
 	DcosVersion string                 `json:"dcos_version"`
 	Role        string                 `json:"node_role"`
 	MesosID     string                 `json:"mesos_id"`
-	TdtVersion  string                 `json:"3dt_version"`
+	TdtVersion  string                 `json:"dcos_diagnostics_version"`
 }
 
 // HealthResponseValues is a health values json response.
@@ -128,7 +128,7 @@ type exhibitorNodeResponse struct {
 	IsLeader    bool
 }
 
-// Dt is a struct of dependencies used in 3dt code. There are 2 implementations, the one runs on a real system and
+// Dt is a struct of dependencies used in dcos-diagnostics code. There are 2 implementations, the one runs on a real system and
 // the one used for testing.
 type Dt struct {
 	Cfg               *config.Config

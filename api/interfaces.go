@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/config"
 )
 
 // HTTPRequester is an interface to make HTTP requests

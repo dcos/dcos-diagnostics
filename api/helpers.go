@@ -21,7 +21,7 @@ import (
 
 const (
 	// _SYSTEMD_UNIT and UNIT are custom fields used by systemd to mark logs by the systemd unit itself and
-	// also by other related components. When 3dt reads log entries it needs to filter both entries.
+	// also by other related components. When dcos-diagnostics reads log entries it needs to filter both entries.
 	systemdUnitProperty = "_SYSTEMD_UNIT"
 	unitProperty        = "UNIT"
 )

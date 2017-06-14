@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	// Version of 3dt code.
+	// Version of dcos-diagnostics code.
 	Version = "0.4.0"
 
 	// APIVer is an API version.
@@ -17,7 +17,7 @@ var (
 type Config struct {
 	SystemdUnits []string `json:"-"`
 
-	// 3dt flags
+	// dcos-diagnostics flags
 	FlagCACertFile                 string `json:"ca-cert"`
 	FlagPull                       bool   `json:"pull"`
 	FlagVerbose                    bool   `json:"verbose"`

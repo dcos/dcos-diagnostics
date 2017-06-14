@@ -23,7 +23,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/coreos/go-systemd/activation"
-	"github.com/dcos/3dt/api"
+	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
@@ -32,7 +32,7 @@ import (
 
 const (
 	diagnosticsTCPPort        = 1050
-	diagnosticsBundleDir      = "/var/run/dcos/3dt/diagnostic_bundles"
+	diagnosticsBundleDir      = "/var/run/dcos/dcos-diagnostics/diagnostic_bundles"
 	diagnosticsEndpointConfig = "/opt/mesosphere/etc/endpoints_config.json"
 	exhibitorURL              = "http://127.0.0.1:8181/exhibitor/v1/cluster/status"
 )
@@ -150,7 +150,7 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 
-	// Inject dependencies used for running 3dt.
+	// Inject dependencies used for running dcos-diagnostics.
 	dt := &api.Dt{
 		Cfg:               defaultConfig,
 		DtDCOSTools:       DCOSTools,
@@ -162,7 +162,7 @@ func startDiagnosticsDaemon() {
 	}
 
 	// start diagnostic server and expose endpoints.
-	logrus.Info("Start 3DT")
+	logrus.Info("Start dcos-diagnostics")
 
 	// start pulling every 60 seconds.
 	if defaultConfig.FlagPull {
@@ -172,7 +172,7 @@ func startDiagnosticsDaemon() {
 	router := api.NewRouter(dt)
 
 	if defaultConfig.FlagDisableUnixSocket {
-		logrus.Infof("Exposing 3DT API on 0.0.0.0:%d", defaultConfig.FlagPort)
+		logrus.Infof("Exposing dcos-diagnostics API on 0.0.0.0:%d", defaultConfig.FlagPort)
 		logrus.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", defaultConfig.FlagPort), router))
 	}
 

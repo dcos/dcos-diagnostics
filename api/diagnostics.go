@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dcos/3dt/config"
+	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
 )
@@ -795,11 +795,11 @@ func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalCo
 		})
 	}
 
-	// add 3dt health report.
+	// add dcos-diagnostics health report.
 	httpEndpoints = append(httpEndpoints, HTTPProvider{
 		Port:     port,
 		URI:      BaseRoute,
-		FileName: "3dt-health.json",
+		FileName: "dcos-diagnostics-health.json",
 	})
 
 	return LogProviders{

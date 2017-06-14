@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/dcos/3dt/cmd"
+	"github.com/dcos/dcos-diagnostics/cmd"
 )
 
 func main() {

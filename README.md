@@ -1,42 +1,42 @@
-# 3DT [![velocity](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-3dt-pulls)](https://velocity.mesosphere.com/service/jenkins/view/DCOS/job/public-dcos-3dt-pulls/)
+# dcos-diagnostics [![velocity](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-diagnostics-pulls)](https://velocity.mesosphere.com/service/jenkins/view/DCOS/job/public-dcos-diagnostics-pulls/)
 ## DC/OS Distributed Diagnostics Tool & Aggregation Service
-3DT is a monitoring agent which exposes a HTTP API for querying from the /system/health/v1 DC/OS api. 3DT puller collects the data from 3dt agents and represents individual node health for things like system resources as well as DC/OS-specific services.
+dcos-diagnostics is a monitoring agent which exposes a HTTP API for querying from the /system/health/v1 DC/OS api. dcos-diagnostics puller collects the data from agents and represents individual node health for things like system resources as well as DC/OS-specific services.
 
 ## Build
 
 ```
-go get github.com/dcos/3dt
-cd $GOPATH/src/github.com/dcos/3dt
+go get github.com/dcos/dcos-diagnostics
+cd $GOPATH/src/github.com/dcos/dcos-diagnostics
 make install
-./3dt --version
+./dcos-diagnostics --version
 ```
 
 ## Run
-Run 3DT once, on a DC/OS host to check systemd units:
+Run dcos-diagnostics once, on a DC/OS host to check systemd units:
 
 ```
-3dt --diag
+dcos-diagnostics --diag
 ```
 
 Get verbose log output:
 
 ```
-3dt --diag --verbose
+dcos-diagnostics --diag --verbose
 ```
 
-Run the 3DT aggregation service to query all cluster hosts for health state:
+Run the dcos-diagnostics aggregation service to query all cluster hosts for health state:
 
 ```
-3dt daemon --pull
+dcos-diagnostics daemon --pull
 ```
 
-Start the 3DT health API endpoint:
+Start the dcos-diagnostics health API endpoint:
 
 ```
-3dt daemon
+dcos-diagnostics daemon
 ```
 
-### 3DT daemon options
+### dcos-diagnostics daemon options
 
 <pre>
 --agent-port int
@@ -52,7 +52,7 @@ Start the 3DT health API endpoint:
     Get diagnostics output once on the CLI. Does not expose API.
 
 --diagnostics-bundle-dir string
-    Set a path to store diagnostic bundles (default "/var/run/dcos/3dt/diagnostic_bundles")
+    Set a path to store diagnostic bundles (default "/var/run/dcos/dcos-diagnostics/diagnostic_bundles")
 
 --diagnostics-job-timeout int
     Set a global diagnostics job timeout (default 720)
@@ -98,7 +98,7 @@ Start the 3DT health API endpoint:
 </pre>
 
 
-## 3dt checks options
+## dcos-diagnostics checks options
 TBD
 
 ## Test

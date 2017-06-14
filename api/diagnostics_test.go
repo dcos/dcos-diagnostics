@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	assertPackage "github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/gorilla/mux"
+	assertPackage "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 type DiagnosticsTestSuit struct {
@@ -235,7 +236,7 @@ func (s *DiagnosticsTestSuit) TestCancelGlobalJob() {
 	mockedResponse := `{"10.0.7.252":{"is_running":false}}`
 
 	mockedMasters := []Node{
-		Node{
+		{
 			Role: "master",
 			IP:   "10.0.7.252",
 		},

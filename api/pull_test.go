@@ -1,11 +1,11 @@
 package api
 
 import (
-	// intentionally rename package to do some magic
-	assertPackage "github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"sync"
 	"testing"
+
+	assertPackage "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 type PullerTestSuit struct {
