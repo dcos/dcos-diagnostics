@@ -1,4 +1,4 @@
-# dcos-diagnostics [![velocity](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-diagnostics-pulls)](https://velocity.mesosphere.com/service/jenkins/view/DCOS/job/public-dcos-diagnostics-pulls/)
+# dcos-diagnostics [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Jenkins](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-diagnostics-pulls)](https://jenkins.mesosphere.com/service/jenkins/view/DCOS/job/public-dcos-diagnostics-pulls/) [![Go Report Card](https://goreportcard.com/badge/github.com/dcos/dcos-diagnostics)](https://goreportcard.com/report/github.com/dcos/dcos-diagnostics)
 ## DC/OS Distributed Diagnostics Tool & Aggregation Service
 dcos-diagnostics is a monitoring agent which exposes a HTTP API for querying from the /system/health/v1 DC/OS api. dcos-diagnostics puller collects the data from agents and represents individual node health for things like system resources as well as DC/OS-specific services.
 
