@@ -77,7 +77,7 @@ func (st *fakeDCOSTools) GetUnitProperties(pname string) (map[string]interface{}
 	result := make(map[string]interface{})
 	st.units = append(st.units, pname)
 	if pname == "unit_to_fail" {
-		return result, errors.New("unit_to_fail occured")
+		return result, errors.New("unit_to_fail occurred")
 	}
 	result["Id"] = pname
 	result["LoadState"] = "loaded"
@@ -312,7 +312,7 @@ func (s *HandlersTestSuit) SetupTest() {
 						Health: 1,
 						Output: map[string]string{
 							"dcos-adminrouter-reload.service": "",
-							"dcos-cosmos.service":             "Some nasty error occured",
+							"dcos-cosmos.service":             "Some nasty error occurred",
 						},
 						MesosID: "ab098f2a-799c-4d85-82b2-eb5159d0ceb0-S2",
 					},
@@ -485,7 +485,7 @@ func (s *HandlersTestSuit) TestgetNodeByUnitIdNodeIdHandlerFunc() {
 		HostIP:     "10.0.7.192",
 		NodeHealth: 1,
 		NodeRole:   "agent",
-		UnitOutput: "Some nasty error occured",
+		UnitOutput: "Some nasty error occurred",
 		Help:       "Node available at `dcos node ssh -mesos-id ab098f2a-799c-4d85-82b2-eb5159d0ceb0-S2`. Try, `journalctl -xv` to diagnose further.",
 	}
 	s.assert.Equal(response, expectedResponse, "Response is in incorrect format")

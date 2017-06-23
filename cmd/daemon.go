@@ -88,7 +88,7 @@ func init() {
 	daemonCmd.PersistentFlags().BoolVar(&defaultConfig.FlagDebug, "debug", defaultConfig.FlagDebug,
 		"Enable pprof debugging endpoints.")
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagIAMConfig, "iam-config",
-		defaultConfig.FlagIAMConfig, "A path to identity and access managment config")
+		defaultConfig.FlagIAMConfig, "A path to identity and access management config")
 	// diagnostics job flags
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleDir,
 		"diagnostics-bundle-dir", diagnosticsBundleDir, "Set a path to store diagnostic bundles")
