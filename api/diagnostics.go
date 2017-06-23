@@ -312,7 +312,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 	}
 	j.JobProgressPercentage = 100
 	if len(j.Errors) == 0 {
-		j.Status = "Diagnostics job sucessfully finished"
+		j.Status = "Diagnostics job successfully finished"
 	} else {
 		j.Status = "Diagnostics job failed"
 	}
@@ -996,7 +996,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 	return r, errors.New("Unknown provider " + provider)
 }
 
-// the summary report is a file added to a zip bundle file to track any errors occured while collection logs.
+// the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
 func updateSummaryReport(preflix string, node Node, error string, r *bytes.Buffer) {
 	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), preflix, node.IP, node.Role, error))
 }

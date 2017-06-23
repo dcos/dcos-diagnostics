@@ -30,6 +30,11 @@ function _gofmt {
     test -z "$(gofmt -l -d ${SUBDIRS} | tee /dev/stderr)"
 }
 
+function _misspell {
+    logmsg "Running 'misspell' ..."
+    go get -u github.com/client9/misspell/cmd/misspell
+    misspell -error $(ls | grep -v vendor)
+}
 
 function _goimports {
     logmsg "Running 'goimports' ..."
@@ -60,6 +65,7 @@ function _unittest_with_coverage {
 
 # Main.
 function main {
+    _misspell
     _gofmt
     _goimports
     _golint
