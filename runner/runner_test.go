@@ -103,3 +103,94 @@ func validateCheck(cr *CombinedResponse, name, output string) error {
 	}
 	return nil
 }
+
+func TestList(t * testing.T) {
+	r := NewRunner("master")
+	cfg := `
+{
+  "cluster_checks": {
+    "cluster_check_1": {
+      "description": "Cluster check 1",
+      "cmd": ["echo", "cluster_check_1"],
+      "timeout": "1s"
+    }
+  },
+  "node_checks": {
+    "checks": {
+      "node_check_1": {
+        "description": "Node check 1",
+        "cmd": ["echo", "node_check_1"],
+        "timeout": "1s"
+      },
+      "node_check_2": {
+        "description": "Node check 2",
+        "cmd": ["echo", "node_check_2"],
+        "timeout": "1s",
+        "roles": ["master"]
+      },
+      "node_check_3": {
+        "description": "Node check 3",
+        "cmd": ["echo", "node_check_3"],
+        "timeout": "1s",
+        "roles": ["agent"]
+      }
+    },
+    "prestart": ["node_check_1"],
+    "poststart": ["node_check_2", "node_check_3"]
+  }
+}`
+	r.Load(strings.NewReader(cfg))
+
+	out, err := r.Cluster(context.TODO(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCheckListing(out, "cluster_check_1", "Cluster check 1", "1s", []string{"echo", "cluster_check_1"}); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err = r.PreStart(context.TODO(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCheckListing(out, "node_check_1", "Node check 1", "1s", []string{"echo", "node_check_1"}); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err = r.PostStart(context.TODO(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCheckListing(out, "node_check_2", "Node check 2", "1s", []string{"echo", "node_check_2"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// This runner is for a master, so a check that only runs on agents should not be listed.
+	unexpectedCheckName := "node_check_3"
+	if _, ok := out.checks[unexpectedCheckName]; ok {
+		t.Fatalf("found unexpected check %s", unexpectedCheckName)
+	}
+}
+
+func validateCheckListing(cr *CombinedResponse, name, description, timeout string, cmd []string) error {
+	check, ok := cr.checks[name]
+	if !ok {
+		return errors.Errorf("expect check %s", name)
+	}
+
+	if check.description != description {
+		return errors.Errorf("expect description %s. Got %s", description, check.description)
+	}
+
+	if check.timeout != timeout {
+		return errors.Errorf("expect timeout %s. Got %s", timeout, check.timeout)
+	}
+
+	for i := range check.cmd {
+		if check.cmd[i] != cmd[i] {
+			return errors.Errorf("expect cmd %s. Got %s", cmd, check.cmd)
+		}
+	}
+
+	return nil
+}
