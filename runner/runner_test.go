@@ -35,29 +35,28 @@ func TestNewRunner(t *testing.T) {
 func TestRun(t *testing.T) {
 	r := NewRunner("master")
 	cfg := `
-	{
-	  "cluster_checks": {
-	    "test_check": {
-	      "cmd": ["./fixture/combined.sh"],
-	      "timeout": "1s"
-	    }
-	  },
-	  "node_checks": {
-	    "checks": {
-	      "check1": {
-	        "cmd": ["./fixture/combined.sh"],
-		  "timeout": "1s"
-	        },
-	      "check2": {
-		"cmd": ["./fixture/combined.sh"],
-		"timeout": "1s"
-	      }
-	    },
-	    "prestart": ["check1"],
-	    "poststart": ["check2"]
-	   }
-	}
-	`
+{
+  "cluster_checks": {
+    "test_check": {
+      "cmd": ["./fixture/combined.sh"],
+      "timeout": "1s"
+    }
+  },
+  "node_checks": {
+    "checks": {
+      "check1": {
+        "cmd": ["./fixture/combined.sh"],
+        "timeout": "1s"
+      },
+      "check2": {
+        "cmd": ["./fixture/combined.sh"],
+        "timeout": "1s"
+      }
+    },
+    "prestart": ["check1"],
+    "poststart": ["check2"]
+  }
+}`
 	r.Load(strings.NewReader(cfg))
 	out, err := r.Cluster(context.TODO(), false)
 	if err != nil {
