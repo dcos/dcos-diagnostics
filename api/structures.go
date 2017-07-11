@@ -5,9 +5,6 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/config"
-	"github.com/shirou/gopsutil/disk"
-	"github.com/shirou/gopsutil/load"
-	"github.com/shirou/gopsutil/mem"
 )
 
 // MonitoringResponse top level global variable to store the entire units/nodes status tree.
@@ -51,7 +48,6 @@ type httpResponse struct {
 // UnitsHealthResponseJSONStruct json response /system/health/v1
 type UnitsHealthResponseJSONStruct struct {
 	Array       []HealthResponseValues `json:"units"`
-	System      sysMetrics             `json:"system"`
 	Hostname    string                 `json:"hostname"`
 	IPAddress   string                 `json:"ip"`
 	DcosVersion string                 `json:"dcos_version"`
@@ -68,13 +64,6 @@ type HealthResponseValues struct {
 	UnitTitle  string `json:"description"`
 	Help       string `json:"help"`
 	PrettyName string `json:"name"`
-}
-
-type sysMetrics struct {
-	Memory      mem.VirtualMemoryStat `json:"memory"`
-	LoadAvarage load.AvgStat          `json:"load_avarage"`
-	Partitions  []disk.PartitionStat  `json:"partitions"`
-	DiskUsage   []disk.UsageStat      `json:"disk_usage"`
 }
 
 // UnitsResponseJSONStruct contains health overview, collected from all hosts
