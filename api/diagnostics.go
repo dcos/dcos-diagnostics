@@ -19,6 +19,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
 )
@@ -878,13 +879,13 @@ func (j *DiagnosticsJob) Init(cfg *config.Config, DCOSTools DCOSHelper) error {
 	// load the internal providers
 	internalProviders, err := loadInternalProviders(cfg, DCOSTools)
 	if err != nil {
-		logrus.Errorf("Could not initialize internal log provders: %s", err)
+		logrus.Errorf("Could not initialize internal log providers: %s", err)
 	}
 
 	// load the external providers from a cfg file
 	externalProviders, err := loadExternalProviders(cfg)
 	if err != nil {
-		logrus.Errorf("Could not initialize external log provders: %s", err)
+		logrus.Errorf("Could not initialize external log providers: %s", err)
 	}
 
 	j.logProviders.HTTPEndpoints = append(internalProviders.HTTPEndpoints, externalProviders.HTTPEndpoints...)
@@ -894,8 +895,7 @@ func (j *DiagnosticsJob) Init(cfg *config.Config, DCOSTools DCOSHelper) error {
 	// set filename if not set
 	for index, endpoint := range j.logProviders.HTTPEndpoints {
 		if endpoint.FileName == "" {
-			sanitizedPath := strings.Replace(strings.TrimLeft(endpoint.URI, "/"), "/", "_", -1)
-			j.logProviders.HTTPEndpoints[index].FileName = fmt.Sprintf("%d:%s.json", endpoint.Port, sanitizedPath)
+			j.logProviders.HTTPEndpoints[index].FileName = fmt.Sprintf("%d-%s.json", endpoint.Port, util.SanitizeString(endpoint.URI))
 		}
 	}
 
