@@ -12,7 +12,7 @@ func TestCombinedOutput(t *testing.T) {
 		Roles: []string{"master"},
 	}
 
-	output, code, err := ch1.Run(context.TODO(), "master")
+	output, code, err := ch1.Run(context.TODO(), "master", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
