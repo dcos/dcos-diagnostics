@@ -141,7 +141,7 @@ type combinedResponseError struct {
 	Checks []string `json:"checks"`
 }
 
-// Runner is a main instance of DC/OS runner runner.
+// Runner is a main instance of DC/OS check runner.
 type Runner struct {
 	ClusterChecks map[string]*Check `json:"cluster_checks"`
 	NodeChecks    struct {
