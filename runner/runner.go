@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dcos/dcos-go/dcos"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	statusOK = 0
+	statusOK      = 0
 	statusUnknown = 3
 )
 
@@ -33,9 +34,9 @@ func NewRunner(role string) *Runner {
 
 // Response provides a command Response.
 type Response struct {
-	name        string
-	duration    string
-	list        bool
+	name     string
+	duration string
+	list     bool
 
 	output      string
 	status      int
@@ -46,13 +47,13 @@ type Response struct {
 
 type response struct {
 	Output string `json:"output"`
-	Status int `json:"status"`
+	Status int    `json:"status"`
 }
 
 type responseList struct {
-	Description string `json:"description"`
+	Description string   `json:"description"`
 	Cmd         []string `json:"cmd"`
-	Timeout     string `json:"timeout"`
+	Timeout     string   `json:"timeout"`
 }
 
 // MarshalJSON is a custom json marshaller implementation used to return output based on user request.
@@ -62,8 +63,8 @@ func (r Response) MarshalJSON() ([]byte, error) {
 	if r.list {
 		return json.Marshal(&responseList{
 			Description: r.description,
-			Cmd: r.cmd,
-			Timeout: r.timeout,
+			Cmd:         r.cmd,
+			Timeout:     r.timeout,
 		})
 	}
 
@@ -78,7 +79,7 @@ func NewCombinedResponse(list bool) *CombinedResponse {
 	return &CombinedResponse{
 		checks: make(map[string]*Response),
 		errs:   make(map[string]*Response),
-		list: list,
+		list:   list,
 	}
 }
 
@@ -109,13 +110,13 @@ func (cr CombinedResponse) MarshalJSON() ([]byte, error) {
 
 		if cr.checkNotFound {
 			return json.Marshal(combinedResponseError{
-				Error: "One or more requested checks could not be found on this node.",
+				Error:  "One or more requested checks could not be found on this node.",
 				Checks: errs,
 			})
 		}
 
 		return json.Marshal(combinedResponseError{
-			Error: "One or more requested checks failed to execute.",
+			Error:  "One or more requested checks failed to execute.",
 			Checks: errs,
 		})
 	}
@@ -131,16 +132,16 @@ func (cr CombinedResponse) MarshalJSON() ([]byte, error) {
 }
 
 type combinedResponseSuccess struct {
-	Status int `json:"status"`
+	Status int                  `json:"status"`
 	Checks map[string]*Response `json:"checks"`
 }
 
 type combinedResponseError struct {
-	Error string `json:"error"`
+	Error  string   `json:"error"`
 	Checks []string `json:"checks"`
 }
 
-// Runner is a main instance of DC/OS runner runner.
+// Runner is a main instance of DC/OS check runner.
 type Runner struct {
 	ClusterChecks map[string]*Check `json:"cluster_checks"`
 	NodeChecks    struct {
@@ -148,6 +149,7 @@ type Runner struct {
 		PreStart  []string          `json:"prestart"`
 		PostStart []string          `json:"poststart"`
 	} `json:"node_checks"`
+	CheckEnv map[string]string `json:"check_env"`
 
 	role string
 }
@@ -229,8 +231,9 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 			}
 		}
 	}
-	
+
 	// main loop to get the checks info.
+	env := r.checkEnv()
 	for _, name := range currentCheckList {
 		resp := &Response{
 			name: name,
@@ -264,14 +267,14 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 		if !list {
 
 			start := time.Now()
-			combinedOutput, code, err = currentCheck.Run(ctx, r.role)
+			combinedOutput, code, err = currentCheck.Run(ctx, r.role, env)
 			checkDuration = time.Since(start).String()
 		}
 
 		resp.output = string(combinedOutput)
 		resp.status = code
 		resp.duration = checkDuration
-		resp.description =  currentCheck.Description
+		resp.description = currentCheck.Description
 		resp.cmd = currentCheck.Cmd
 		resp.timeout = currentCheck.Timeout
 		resp.list = list
@@ -286,4 +289,24 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 	}
 
 	return combinedResponse, nil
+}
+
+// checkEnv returns the runner's environment overwritten with env vars from the "check_env" config param.
+func (r *Runner) checkEnv() []string {
+	// Collect the current environment and overwrite it with env vars from config.
+	envMap := make(map[string]string)
+	for _, envVar := range os.Environ() {
+		kv := strings.SplitN(envVar, "=", 2)
+		envMap[kv[0]] = kv[1]
+	}
+	for k, v := range r.CheckEnv {
+		envMap[k] = v
+	}
+
+	// Return the environment as a string array.
+	env := []string{}
+	for k, v := range envMap {
+		env = append(env, strings.Join([]string{k, v}, "="))
+	}
+	return env
 }

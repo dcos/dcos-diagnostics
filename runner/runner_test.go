@@ -36,6 +36,9 @@ func TestRun(t *testing.T) {
 	r := NewRunner("master")
 	cfg := `
 {
+  "check_env": {
+    "FOO": "bar"
+  },
   "cluster_checks": {
     "test_check": {
       "cmd": ["./fixture/combined.sh"],
@@ -51,10 +54,14 @@ func TestRun(t *testing.T) {
       "check2": {
         "cmd": ["./fixture/combined.sh"],
         "timeout": "1s"
+      },
+      "check3": {
+        "cmd": ["printenv", "FOO"],
+        "timeout": "1s"
       }
     },
     "prestart": ["check1"],
-    "poststart": ["check2"]
+    "poststart": ["check2", "check3"]
   }
 }`
 	r.Load(strings.NewReader(cfg))
@@ -86,6 +93,10 @@ func TestRun(t *testing.T) {
 	if err := validateCheck(poststart, "check2", expectedOutput); err != nil {
 		t.Fatal(err)
 	}
+
+	if err := validateCheck(poststart, "check3", "bar\n"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func validateCheck(cr *CombinedResponse, name, output string) error {
@@ -104,7 +115,7 @@ func validateCheck(cr *CombinedResponse, name, output string) error {
 	return nil
 }
 
-func TestList(t * testing.T) {
+func TestList(t *testing.T) {
 	r := NewRunner("master")
 	cfg := `
 {
