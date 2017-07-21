@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	statusOK = 0
+	statusOK      = 0
 	statusUnknown = 3
 )
 
@@ -34,9 +34,9 @@ func NewRunner(role string) *Runner {
 
 // Response provides a command Response.
 type Response struct {
-	name        string
-	duration    string
-	list        bool
+	name     string
+	duration string
+	list     bool
 
 	output      string
 	status      int
@@ -47,13 +47,13 @@ type Response struct {
 
 type response struct {
 	Output string `json:"output"`
-	Status int `json:"status"`
+	Status int    `json:"status"`
 }
 
 type responseList struct {
-	Description string `json:"description"`
+	Description string   `json:"description"`
 	Cmd         []string `json:"cmd"`
-	Timeout     string `json:"timeout"`
+	Timeout     string   `json:"timeout"`
 }
 
 // MarshalJSON is a custom json marshaller implementation used to return output based on user request.
@@ -63,8 +63,8 @@ func (r Response) MarshalJSON() ([]byte, error) {
 	if r.list {
 		return json.Marshal(&responseList{
 			Description: r.description,
-			Cmd: r.cmd,
-			Timeout: r.timeout,
+			Cmd:         r.cmd,
+			Timeout:     r.timeout,
 		})
 	}
 
@@ -79,7 +79,7 @@ func NewCombinedResponse(list bool) *CombinedResponse {
 	return &CombinedResponse{
 		checks: make(map[string]*Response),
 		errs:   make(map[string]*Response),
-		list: list,
+		list:   list,
 	}
 }
 
@@ -110,13 +110,13 @@ func (cr CombinedResponse) MarshalJSON() ([]byte, error) {
 
 		if cr.checkNotFound {
 			return json.Marshal(combinedResponseError{
-				Error: "One or more requested checks could not be found on this node.",
+				Error:  "One or more requested checks could not be found on this node.",
 				Checks: errs,
 			})
 		}
 
 		return json.Marshal(combinedResponseError{
-			Error: "One or more requested checks failed to execute.",
+			Error:  "One or more requested checks failed to execute.",
 			Checks: errs,
 		})
 	}
@@ -132,12 +132,12 @@ func (cr CombinedResponse) MarshalJSON() ([]byte, error) {
 }
 
 type combinedResponseSuccess struct {
-	Status int `json:"status"`
+	Status int                  `json:"status"`
 	Checks map[string]*Response `json:"checks"`
 }
 
 type combinedResponseError struct {
-	Error string `json:"error"`
+	Error  string   `json:"error"`
 	Checks []string `json:"checks"`
 }
 
@@ -274,7 +274,7 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 		resp.output = string(combinedOutput)
 		resp.status = code
 		resp.duration = checkDuration
-		resp.description =  currentCheck.Description
+		resp.description = currentCheck.Description
 		resp.cmd = currentCheck.Cmd
 		resp.timeout = currentCheck.Timeout
 		resp.list = list

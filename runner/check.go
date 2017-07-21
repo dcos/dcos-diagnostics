@@ -38,7 +38,7 @@ func (c *Check) Run(ctx context.Context, role string, env []string) ([]byte, int
 	timeout, err := time.ParseDuration(c.Timeout)
 	if err != nil {
 		logrus.Errorf("error reading timeout %s. Using default timeout 5sec", err)
-		timeout = time.Second*5
+		timeout = time.Second * 5
 	}
 
 	newCtx, cancel := context.WithTimeout(ctx, timeout)

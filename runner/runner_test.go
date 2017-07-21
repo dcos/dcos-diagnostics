@@ -115,7 +115,7 @@ func validateCheck(cr *CombinedResponse, name, output string) error {
 	return nil
 }
 
-func TestList(t * testing.T) {
+func TestList(t *testing.T) {
 	r := NewRunner("master")
 	cfg := `
 {
