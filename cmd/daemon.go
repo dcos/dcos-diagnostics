@@ -35,6 +35,8 @@ const (
 	diagnosticsBundleDir      = "/var/run/dcos/dcos-diagnostics/diagnostic_bundles"
 	diagnosticsEndpointConfig = "/opt/mesosphere/etc/endpoints_config.json"
 	exhibitorURL              = "http://127.0.0.1:8181/exhibitor/v1/cluster/status"
+	mesosAuthUser			  = ""
+	mesosAuthPass			  = ""
 )
 
 // override the defaultStateURL to use https scheme
@@ -89,6 +91,12 @@ func init() {
 		"Enable pprof debugging endpoints.")
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagIAMConfig, "iam-config",
 		defaultConfig.FlagIAMConfig, "A path to identity and access management config")
+	
+	// Auth settings for connecting to Mesos
+	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagMesosAuthUser, "mesos-auth-user", mesosAuthUser,
+		"The user name for Mesos basic auth")
+	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagMesosAuthPass, "mesos-auth-pass", mesosAuthPass,
+		"The password for Mesos basic auth")
 	// diagnostics job flags
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleDir,
 		"diagnostics-bundle-dir", diagnosticsBundleDir, "Set a path to store diagnostic bundles")

@@ -188,7 +188,7 @@ func isInList(item string, l []string) bool {
 	return false
 }
 
-func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body io.Reader) (responseBody []byte, httpResponseCode int, err error) {
+func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body io.Reader, user string, pass string) (responseBody []byte, httpResponseCode int, err error) {
 	if url != st.ExhibitorURL {
 		url, err = useTLSScheme(url, st.ForceTLS)
 		if err != nil {
@@ -200,6 +200,10 @@ func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body i
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return responseBody, http.StatusBadRequest, err
+	}
+
+	if user != nil && user != "" && pass != nil && pass != "" {
+		request.SetBasicAuth(user, pass)
 	}
 
 	client := NewHTTPClient(timeout, st.Transport)
@@ -214,13 +218,13 @@ func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body i
 }
 
 // Get HTTP request.
-func (st *DCOSTools) Get(url string, timeout time.Duration) (body []byte, httpResponseCode int, err error) {
-	return st.doRequest("GET", url, timeout, nil)
+func (st *DCOSTools) Get(url string, timeout time.Duration, user string, pass string) (body []byte, httpResponseCode int, err error) {
+	return st.doRequest("GET", url, timeout, nil, user, pass)
 }
 
 // Post HTTP request.
-func (st *DCOSTools) Post(url string, timeout time.Duration) (body []byte, httpResponseCode int, err error) {
-	return st.doRequest("POST", url, timeout, nil)
+func (st *DCOSTools) Post(url string, timeout time.Duration, user string, pass string) (body []byte, httpResponseCode int, err error) {
+	return st.doRequest("POST", url, timeout, nil, user, pass)
 }
 
 // GetTimestamp return time.Now()

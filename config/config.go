@@ -33,6 +33,8 @@ type Config struct {
 	FlagDebug                      bool   `json:"debug"`
 	FlagRole                       string `json:"role"`
 	FlagIAMConfig                  string `json:"iam-config"`
+	FlagMesosAuthUser              string `json:"mesos-auth-user"`
+	FlagMesosAuthPass              string `json:"mesos-auth-pass"`
 
 	// diagnostics job flags
 	FlagDiagnosticsBundleDir                     string `json:"diagnostics-bundle-dir"`

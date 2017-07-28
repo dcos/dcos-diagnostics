@@ -588,7 +588,7 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 	// Make a request to get node units status
 	// use fake interface implementation for tests
 	timeout := time.Duration(dt.Cfg.FlagPullTimeoutSec) * time.Second
-	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout)
+	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout, dt.Cfg.FlagMesosAuthUser, dt.Cfg.FlagMesosAuthPass)
 	if err != nil {
 		logrus.Errorf("Could not HTTP GET %s: %s", url, err)
 		response.Status = statusCode

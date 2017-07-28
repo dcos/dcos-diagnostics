@@ -350,7 +350,7 @@ func (j *DiagnosticsJob) delete(bundleName string, cfg *config.Config, DCOSTools
 		j.Status = "Attempting to delete a bundle on a remote host. POST " + url
 		logrus.Debug(j.Status)
 		timeout := time.Duration(time.Second * 5)
-		response, _, err := DCOSTools.Post(url, timeout)
+		response, _, err := DCOSTools.Post(url, timeout, nil, nil)
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		}
@@ -583,7 +583,7 @@ func (j *DiagnosticsJob) cancel(cfg *config.Config, DCOSTools DCOSHelper) (respo
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/cancel", node, cfg.FlagMasterPort, BaseRoute)
 		j.Status = "Attempting to cancel a job on a remote host. POST " + url
 		logrus.Debug(j.Status)
-		response, _, err := DCOSTools.Post(url, time.Duration(cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)*time.Minute)
+		response, _, err := DCOSTools.Post(url, time.Duration(cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)*time.Minute, nil, nil)
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		}
