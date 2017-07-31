@@ -402,7 +402,7 @@ func (j *DiagnosticsJob) getStatusAll(cfg *config.Config, DCOSTools DCOSHelper) 
 	for _, master := range masterNodes {
 		var status bundleReportStatus
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/status", master.IP, cfg.FlagMasterPort, BaseRoute)
-		body, _, err := DCOSTools.Get(url, time.Duration(time.Second*3))
+		body, _, err := DCOSTools.Get(url, time.Duration(time.Second*3), "", "")
 		if err = json.Unmarshal(body, &status); err != nil {
 			logrus.Errorf("Could not determine job status for node %s: %s", master.IP, err)
 			continue
@@ -501,8 +501,12 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 
 		// Inject Mesos Auth where needed
 		if strings.Contains(fullURL, ":5050") || strings.Contains(fullURL, ":5051")  {
-			if cfg.FlagMesosAuthUser != "" && cfg.FlagMesosAuthPass != "" {
-				request.SetBasicAuth(cfg.FlagMesosAuthUser, cfg.FlagMesosAuthPass)
+			// if cfg.FlagMesosAuthUser != "" && cfg.FlagMesosAuthPass != "" {
+			// 	request.SetBasicAuth(cfg.FlagMesosAuthUser, cfg.FlagMesosAuthPass)
+			// }
+
+			if os.Getenv("MESOS_USER") != nil && os.Getenv("MESOS_PASS") != nil {
+				request.SetBasicAuth(os.Getenv("MESOS_USER"), os.Getenv("MESOS_PASS"))
 			}
 		}
 
