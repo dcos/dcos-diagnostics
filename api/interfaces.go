@@ -46,10 +46,10 @@ type DCOSHelper interface {
 	GetMesosNodeID() (string, error)
 
 	// Get makes HTTP GET request, return read arrays of bytes
-	Get(string, time.Duration) ([]byte, int, error)
+	Get(string, time.Duration, string, string) ([]byte, int, error)
 
 	// Post makes HTTP GET request, return read arrays of bytes
-	Post(string, time.Duration) ([]byte, int, error)
+	Post(string, time.Duration, string, string) ([]byte, int, error)
 
 	// LookupMaster will lookup a masters in DC/OS cluster.
 	// Initial lookup will be done by making HTTP GET request to exhibitor.If GET request fails, the next lookup
