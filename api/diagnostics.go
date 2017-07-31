@@ -263,7 +263,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
 		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, BaseRoute)
 		endpoints := make(map[string]string)
-		body, statusCode, err := DCOSTools.Get(url, time.Duration(time.Second*3))
+		body, statusCode, err := DCOSTools.Get(url, time.Duration(time.Second*3), "", "")
 		if err != nil {
 			errMsg := fmt.Sprintf("could not get a list of logs, url: %s, status code %d", url, statusCode)
 			j.Errors = append(j.Errors, errMsg)
@@ -350,7 +350,7 @@ func (j *DiagnosticsJob) delete(bundleName string, cfg *config.Config, DCOSTools
 		j.Status = "Attempting to delete a bundle on a remote host. POST " + url
 		logrus.Debug(j.Status)
 		timeout := time.Duration(time.Second * 5)
-		response, _, err := DCOSTools.Post(url, timeout, nil, nil)
+		response, _, err := DCOSTools.Post(url, timeout, "", "")
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		}
@@ -501,7 +501,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 
 		// Inject Mesos Auth where needed
 		if strings.Contains(fullURL, ":5050") || strings.Contains(fullURL, ":5051")  {
-			if cfg.FlagMesosAuthUser != nil && cfg.FlagMesosAuthUser != "" && cfg.FlagMesosAuthPass != nil && cfg.FlagMesosAuthPass != "" {
+			if cfg.FlagMesosAuthUser != "" && cfg.FlagMesosAuthPass != "" {
 				request.SetBasicAuth(cfg.FlagMesosAuthUser, cfg.FlagMesosAuthPass)
 			}
 		}
@@ -590,7 +590,7 @@ func (j *DiagnosticsJob) cancel(cfg *config.Config, DCOSTools DCOSHelper) (respo
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/cancel", node, cfg.FlagMasterPort, BaseRoute)
 		j.Status = "Attempting to cancel a job on a remote host. POST " + url
 		logrus.Debug(j.Status)
-		response, _, err := DCOSTools.Post(url, time.Duration(cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)*time.Minute, nil, nil)
+		response, _, err := DCOSTools.Post(url, time.Duration(cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)*time.Minute, "", "")
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		}
@@ -623,7 +623,7 @@ func listAllBundles(cfg *config.Config, DCOSTools DCOSHelper) (map[string][]bund
 	for _, master := range masterNodes {
 		var bundleUrls []bundle
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/list", master.IP, cfg.FlagMasterPort, BaseRoute)
-		body, _, err := DCOSTools.Get(url, time.Duration(time.Second*3))
+		body, _, err := DCOSTools.Get(url, time.Duration(time.Second*3), "", "")
 		if err != nil {
 			logrus.Errorf("Could not HTTP GET %s: %s", url, err)
 			continue

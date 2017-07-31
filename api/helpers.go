@@ -202,7 +202,7 @@ func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body i
 		return responseBody, http.StatusBadRequest, err
 	}
 
-	if user != nil && user != "" && pass != nil && pass != "" {
+	if user != "" && pass != "" {
 		request.SetBasicAuth(user, pass)
 	}
 
