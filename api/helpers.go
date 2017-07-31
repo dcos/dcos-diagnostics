@@ -207,7 +207,7 @@ func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body i
 	// }
 
 	if strings.Contains(url, ":5050") || strings.Contains(url, ":5051")  {
-		if os.Getenv("MESOS_USER") != nil && os.Getenv("MESOS_PASS") != nil {
+		if os.Getenv("MESOS_USER") != "" && os.Getenv("MESOS_PASS") != "" {
 			request.SetBasicAuth(os.Getenv("MESOS_USER"), os.Getenv("MESOS_PASS"))
 		}
 	}

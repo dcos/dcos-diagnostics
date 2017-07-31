@@ -505,7 +505,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 			// 	request.SetBasicAuth(cfg.FlagMesosAuthUser, cfg.FlagMesosAuthPass)
 			// }
 
-			if os.Getenv("MESOS_USER") != nil && os.Getenv("MESOS_PASS") != nil {
+			if os.Getenv("MESOS_USER") != "" && os.Getenv("MESOS_PASS") != "" {
 				request.SetBasicAuth(os.Getenv("MESOS_USER"), os.Getenv("MESOS_PASS"))
 			}
 		}

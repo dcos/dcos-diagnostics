@@ -252,6 +252,10 @@ func (d *dcosInfo) MesosID(ctx context.Context) (string, error) {
 		req = req.WithContext(ctx)
 	}
 
+	if os.Getenv("MESOS_USER") != "" && os.Getenv("MESOS_PASS") != "" {
+		req.SetBasicAuth(os.Getenv("MESOS_USER"), os.Getenv("MESOS_PASS"))
+	}
+
 	resp, err := d.client.Do(req)
 	if err != nil {
 		return "", err
