@@ -27,7 +27,9 @@ func (s *SystemdUnits) GetUnits(tools DCOSHelper) (allUnits []HealthResponseValu
 	}
 
 	// DCOS-5862 blacklist systemd units
-	excludeUnits := []string{"dcos-setup.service", "dcos-link-env.service", "dcos-download.service"}
+	// DCOS-17844 exclude signal service
+	excludeUnits := []string{"dcos-setup.service", "dcos-link-env.service", "dcos-download.service",
+		"dcos-signal.service", "dcos-signal.timer"}
 	for _, unit := range foundUnits {
 		if isInList(unit, excludeUnits) {
 			logrus.Debugf("Skipping blacklisted systemd Unit %s", unit)
