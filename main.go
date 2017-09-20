@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	fmt.Println("Line")
+	fmt.Println("Line"
 	cmd.Execute()
 }
