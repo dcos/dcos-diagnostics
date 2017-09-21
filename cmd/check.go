@@ -57,6 +57,11 @@ var checkCmd = &cobra.Command{
 			logrus.Fatal(err)
 		}
 
+		// Set up environment for running check commands.
+		for k, v := range r.CheckEnv {
+			os.Setenv(k, v)
+		}
+
 		var (
 			rs  *runner.CombinedResponse
 			err error

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/dcos/dcos-go/dcos"
@@ -233,7 +232,6 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 	}
 
 	// main loop to get the checks info.
-	env := r.checkEnv()
 	for _, name := range currentCheckList {
 		resp := &Response{
 			name: name,
@@ -267,7 +265,7 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 		if !list {
 
 			start := time.Now()
-			combinedOutput, code, err = currentCheck.Run(ctx, r.role, env)
+			combinedOutput, code, err = currentCheck.Run(ctx, r.role)
 			checkDuration = time.Since(start).String()
 		}
 
@@ -289,24 +287,4 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 	}
 
 	return combinedResponse, nil
-}
-
-// checkEnv returns the runner's environment overwritten with env vars from the "check_env" config param.
-func (r *Runner) checkEnv() []string {
-	// Collect the current environment and overwrite it with env vars from config.
-	envMap := make(map[string]string)
-	for _, envVar := range os.Environ() {
-		kv := strings.SplitN(envVar, "=", 2)
-		envMap[kv[0]] = kv[1]
-	}
-	for k, v := range r.CheckEnv {
-		envMap[k] = v
-	}
-
-	// Return the environment as a string array.
-	env := []string{}
-	for k, v := range envMap {
-		env = append(env, strings.Join([]string{k, v}, "="))
-	}
-	return env
 }
