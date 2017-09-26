@@ -26,7 +26,7 @@ type Check struct {
 }
 
 // Run executes the given check.
-func (c *Check) Run(ctx context.Context, role string, env []string) ([]byte, int, error) {
+func (c *Check) Run(ctx context.Context, role string) ([]byte, int, error) {
 	if !c.verifyRole(role) {
 		return nil, -1, errors.Errorf("check can be executed on a node with the following roles %s. Current role %s", c.Roles, role)
 	}
@@ -44,9 +44,7 @@ func (c *Check) Run(ctx context.Context, role string, env []string) ([]byte, int
 	newCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(newCtx, c.Cmd...)
-	cmd.Env = env
-	stdout, stderr, code, err := exec.FullOutput(cmd)
+	stdout, stderr, code, err := exec.FullOutput(exec.CommandContext(newCtx, c.Cmd...))
 	if err != nil {
 		return nil, -1, err
 	}

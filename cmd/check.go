@@ -30,7 +30,7 @@ const (
 	checkTypeNodePreStart  = "node-prestart"
 	checkTypeNodePostStart = "node-poststart"
 
-	defaultRunnerConfig    = "/opt/mesosphere/etc/dcos-diagnostics-runner-config.json"
+	defaultRunnerConfig = "/opt/mesosphere/etc/dcos-diagnostics-runner-config.json"
 )
 
 var (
@@ -42,7 +42,7 @@ var (
 var checkCmd = &cobra.Command{
 	Use:   "check <check-type>",
 	Short: "Execute a DC/OS check",
-	Long: `A DC/OS check can be one of the following types: cluster, node-prestart, node-poststart`,
+	Long:  `A DC/OS check can be one of the following types: cluster, node-prestart, node-poststart`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var selectiveChecks []string
 		if len(args) == 0 {
@@ -55,6 +55,11 @@ var checkCmd = &cobra.Command{
 		r := runner.NewRunner(defaultConfig.FlagRole)
 		if err := r.LoadFromFile(checksCfgFile); err != nil {
 			logrus.Fatal(err)
+		}
+
+		// Set up environment for running check commands.
+		for k, v := range r.CheckEnv {
+			os.Setenv(k, v)
 		}
 
 		var (
