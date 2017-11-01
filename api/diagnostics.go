@@ -136,8 +136,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 	j.Errors = nil
 
 	t := time.Now()
-	bundleName := fmt.Sprintf("bundle-%d-%02d-%02dT%02d:%02d:%02d-%d.zip", t.Year(), t.Month(), t.Day(),
-		t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
+	bundleName := fmt.Sprintf("bundle-%d-%02d-%02d-%d.zip", t.Year(), t.Month(), t.Day(), t.Unix())
 
 	j.LastBundlePath = filepath.Join(dt.Cfg.FlagDiagnosticsBundleDir, bundleName)
 	j.Status = "Diagnostics job started, archive will be available at: " + j.LastBundlePath
