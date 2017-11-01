@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -369,12 +371,28 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 	if err := json.Unmarshal(response, &responseJSON); err != nil {
 		s.Assert()
 	}
+
+	bundle := "/tmp/snapshot-test/" + responseJSON.Extra.LastBundleFile
+	defer func() {
+		err := os.Remove(bundle)
+		s.assert.NoError(err)
+	}()
+
+	bundleRegexp := `^bundle-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{10}\.zip$`
+	validBundleName := regexp.MustCompile(bundleRegexp)
+	s.assert.True(validBundleName.MatchString(responseJSON.Extra.LastBundleFile),
+		"invalid bundle name %s. Must match regexp: %s", responseJSON.Extra.LastBundleFile, bundleRegexp)
+
 	s.assert.Equal(responseJSON.Status, "Job has been successfully started")
 	s.assert.NotEmpty(responseJSON.Extra.LastBundleFile)
 	time.Sleep(2 * time.Second)
 	snapshotFiles, err := ioutil.ReadDir("/tmp/snapshot-test")
 	s.assert.NoError(err)
 	s.assert.True(len(snapshotFiles) > 0)
+
+	stat, err := os.Stat(bundle)
+	s.assert.NoError(err)
+	s.assert.False(stat.IsDir())
 }
 
 func TestSnapshotTestSuit(t *testing.T) {
