@@ -34,7 +34,7 @@ type findMastersInExhibitor struct {
 	next nodeFinder
 
 	// getFn takes url and timeout and returns a read body, HTTP status code and error.
-	getFn func(string, time.Duration) ([]byte, int, error)
+	getFn func(string, time.Duration, string, string) ([]byte, int, error)
 }
 
 func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
@@ -42,7 +42,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 		return nodes, errors.New("could not initialize HTTP GET function. Make sure you set getFn in the constructor")
 	}
 	timeout := time.Duration(time.Second * 11)
-	body, statusCode, err := f.getFn(f.url, timeout)
+	body, statusCode, err := f.getFn(f.url, timeout, "", "")
 	if err != nil {
 		return nodes, err
 	}
@@ -170,7 +170,7 @@ type findNodesInDNS struct {
 	next      nodeFinder
 
 	// getFn takes url and timeout and returns a read body, HTTP status code and error.
-	getFn func(string, time.Duration) ([]byte, int, error)
+	getFn func(string, time.Duration, string, string) ([]byte, int, error)
 }
 
 func (f *findNodesInDNS) resolveDomain() (ips []string, err error) {
@@ -213,7 +213,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 	}
 
 	timeout := time.Duration(time.Second)
-	body, statusCode, err := f.getFn(url, timeout)
+	body, statusCode, err := f.getFn(url, timeout, "", "")
 	if err != nil {
 		return nodes, err
 	}
@@ -588,7 +588,7 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 	// Make a request to get node units status
 	// use fake interface implementation for tests
 	timeout := time.Duration(dt.Cfg.FlagPullTimeoutSec) * time.Second
-	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout)
+	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout, dt.Cfg.FlagMesosAuthUser, dt.Cfg.FlagMesosAuthPass)
 	if err != nil {
 		logrus.Errorf("Could not HTTP GET %s: %s", url, err)
 		response.Status = statusCode
