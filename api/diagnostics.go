@@ -507,6 +507,16 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 			j.JobProgressPercentage += percentPerURL
 			continue
 		}
+
+		if resp.StatusCode != http.StatusOK {
+			errMsg := fmt.Sprintf("unable to fetch %s. Return code %d", fullURL, resp.StatusCode)
+			logrus.Error(errMsg)
+			j.Errors = append(j.Errors, errMsg)
+			updateSummaryReport("wrong status code returned", node, errMsg, summaryErrorsReport)
+			j.JobProgressPercentage += percentPerURL
+			continue
+		}
+
 		if resp.Header.Get("Content-Encoding") == "gzip" {
 			fileName += ".gz"
 		}
