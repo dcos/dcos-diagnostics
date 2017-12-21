@@ -219,24 +219,34 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 	// place a summaryErrorsReport.txt in a zip archive which should provide info what failed during the logs collection.
 	summaryErrorsReport := new(bytes.Buffer)
 	defer func() {
-		zipFile, err := zipWriter.Create("summaryErrorsReport.txt")
-		if err != nil {
-			j.Status = "Could not append a summaryErrorsReport.txt to a zip file"
-			logrus.Errorf("%s: %s", j.Status, err)
-			j.Errors = append(j.Errors, err.Error())
-			return
+		// add a summaryErrorsReport.txt file to a diagnostics bundle, if it's not empty
+		if summaryErrorsReport.Len() > 0 {
+			zipFile, err := zipWriter.Create("summaryErrorsReport.txt")
+			if err != nil {
+				j.Status = "Could not append a summaryErrorsReport.txt to a zip file"
+				logrus.Errorf("%s: %s", j.Status, err)
+				j.Errors = append(j.Errors, err.Error())
+				return
+			}
+
+			_, err = io.Copy(zipFile, summaryErrorsReport)
+			if err != nil {
+				logrus.Errorf("Error writing the summaryErrorsReport: %s", err)
+			}
 		}
-		io.Copy(zipFile, summaryErrorsReport)
 
 		// flush the summary report
-		zipFile, err = zipWriter.Create("summaryReport.txt")
+		zipFile, err := zipWriter.Create("summaryReport.txt")
 		if err != nil {
 			j.Status = "Could not append a summaryReport.txt to a zip file"
 			logrus.Errorf("%s: %s", j.Status, err)
 			j.Errors = append(j.Errors, err.Error())
 			return
 		}
-		io.Copy(zipFile, summaryReport)
+		_, err = io.Copy(zipFile, summaryReport)
+		if err != nil {
+			logrus.Errorf("Error writing summaryReport: %s", err)
+		}
 	}()
 
 	// lock out reportJob staructure
