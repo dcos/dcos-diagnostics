@@ -776,6 +776,7 @@ type CommandProvider struct {
 type LogEndpoint struct {
 	FileName string            `json:"file_name"`
 	URL      string            `json:"url"`
+	Headers  map[string]string `json:"headers"`
 }
 
 func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
@@ -876,6 +877,7 @@ func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelp
 		endpoints = append(endpoints, &LogEndpoint{
 			FileName: httpEndpoint.FileName,
 			URL:      fmt.Sprintf(":%d%s", httpEndpoint.Port, httpEndpoint.URI),
+			Headers:  httpEndpoint.Headers,
 		})
 	}
 
