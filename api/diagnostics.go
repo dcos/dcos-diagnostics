@@ -509,6 +509,11 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints []*LogEndpoint, fo
 		}
 		request.Header.Add("Accept-Encoding", "gzip")
 
+		// add custom headers required for this endpoint
+		for k, v := range httpEndpoint.Headers {
+			request.Header.Add(k, v)
+		}
+
 		client := NewHTTPClient(timeout, j.Transport)
 		resp, err := client.Do(request)
 		if err != nil {
