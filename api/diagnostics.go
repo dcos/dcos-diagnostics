@@ -782,7 +782,7 @@ type CommandProvider struct {
 type LogEndpoint struct {
 	FileName string            `json:"file_name"`
 	URL      string            `json:"url"`
-	Headers  map[string]string `json:"headers"`
+	Headers  map[string]string `json:"headers,omitempty"`
 }
 
 func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
