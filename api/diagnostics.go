@@ -271,7 +271,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
 		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, BaseRoute)
-		endpoints := make(map[string]string)
+		var endpoints []*LogEndpoint
 		body, statusCode, err := DCOSTools.Get(url, time.Duration(time.Second*3))
 		if err != nil {
 			errMsg := fmt.Sprintf("could not get a list of logs, url: %s, status code %d", url, statusCode)
@@ -463,7 +463,7 @@ func (d diagnosticsJobCanceledError) Error() string {
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.
-func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string, folder string, zipWriter *zip.Writer,
+func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints []*LogEndpoint, folder string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, cfg *config.Config, DCOSTools DCOSHelper, percentPerNode float32) error {
 	if len(endpoints) == 0 || percentPerNode == 0 {
 		j.JobProgressPercentage += percentPerNode
@@ -471,8 +471,9 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 	}
 
 	percentPerURL := percentPerNode / float32(len(endpoints))
-	for fileName, httpEndpoint := range endpoints {
-		fullURL, err := useTLSScheme("http://"+node.IP+httpEndpoint, cfg.FlagForceTLS)
+	for _, httpEndpoint := range endpoints {
+		fileName := httpEndpoint.FileName
+		fullURL, err := useTLSScheme("http://"+node.IP+httpEndpoint.URL, cfg.FlagForceTLS)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 			logrus.Errorf("Could not read force-tls flag: %s", err)
