@@ -14,10 +14,10 @@
 			"revisionTime": "2016-05-27T14:02:44Z"
 		},
 		{
-			"checksumSHA1": "qEA0NNEkJR39n6HNq1xi5AhXU54=",
+			"checksumSHA1": "ZTrjdMzLVG+Gl+C6NDmIL5GDeNw=",
 			"path": "github.com/coreos/go-systemd/dbus",
-			"revision": "bfdc81d0d7e0fb19447b08571f63b774495251ce",
-			"revisionTime": "2016-08-15T18:53:29Z"
+			"revision": "d465645070e7dae677eb59d7e54e1a660b22c450",
+			"revisionTime": "2018-01-29T11:26:58Z"
 		},
 		{
 			"checksumSHA1": "v9Y85RpVcs4qmvctia8udPP+KOk=",
@@ -76,9 +76,10 @@
 			"revisionTime": "2017-03-29T04:21:07Z"
 		},
 		{
+			"checksumSHA1": "Qbh78KcLmLVoURsCp+f5xVeA/fI=",
 			"path": "github.com/godbus/dbus",
-			"revision": "230e4b23db2fd81c53eaa0073f76659d4849ce51",
-			"revisionTime": "2016-02-20T11:55:41-08:00"
+			"revision": "a389bdde4dd695d414e47b755e95e72b7826432c",
+			"revisionTime": "2017-09-18T23:46:06Z"
 		},
 		{
 			"path": "github.com/gorilla/context",
