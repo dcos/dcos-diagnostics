@@ -32,7 +32,7 @@ const (
 	signalBuffer = 100
 )
 
-// needsEscape runner whether a byte in a potential dbus ObjectPath needs to be escaped
+// needsEscape checks whether a byte in a potential dbus ObjectPath needs to be escaped
 func needsEscape(i int, b byte) bool {
 	// Escape everything that is not a-z-A-Z-0-9
 	// Also escape 0-9 if it's the first character
@@ -83,9 +83,19 @@ type Conn struct {
 	}
 }
 
-// New establishes a connection to the system bus and authenticates.
+// New establishes a connection to any available bus and authenticates.
 // Callers should call Close() when done with the connection.
 func New() (*Conn, error) {
+	conn, err := NewSystemConnection()
+	if err != nil && os.Geteuid() == 0 {
+		return NewSystemdConnection()
+	}
+	return conn, err
+}
+
+// NewSystemConnection establishes a connection to the system bus and authenticates.
+// Callers should call Close() when done with the connection
+func NewSystemConnection() (*Conn, error) {
 	return NewConnection(func() (*dbus.Conn, error) {
 		return dbusAuthHelloConnection(dbus.SystemBusPrivate)
 	})
