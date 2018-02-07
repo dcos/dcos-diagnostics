@@ -951,7 +951,7 @@ func roleMatched(roles []string, DCOSTools DCOSHelper) (bool, error) {
 
 func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity string, cfg *config.Config, DCOSTools DCOSHelper) (r io.ReadCloser, err error) {
 	// make a buffered doneChan to communicate back to process.
-
+/*
 	if provider == "units" {
 		for _, endpoint := range j.logProviders.HTTPEndpoints {
 			if endpoint.FileName == entity {
@@ -969,7 +969,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 		}
 		return r, fmt.Errorf("%s not found", entity)
 	}
-
+*/
 	if provider == "files" {
 		logrus.Debugf("dispatching a file %s", entity)
 		for _, fileProvider := range j.logProviders.LocalFiles {

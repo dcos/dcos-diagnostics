@@ -16,7 +16,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/coreos/go-systemd/dbus"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
-	"github.com/dcos/dcos-log/dcos-log/journal/reader"
+	//"github.com/dcos/dcos-log/dcos-log/journal/reader"
 )
 
 const (
@@ -142,7 +142,7 @@ func (st *DCOSTools) GetUnitNames() (units []string, err error) {
 	logrus.Debugf("List of units: %s", units)
 	return units, nil
 }
-
+/*
 // GetJournalOutput returns last 50 lines of journald command output for a specific systemd Unit.
 func (st *DCOSTools) GetJournalOutput(unit string) (string, error) {
 	matches := defaultSystemdMatches(unit)
@@ -160,6 +160,7 @@ func (st *DCOSTools) GetJournalOutput(unit string) (string, error) {
 
 	return string(entries), nil
 }
+*/
 
 func useTLSScheme(url string, use bool) (string, error) {
 	if use {
@@ -345,7 +346,7 @@ func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (Heal
 	if err != nil {
 		return HealthResponseValues{}, err
 	}
-
+/*
 	if unitHealth > 0 {
 		journalOutput, err := tools.GetJournalOutput(propsResponse.ID)
 		if err == nil {
@@ -355,7 +356,7 @@ func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (Heal
 			logrus.Errorf("Could not read journalctl: %s", err)
 		}
 	}
-
+*/
 	s := strings.Split(propsResponse.Description, ": ")
 	if len(s) != 2 {
 		description = strings.Join(s, " ")
@@ -382,7 +383,7 @@ func readFile(fileLocation string) (r io.ReadCloser, err error) {
 	}
 	return file, nil
 }
-
+/*
 func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
 	matches := defaultSystemdMatches(unit)
 	duration, err := time.ParseDuration(sinceString)
@@ -398,7 +399,8 @@ func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
 
 	return j, nil
 }
-
+*/
+/*
 // returns default reader.JournalEntryMatch for a given systemd unit.
 func defaultSystemdMatches(unit string) []reader.JournalEntryMatch {
 	return []reader.JournalEntryMatch{
@@ -412,3 +414,4 @@ func defaultSystemdMatches(unit string) []reader.JournalEntryMatch {
 		},
 	}
 }
+*/

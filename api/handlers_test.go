@@ -99,10 +99,10 @@ func (st *fakeDCOSTools) GetUnitNames() (units []string, err error) {
 	units = []string{"dcos-setup.service", "dcos-link-env.service", "dcos-download.service", "unit_a", "unit_b", "unit_c", "unit_to_fail"}
 	return units, err
 }
-
+/*
 func (st *fakeDCOSTools) GetJournalOutput(unit string) (string, error) {
 	return "journal output", nil
-}
+}*/
 
 func (st *fakeDCOSTools) GetMesosNodeID() (string, error) {
 	return "node-id-123", nil
