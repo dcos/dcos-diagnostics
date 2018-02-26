@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -37,13 +38,16 @@ func (c *Check) Run(ctx context.Context, role string) ([]byte, int, error) {
 
 	timeout, err := time.ParseDuration(c.Timeout)
 	if err != nil {
-		logrus.Errorf("error reading timeout %s. Using default timeout 5sec", err)
+		logrus.Warningf("error reading timeout %s. Using default timeout 5sec", err)
 		timeout = time.Second * 5
 	}
 
 	newCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	if runtime.GOOS == "windows" {	
+		c.Cmd  = append([]string{"powershell.exe"}, c.Cmd...)
+	}	
 	stdout, stderr, code, err := exec.FullOutput(exec.CommandContext(newCtx, c.Cmd...))
 	if err != nil {
 		return nil, -1, err

@@ -126,7 +126,7 @@ func (s *DiagnosticsTestSuit) TestFindRequestedNodes() {
 
 func (s *DiagnosticsTestSuit) TestGetStatus() {
 	status := s.dt.DtDiagnosticsJob.getStatus(s.dt.Cfg)
-	s.assert.Equal(status.DiagnosticBundlesBaseDir, "/tmp/snapshot-test")
+	s.assert.Equal(status.DiagnosticBundlesBaseDir, DiagnosticsBundleDir)
 }
 
 func (s *DiagnosticsTestSuit) TestGetAllStatus() {
@@ -372,7 +372,7 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 		s.Assert()
 	}
 
-	bundle := "/tmp/snapshot-test/" + responseJSON.Extra.LastBundleFile
+	bundle := DiagnosticsBundleDir + "/" + responseJSON.Extra.LastBundleFile
 	defer func() {
 		err := os.Remove(bundle)
 		s.assert.NoError(err)
@@ -386,7 +386,7 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 	s.assert.Equal(responseJSON.Status, "Job has been successfully started")
 	s.assert.NotEmpty(responseJSON.Extra.LastBundleFile)
 	time.Sleep(2 * time.Second)
-	snapshotFiles, err := ioutil.ReadDir("/tmp/snapshot-test")
+	snapshotFiles, err := ioutil.ReadDir(DiagnosticsBundleDir)
 	s.assert.NoError(err)
 	s.assert.True(len(snapshotFiles) > 0)
 
