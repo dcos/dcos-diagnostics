@@ -126,7 +126,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 	_, err = os.Stat(dt.Cfg.FlagDiagnosticsBundleDir)
 	if os.IsNotExist(err) {
 		logrus.Infof("Directory: %s not found, attempting to create one", dt.Cfg.FlagDiagnosticsBundleDir)
-		if err := os.Mkdir(dt.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(dt.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
 			j.Status = "Could not create directory: " + dt.Cfg.FlagDiagnosticsBundleDir
 			return prepareCreateResponseWithErr(http.StatusServiceUnavailable, errors.New(j.Status))
 		}
@@ -272,6 +272,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
 		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, BaseRoute)
 		endpoints := make(map[string]string)
+		logrus.Errorf("url: %s", url)
 		body, statusCode, err := DCOSTools.Get(url, time.Duration(time.Second*3))
 		if err != nil {
 			errMsg := fmt.Sprintf("could not get a list of logs, url: %s, status code %d", url, statusCode)
@@ -281,6 +282,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
+		logrus.Infof("json.Unmarshal: %v", body)
 		if err = json.Unmarshal(body, &endpoints); err != nil {
 			errMsg := "could not unmarshal a list of logs, url: " + url
 			j.Errors = append(j.Errors, errMsg)
@@ -771,7 +773,9 @@ type CommandProvider struct {
 }
 
 func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
+	logrus.Infof("loadExternalProviders:")
 	// return if cfg file not found.
+	logrus.Infof("cfg.FlagDiagnosticsBundleEndpointsConfigFile: %s", cfg.FlagDiagnosticsBundleEndpointsConfigFile)
 	if _, err = os.Stat(cfg.FlagDiagnosticsBundleEndpointsConfigFile); err != nil {
 		if os.IsNotExist(err) {
 			logrus.Infof("%s not found", cfg.FlagDiagnosticsBundleEndpointsConfigFile)
@@ -786,10 +790,18 @@ func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, 
 	if err = json.Unmarshal(endpointsConfig, &externalProviders); err != nil {
 		return externalProviders, err
 	}
+
+	// for debugging purpose
+	logrus.Infof("HTTPEndpoints.count: %d", len(externalProviders.HTTPEndpoints))
+	for _, endpoint := range externalProviders.HTTPEndpoints {
+		logrus.Infof("Endpoint: Port %d , endpoint url: %s FileName:%s", endpoint.Port, endpoint.URI, endpoint.FileName)
+	}
+
 	return externalProviders, nil
 }
 
 func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalConfigProviders LogProviders, err error) {
+	logrus.Infof("loadInternalProviders:")
 	units, err := DCOSTools.GetUnitNames()
 	if err != nil {
 		return internalConfigProviders, err
@@ -821,6 +833,12 @@ func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalCo
 		URI:      BaseRoute,
 		FileName: "dcos-diagnostics-health.json",
 	})
+
+	logrus.Infof("role: %s  port: %d BaseRoute: %s", role, port, BaseRoute)
+	// for debugging purpose
+	for _, endpoint := range httpEndpoints {
+		logrus.Infof("Endpoint: Port %d , endpoint url: %s FileName:%s", endpoint.Port, endpoint.URI, endpoint.FileName)
+	}
 
 	return LogProviders{
 		HTTPEndpoints: httpEndpoints,
