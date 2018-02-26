@@ -2,14 +2,19 @@ package runner
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestCombinedOutput(t *testing.T) {
 	ch1 := &Check{
-		Cmd:   []string{"./fixture/combined.sh"},
+		Cmd:   []string{CombinedShScript},
 		Roles: []string{"master"},
+	}
+
+	if runtime.GOOS == "windows" {
+		ch1.Cmd = []string{CombinedPowershellScript}
 	}
 
 	output, code, err := ch1.Run(context.TODO(), "master")

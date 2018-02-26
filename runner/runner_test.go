@@ -2,10 +2,16 @@ package runner
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
+)
+
+const (
+	CombinedShScript         = "./fixture/combined.sh"
+	CombinedPowershellScript = "./fixture/combined.ps1"
 )
 
 func TestConfigLoadConfig(t *testing.T) {
@@ -38,32 +44,43 @@ func TestRun(t *testing.T) {
 {
   "cluster_checks": {
     "test_check": {
-      "cmd": ["./fixture/combined.sh"],
+      "cmd": ["CombinedScriptName"],
       "timeout": "1s"
     }
   },
   "node_checks": {
     "checks": {
       "check1": {
-        "cmd": ["./fixture/combined.sh"],
+				"cmd": ["CombinedScriptName"],
         "timeout": "1s"
       },
       "check2": {
-        "cmd": ["./fixture/combined.sh"],
-        "timeout": "1s"
+				"cmd": ["CombinedScriptName"],
+				"timeout": "1s"
       }
     },
     "prestart": ["check1"],
     "poststart": ["check2"]
   }
 }`
-	r.Load(strings.NewReader(cfg))
-	out, err := r.Cluster(context.TODO(), false)
+	var expectedOutput string
+	if runtime.GOOS == "windows" {
+		cfg = strings.Replace(cfg, "CombinedScriptName", CombinedPowershellScript, -1)
+		expectedOutput = "STDOUT\r\nSTDERR\r\n"	
+	} else {
+		cfg = strings.Replace(cfg, "CombinedScriptName", CombinedShScript, -1)
+		expectedOutput = "STDOUT\nSTDERR\n"
+	}
+
+	err := r.Load(strings.NewReader(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedOutput := "STDOUT\nSTDERR\n"
+	out, err := r.Cluster(context.TODO(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := validateCheck(out, "test_check", expectedOutput); err != nil {
 		t.Fatal(err)

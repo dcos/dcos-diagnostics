@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 	"os/exec"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -12,12 +14,18 @@ import (
 // dcos-go/exec is a os/exec wrapper. It implements io.Reader and can be used to read both STDOUT and STDERR.
 //
 // Usage:
-// ce := exec.Run("bash", []string{"infinite.sh"}, exec.Timeout(3 * time.Second))
+// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// defer cancel()
+//
+// ce, err := exec.Run(ctx, "bash", []string{"infinite.sh"})
+// if err != nil {
+// 	log.Fatal(err)
+// }
 //
 // io.Copy(os.Stdout, ce)
-// err := <- ce.Done
+// err = <- ce.Done
 // if err != nil {
-// 	log.Error(err)
+// 	log.Fatal(err)
 // }
 
 // CommandExecutor is a structure returned by exec.Run
@@ -47,6 +55,14 @@ func Run(ctx context.Context, command string, arg []string) (*CommandExecutor, e
 		ctx = context.Background()
 	}
 
+	if runtime.GOOS == "windows" {
+		// For powershell, if running a script we need to execute it with a -File option
+		// otherwise the return code will get lost
+		if len(arg) == 1 && strings.HasSuffix(arg[0], ".ps1") {
+			arg = append([]string{"-File"}, arg...)
+		}
+	}
+
 	// by default Cancel is spineless unless someone configures an option to enable it
 	commandExecutor := &CommandExecutor{Done: make(chan error, 1), done: make(chan error, 1)}
 
@@ -54,7 +70,6 @@ func Run(ctx context.Context, command string, arg []string) (*CommandExecutor, e
 	go func() {
 		var err error
 		defer func() { commandExecutor.Done <- err }()
-
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
@@ -68,6 +83,7 @@ func Run(ctx context.Context, command string, arg []string) (*CommandExecutor, e
 	r, w := io.Pipe()
 	cmd.Stdout = w
 	cmd.Stderr = w
+
 	commandExecutor.pipe = r
 
 	// execute the command in the goroutine.
@@ -75,7 +91,6 @@ func Run(ctx context.Context, command string, arg []string) (*CommandExecutor, e
 		defer w.Close()
 		commandExecutor.done <- cmd.Run()
 	}()
-
 	return commandExecutor, nil
 }
 
@@ -101,9 +116,16 @@ func CommandContext(ctx context.Context, command ...string) *exec.Cmd {
 // FullOutput runs a command and returns its stdout, stderr, exit code, and error status.
 func FullOutput(c *exec.Cmd) (stdout []byte, stderr []byte, code int, err error) {
 	var outbuf, errbuf bytes.Buffer
-
 	c.Stdout = &outbuf
 	c.Stderr = &errbuf
+
+	if runtime.GOOS == "windows" {
+		// For powershell, if running a script we need to execute it with a -File option
+		// otherwise the return code will get lost
+		if len(c.Args) == 2 && strings.Contains(c.Args[0], "powershell.exe") && strings.HasSuffix(c.Args[1], ".ps1") {
+			c.Args = []string{c.Args[0], "-File", c.Args[1]}
+		}
+	}
 
 	if err := c.Start(); err != nil {
 		return nil, nil, 0, err

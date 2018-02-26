@@ -17,10 +17,10 @@ type HTTPRequester interface {
 // DCOSHelper DC/OS specific tools interface.
 type DCOSHelper interface {
 	// open dbus connection
-	InitializeDBUSConnection() error
+	InitializeUnitControllerConnection() error
 
 	// close dbus connection
-	CloseDBUSConnection() error
+	CloseUnitControllerConnection() error
 
 	// function to get Connection.GetUnitProperties(pname)
 	// returns a maps of properties https://github.com/coreos/go-systemd/blob/master/dbus/methods.go#L176
@@ -40,7 +40,7 @@ type DCOSHelper interface {
 	GetUnitNames() ([]string, error)
 
 	// Get journal output
-	//GetJournalOutput(string) (string, error)
+	GetJournalOutput(string) (string, error)
 
 	// Get mesos node id, first argument is a function to determine a role.
 	GetMesosNodeID() (string, error)

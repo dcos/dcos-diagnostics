@@ -7,22 +7,31 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/gorilla/mux"
 	assertPackage "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
+var DiagnosticsBundleDir = "/tmp/snapshot-test"
 var testCfg *config.Config
 
 func init() {
+	if runtime.GOOS == "windows" {
+		DiagnosticsBundleDir = os.Getenv("SYSTEMDRIVE") + "\\tmp\\snapshot-test"
+	}
+	logrus.Infof("DiagnosticsBundleDir=%v", DiagnosticsBundleDir)
+
 	testCfg = &config.Config{
 		FlagRole:                 "master",
-		FlagDiagnosticsBundleDir: "/tmp/snapshot-test",
+		FlagDiagnosticsBundleDir: DiagnosticsBundleDir,
 		FlagPort:                 1050,
 		FlagMasterPort:           1050,
 	}
@@ -87,11 +96,11 @@ func (st *fakeDCOSTools) GetUnitProperties(pname string) (map[string]interface{}
 	return result, nil
 }
 
-func (st *fakeDCOSTools) InitializeDBUSConnection() error {
+func (st *fakeDCOSTools) InitializeUnitControllerConnection() error {
 	return nil
 }
 
-func (st *fakeDCOSTools) CloseDBUSConnection() error {
+func (st *fakeDCOSTools) CloseUnitControllerConnection() error {
 	return nil
 }
 
@@ -99,10 +108,10 @@ func (st *fakeDCOSTools) GetUnitNames() (units []string, err error) {
 	units = []string{"dcos-setup.service", "dcos-link-env.service", "dcos-download.service", "unit_a", "unit_b", "unit_c", "unit_to_fail"}
 	return units, err
 }
-/*
+
 func (st *fakeDCOSTools) GetJournalOutput(unit string) (string, error) {
 	return "journal output", nil
-}*/
+}
 
 func (st *fakeDCOSTools) GetMesosNodeID() (string, error) {
 	return "node-id-123", nil

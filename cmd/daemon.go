@@ -19,10 +19,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-//	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
@@ -129,6 +130,13 @@ func startDiagnosticsDaemon() {
 	if defaultConfig.FlagForceTLS {
 		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
 	}
+	if runtime.GOOS == "windows" {
+		detectIPScriptPath := os.Getenv("SYSTEMDRIVE") + "\\DCOS\\diagnostics\\detect_ip.ps1"
+		options = append(options, nodeutil.OptionDetectIP(detectIPScriptPath))
+	}
+
+	logrus.Infof("defaultConfig.FlagRole is %s", defaultConfig.FlagRole)
+
 	nodeInfo, err := nodeutil.NewNodeInfo(client, defaultConfig.FlagRole, options...)
 	if err != nil {
 		logrus.Fatalf("Could not initialize nodeInfo: %s", err)

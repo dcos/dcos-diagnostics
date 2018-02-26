@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"os"
 	"sync"
 
@@ -15,24 +16,19 @@ type SystemdUnits struct {
 
 // GetUnits returns a list of found unit properties.
 func (s *SystemdUnits) GetUnits(tools DCOSHelper) (allUnits []HealthResponseValues, err error) {
-	if err = tools.InitializeDBUSConnection(); err != nil {
+	if err = tools.InitializeUnitControllerConnection(); err != nil {
 		return nil, err
 	}
-	defer tools.CloseDBUSConnection()
+	defer tools.CloseUnitControllerConnection()
 
-	// detect DC/OS systemd units
+	// get all DC/OS Windows services
 	foundUnits, err := tools.GetUnitNames()
 	if err != nil {
 		return nil, err
 	}
 
-	// DCOS-5862 blacklist systemd units
-	excludeUnits := []string{"dcos-setup.service", "dcos-link-env.service", "dcos-download.service"}
+	// get and check each units state
 	for _, unit := range foundUnits {
-		if isInList(unit, excludeUnits) {
-			logrus.Debugf("Skipping blacklisted systemd Unit %s", unit)
-			continue
-		}
 		currentProperty, err := tools.GetUnitProperties(unit)
 		if err != nil {
 			logrus.Errorf("Could not get properties for Unit: %s", unit)
@@ -71,6 +67,12 @@ func (s *SystemdUnits) GetUnitsProperties(cfg *config.Config, tools DCOSHelper) 
 	}
 
 	healthReport.DcosVersion = os.Getenv("DCOS_VERSION")
+	if healthReport.DcosVersion == "" {
+		var emptyReport UnitsHealthResponseJSONStruct
+		return emptyReport, errors.New("DCOS_VERSION was not defined")
+	}
+	logrus.Infof("healthReport.DcosVersion = %s", healthReport.DcosVersion)
+
 	healthReport.Role, err = tools.GetNodeRole()
 	if err != nil {
 		logrus.Errorf("Could not get node role: %s", err)
@@ -80,6 +82,6 @@ func (s *SystemdUnits) GetUnitsProperties(cfg *config.Config, tools DCOSHelper) 
 	if err != nil {
 		logrus.Errorf("Could not get mesos node id: %s", err)
 	}
-
+	logrus.Infof("healthReport = %v", healthReport)
 	return healthReport, nil
 }
