@@ -22,7 +22,7 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/coreos/go-systemd/activation"
+//	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
@@ -177,7 +177,8 @@ func startDiagnosticsDaemon() {
 	}
 
 	// try using systemd socket
-	listeners, err := activation.Listeners(true)
+	// listeners, err := activation.Listeners(true)
+	listeners, err := getListener(true)
 	if err != nil {
 		logrus.Fatalf("Unable to initialize listener: %s", err)
 	}

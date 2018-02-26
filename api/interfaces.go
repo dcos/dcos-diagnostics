@@ -40,7 +40,7 @@ type DCOSHelper interface {
 	GetUnitNames() ([]string, error)
 
 	// Get journal output
-	GetJournalOutput(string) (string, error)
+	//GetJournalOutput(string) (string, error)
 
 	// Get mesos node id, first argument is a function to determine a role.
 	GetMesosNodeID() (string, error)
