@@ -29,7 +29,7 @@ var (
 	version       bool
 	diag          bool
 	cfgFile       string
-	defaultConfig *config.Config = &config.Config{}
+	defaultConfig = &config.Config{}
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -95,7 +95,6 @@ func initConfig() {
 		}
 	}
 }
-
 
 func runDiag() int {
 	sdu := &api.SystemdUnits{}
