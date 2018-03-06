@@ -318,6 +318,10 @@ func getRoutes(debug bool) []routeHandler {
 		}...)
 	}
 
+	for i, route := range routes {
+		logrus.Debug(i, ": route.url=", route.url)
+	}
+
 	return routes
 }
 
