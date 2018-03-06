@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/gorilla/mux"
 	assertPackage "github.com/stretchr/testify/assert"
@@ -27,7 +26,6 @@ func init() {
 	if runtime.GOOS == "windows" {
 		DiagnosticsBundleDir = os.Getenv("SYSTEMDRIVE") + "\\tmp\\snapshot-test"
 	}
-	logrus.Infof("DiagnosticsBundleDir=%v", DiagnosticsBundleDir)
 
 	testCfg = &config.Config{
 		FlagRole:                 "master",
