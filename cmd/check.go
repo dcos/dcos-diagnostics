@@ -33,6 +33,8 @@ const (
 )
 
 var defaultRunnerConfig = "/opt/mesosphere/etc/dcos-diagnostics-runner-config.json"
+var defaultRunnerConfigForWindows = "\\DCOS\\diagnostics\\config\\dcos-diagnostics-runner-config.json"
+
 var (
 	list          bool
 	checksCfgFile string
@@ -98,10 +100,8 @@ func init() {
 	RootCmd.AddCommand(checkCmd)
 
 	if runtime.GOOS == "windows" {
-		defaultRunnerConfig = os.Getenv("SYSTEMDRIVE") + 
-		                       "\\DCOS\\diagnostics\\config\\dcos-diagnostics-runner-config.json"
+		defaultRunnerConfig = os.Getenv("SYSTEMDRIVE") + defaultRunnerConfigForWindows
 	}
-	logrus.Infof("defaultRunnerConfig=%v", defaultRunnerConfig)
 
 	checkCmd.PersistentFlags().BoolVar(&list, "list", false, "List runner")
 	checkCmd.PersistentFlags().StringVar(&checksCfgFile, "check-config", defaultRunnerConfig,
