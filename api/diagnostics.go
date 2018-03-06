@@ -22,6 +22,10 @@ import (
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
+	"regexp"
+	"google.golang.org/genproto/googleapis/type/date"
+	"strconv"
+	"sort"
 )
 
 const (
@@ -326,6 +330,85 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 	} else {
 		j.Status = "Diagnostics job failed"
 	}
+}
+
+type simpleFileStructure struct {
+	time time.Time
+	path string
+}
+
+type sortedSimpleFileStructures []simpleFileStructure
+
+func (s sortedSimpleFileStructures) Len() int {
+	return len(s)
+}
+
+func (s sortedSimpleFileStructures) Less(i, j int) bool {
+	return s[i].time.Before(s[j].time)
+}
+
+func (s sortedSimpleFileStructures) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s sortedSimpleFileStructures) rotate(n int, rmFn func(bundlePath string) error) (rotatedFiles []string, err error) {
+	if len(s) <= n {
+		return nil, nil
+	}
+
+	var errors []string
+
+	for _, f := range s[n:] {
+		err := rmFn(f.path)
+		if err != nil {
+			errors = append(errors, err.Error())
+			continue
+		}
+
+		rotatedFiles = append(rotatedFiles, f.path)
+	}
+
+	if len(errors) > 0 {
+		return nil, fmt.Errorf("error removeing bundles: %s", strings.Join(errors, "; "))
+	}
+
+	return rotatedFiles, nil
+}
+
+// rotateBundles keeps last n bundles on the filesystem and removes the outdated ones
+func (j *DiagnosticsJob) rotateBundles(n int, listBundlesFn func(path string) ([]os.FileInfo, error),
+		rmFn func(bundlePath string) error) (removedBundles []string, err error) {
+	files, err := listBundlesFn(j.LastBundlePath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list bundles: %s", err)
+	}
+
+	// regular expression to catch the timestamp the bundle was created at
+	re := regexp.MustCompile(`^bundle-\d{4}-\d{2}-\d{2}-(\d{10})\.zip$`)
+	var bundles sortedSimpleFileStructures
+
+	for _, file := range files {
+		matches := re.FindStringSubmatch(file.Name())
+		if len(matches) != 2 {
+			logrus.Errorf("unable to parse bundle name %s. File must be in the following format %s", file.Name(), re.String())
+			continue
+		}
+
+		// convert the timestamp into int64 and use time.Unix(.., 0) to convert it into the time object
+		i, err := strconv.ParseInt(matches[1], 10, 64)
+		if err != nil {
+			logrus.Errorf("unable to convert timestamp %s into int64. File must be in the following format %s", matches[1], re.String())
+			continue
+		}
+
+		bundles = append(bundles, simpleFileStructure{
+			path: filepath.Join(j.LastBundlePath, file.Name()),
+			time: time.Unix(i, 0),
+		})
+	}
+
+	sort.Sort(bundles)
+	return bundles.rotate(n, rmFn)
 }
 
 // delete a bundle
