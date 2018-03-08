@@ -90,7 +90,7 @@ func (c *Check) verifyRole(role string) bool {
 // against hardcoded string. see https://golang.org/src/os/exec_posix.go Line 85
 func (c Check) checkTimeout(e error) bool {
 	if exiterr, ok := e.(*goexec.ExitError); ok {
-		return "signal: killed" == exiterr.Error()
+		return signalKilled == exiterr.Error()
 	}
 
 	return false
