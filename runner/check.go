@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"fmt"
+	goexec "os/exec"
 	"runtime"
 	"time"
 
@@ -9,6 +11,9 @@ import (
 	"github.com/dcos/dcos-go/exec"
 	"github.com/pkg/errors"
 )
+
+// signalKilled is an error message returned by dcos-go/exec if the check exceeds timeout
+const signalKilled = "signal: killed"
 
 // Check is a basic structure that describes DC/OS check.
 type Check struct {
@@ -45,11 +50,18 @@ func (c *Check) Run(ctx context.Context, role string) ([]byte, int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	if runtime.GOOS == "windows" {	
-		c.Cmd  = append([]string{"powershell.exe"}, c.Cmd...)
-	}	
+	if runtime.GOOS == "windows" {
+		c.Cmd = append([]string{"powershell.exe"}, c.Cmd...)
+	}
 	stdout, stderr, code, err := exec.FullOutput(exec.CommandContext(newCtx, c.Cmd...))
 	if err != nil {
+		// check if the error happened due to command timeout and treat it as a failed command
+		// instead of error.
+		if c.checkTimeout(err) {
+			errMsg := fmt.Sprintf("command %s exceeded timeout %s and was killed", c.Cmd, timeout)
+			return []byte(errMsg), statusUnknown, nil
+		}
+
 		return nil, -1, err
 	}
 
@@ -68,5 +80,18 @@ func (c *Check) verifyRole(role string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// checkTimeout is a helper function, which takes an error as input parameter and checks if the error
+// was due to timeout. This can be validated in the following way. First the error must be an instance of
+// exec.ExitError, second the error message must be "signal: killed". Unfortunately go native exec package does not
+// expose the concrete error for a process to be killed, that is why we have to type assert first and then check
+// against hardcoded string. see https://golang.org/src/os/exec_posix.go Line 85
+func (c Check) checkTimeout(e error) bool {
+	if exiterr, ok := e.(*goexec.ExitError); ok {
+		return "signal: killed" == exiterr.Error()
+	}
+
 	return false
 }
