@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/json"
 	"github.com/pkg/errors"
 )
 
@@ -210,4 +211,66 @@ func validateCheckListing(cr *CombinedResponse, name, description, timeout strin
 	}
 
 	return nil
+}
+
+func TestTimeout(t *testing.T) {
+	r := NewRunner("master")
+	cfg := `
+{
+  "node_checks": {
+    "checks": {
+      "check1": {
+        "cmd": ["./fixture/combined.sh"],
+        "timeout": "1s"
+      },
+      "check2": {
+        "cmd": ["./fixture/inf2.sh"],
+        "timeout": "500ms"
+      }
+    },
+    "poststart": ["check1", "check2"]
+  }
+}`
+	err := r.Load(strings.NewReader(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := r.PostStart(context.TODO(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// marshal the check output
+	mOut, err := json.Marshal(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type expectedOutput struct {
+		Status int `json:"status"`
+		Checks map[string] struct {
+			Output string `json:"output"`
+			Status int `json:"status"`
+		} `json:"checks"`
+	}
+
+	var resp expectedOutput
+
+	if err := json.Unmarshal(mOut, &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedErrMsg := "command [./fixture/inf2.sh] exceeded timeout 500ms and was killed"
+	check2, ok := resp.Checks["check2"]
+	if !ok {
+		t.Fatal("check2 not found in response")
+	}
+
+	if check2.Status != statusUnknown {
+		t.Fatalf("expect check2 status %d. Got %d", statusUnknown, check2.Status)
+	}
+	if check2.Output != expectedErrMsg {
+		t.Fatalf("expect output %s. Got %s", expectedErrMsg, check2.Output)
+	}
 }
