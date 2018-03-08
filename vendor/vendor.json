@@ -8,6 +8,12 @@
 			"revisionTime": "2015-09-08T20:46:18Z"
 		},
 		{
+			"checksumSHA1": "NylU2p7bUlkUUTJdR5y84qxsYDg=",
+			"path": "github.com/StackExchange/wmi",
+			"revision": "5d049714c4a64225c3c79a7cf7d02f7fb5b96338",
+			"revisionTime": "2018-01-16T20:38:02Z"
+		},
+		{
 			"checksumSHA1": "9Db3Cx4Xt5zoHab2W6TEu1LphNU=",
 			"path": "github.com/coreos/go-systemd/activation",
 			"revision": "4484981625c1a6a2ecb40a390fcb6a9bcfee76e3",
@@ -74,6 +80,18 @@
 			"path": "github.com/fsnotify/fsnotify",
 			"revision": "4da3e2cfbabc9f751898f250b49f2439785783a1",
 			"revisionTime": "2017-03-29T04:21:07Z"
+		},
+		{
+			"checksumSHA1": "iOLj1OEHlOdHxez+jptTAmngrX8=",
+			"path": "github.com/go-ole/go-ole",
+			"revision": "a1ec82a652ebc7e784d7df887cfb31061aeabbcc",
+			"revisionTime": "2018-02-13T00:28:36Z"
+		},
+		{
+			"checksumSHA1": "8WEwmkTfx50YYgQZblE1fKHsgDI=",
+			"path": "github.com/go-ole/go-ole/oleutil",
+			"revision": "a1ec82a652ebc7e784d7df887cfb31061aeabbcc",
+			"revisionTime": "2018-02-13T00:28:36Z"
 		},
 		{
 			"checksumSHA1": "Qbh78KcLmLVoURsCp+f5xVeA/fI=",
@@ -275,6 +293,24 @@
 			"path": "golang.org/x/sys/unix",
 			"revision": "9ccfe848b9db8435a24c424abbc07a921adf1df5",
 			"revisionTime": "2017-04-27T03:54:25Z"
+		},
+		{
+			"checksumSHA1": "eQq+ZoTWPjyizS9XalhZwfGjQao=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "7dca6fe1f43775aa6d1334576870ff63f978f539",
+			"revisionTime": "2018-03-08T12:25:47Z"
+		},
+		{
+			"checksumSHA1": "VNlkHemg81Ba7ElHfKKUU1h+U1U=",
+			"path": "golang.org/x/sys/windows/svc",
+			"revision": "7dca6fe1f43775aa6d1334576870ff63f978f539",
+			"revisionTime": "2018-03-08T12:25:47Z"
+		},
+		{
+			"checksumSHA1": "+OPy/ga50ikLv5w5Pf4WvBYThrQ=",
+			"path": "golang.org/x/sys/windows/svc/mgr",
+			"revision": "7dca6fe1f43775aa6d1334576870ff63f978f539",
+			"revisionTime": "2018-03-08T12:25:47Z"
 		},
 		{
 			"checksumSHA1": "ZQdHbB9VYCXwQ+9/CmZPhJv0+SM=",
