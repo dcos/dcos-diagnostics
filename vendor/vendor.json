@@ -56,10 +56,10 @@
 			"revisionTime": "2017-12-26T21:09:29Z"
 		},
 		{
-			"checksumSHA1": "W0wH0RfIh+0JdimLuEuqcHB/mGI=",
+			"checksumSHA1": "uO4xxqlcKEQXzUUZ+fOupIhFVq4=",
 			"path": "github.com/dcos/dcos-go/exec",
-			"revision": "8275c8424624c6c450e600b7669adb7dc7dd67c9",
-			"revisionTime": "2017-07-21T00:17:51Z"
+			"revision": "0245b80f4b9e2cf772243f14628a5a80b3ff0311",
+			"revisionTime": "2018-03-02T14:16:27Z"
 		},
 		{
 			"checksumSHA1": "JhJJQCCXRHfkWYtlYjp6p2WE5Hs=",
