@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -17,12 +19,17 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+var DiagnosticsBundleDir = "/tmp/snapshot-test"
 var testCfg *config.Config
 
 func init() {
+	if runtime.GOOS == "windows" {
+		DiagnosticsBundleDir = os.Getenv("SYSTEMDRIVE") + "\\tmp\\snapshot-test"
+	}
+
 	testCfg = &config.Config{
 		FlagRole:                 "master",
-		FlagDiagnosticsBundleDir: "/tmp/snapshot-test",
+		FlagDiagnosticsBundleDir: DiagnosticsBundleDir,
 		FlagPort:                 1050,
 		FlagMasterPort:           1050,
 	}
@@ -87,11 +94,11 @@ func (st *fakeDCOSTools) GetUnitProperties(pname string) (map[string]interface{}
 	return result, nil
 }
 
-func (st *fakeDCOSTools) InitializeDBUSConnection() error {
+func (st *fakeDCOSTools) InitializeUnitControllerConnection() error {
 	return nil
 }
 
-func (st *fakeDCOSTools) CloseDBUSConnection() error {
+func (st *fakeDCOSTools) CloseUnitControllerConnection() error {
 	return nil
 }
 

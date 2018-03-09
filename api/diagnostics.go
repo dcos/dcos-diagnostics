@@ -126,7 +126,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 	_, err = os.Stat(dt.Cfg.FlagDiagnosticsBundleDir)
 	if os.IsNotExist(err) {
 		logrus.Infof("Directory: %s not found, attempting to create one", dt.Cfg.FlagDiagnosticsBundleDir)
-		if err := os.Mkdir(dt.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(dt.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
 			j.Status = "Could not create directory: " + dt.Cfg.FlagDiagnosticsBundleDir
 			return prepareCreateResponseWithErr(http.StatusServiceUnavailable, errors.New(j.Status))
 		}
@@ -281,6 +281,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
+
 		if err = json.Unmarshal(body, &endpoints); err != nil {
 			errMsg := "could not unmarshal a list of logs, url: " + url
 			j.Errors = append(j.Errors, errMsg)
@@ -772,6 +773,7 @@ type CommandProvider struct {
 
 func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
 	// return if cfg file not found.
+	logrus.Debugf("cfg.FlagDiagnosticsBundleEndpointsConfigFile: %s", cfg.FlagDiagnosticsBundleEndpointsConfigFile)
 	if _, err = os.Stat(cfg.FlagDiagnosticsBundleEndpointsConfigFile); err != nil {
 		if os.IsNotExist(err) {
 			logrus.Infof("%s not found", cfg.FlagDiagnosticsBundleEndpointsConfigFile)
@@ -786,6 +788,7 @@ func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, 
 	if err = json.Unmarshal(endpointsConfig, &externalProviders); err != nil {
 		return externalProviders, err
 	}
+
 	return externalProviders, nil
 }
 

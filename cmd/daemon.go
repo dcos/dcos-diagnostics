@@ -19,10 +19,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
@@ -35,6 +36,7 @@ const (
 	diagnosticsBundleDir      = "/var/run/dcos/dcos-diagnostics/diagnostic_bundles"
 	diagnosticsEndpointConfig = "/opt/mesosphere/etc/endpoints_config.json"
 	exhibitorURL              = "http://127.0.0.1:8181/exhibitor/v1/cluster/status"
+	detectIPScriptPath        = "\\DCOS\\diagnostics\\detect_ip.ps1"
 )
 
 // override the defaultStateURL to use https scheme
@@ -129,6 +131,10 @@ func startDiagnosticsDaemon() {
 	if defaultConfig.FlagForceTLS {
 		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
 	}
+	if runtime.GOOS == "windows" {
+		options = append(options, nodeutil.OptionDetectIP(os.Getenv("SYSTEMDRIVE")+detectIPScriptPath))
+	}
+
 	nodeInfo, err := nodeutil.NewNodeInfo(client, defaultConfig.FlagRole, options...)
 	if err != nil {
 		logrus.Fatalf("Could not initialize nodeInfo: %s", err)
@@ -177,7 +183,8 @@ func startDiagnosticsDaemon() {
 	}
 
 	// try using systemd socket
-	listeners, err := activation.Listeners(true)
+	// listeners, err := activation.Listeners(true)
+	listeners, err := getListener(true)
 	if err != nil {
 		logrus.Fatalf("Unable to initialize listener: %s", err)
 	}
