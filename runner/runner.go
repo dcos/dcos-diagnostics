@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"time"
+	"sync"
 
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/pkg/errors"
@@ -53,6 +54,13 @@ type responseList struct {
 	Description string   `json:"description"`
 	Cmd         []string `json:"cmd"`
 	Timeout     string   `json:"timeout"`
+}
+
+type responseError struct {
+	err           string
+	checkName     string
+	checkNotFound bool
+
 }
 
 // MarshalJSON is a custom json marshaller implementation used to return output based on user request.
@@ -196,6 +204,7 @@ func (r *Runner) PostStart(ctx context.Context, list bool, selectiveChecks ...st
 	return r.run(ctx, r.NodeChecks.Checks, list, r.NodeChecks.PostStart, selectiveChecks...)
 }
 
+
 func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool, checkList []string, selectiveChecks ...string) (*CombinedResponse, error) {
 	max := func(a, b int) int {
 		// valid values are 0,1,2,3. All other values should result in 3.
@@ -231,59 +240,89 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 		}
 	}
 
+	errs := make(chan responseError, len(currentCheckList))
+	responses := make(chan *Response, len(currentCheckList))
+	wg := &sync.WaitGroup{}
+
 	// main loop to get the checks info.
 	for _, name := range currentCheckList {
-		resp := &Response{
-			name: name,
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			currentCheck, ok := checkMap[name]
+			if !ok {
+				errs <- responseError{"Check not found", name, true}
+				return
+			}
+
+			// find runner for the given role only.
+			if !currentCheck.verifyRole(r.role) {
+				responses <- nil
+				return
+			}
+
+			if _, ok := combinedResponse.checks[name]; ok {
+				errs <- responseError{"Duplicate check", name, false}
+				return
+			}
+
+			resp := &Response{
+				name: name,
+			}
+
+			var (
+				combinedOutput []byte
+				code           int
+				err            error
+				checkDuration  string
+			)
+
+
+			// list option disables the check execution
+			if !list {
+				start := time.Now()
+				combinedOutput, code, err = currentCheck.Run(ctx, r.role)
+				checkDuration = time.Since(start).String()
+			}
+
+			resp.output = string(combinedOutput)
+			resp.status = code
+			resp.duration = checkDuration
+			resp.description = currentCheck.Description
+			resp.cmd = currentCheck.Cmd
+			resp.timeout = currentCheck.Timeout
+			resp.list = list
+			if err != nil {
+				responses <- resp
+			}
+			//combinedResponse.checks[name] = resp
+
+			// collect errors
+			/*if err != nil {
+				combinedResponse.errs[err.Error()] = resp
+			}*/
+
+			//combinedResponse.status = max(combinedResponse.status, code)
+			
+		}(name)
+	}
+
+	// might need this -
+	wg.Wait()
+	for range currentCheckList {
+		select {
+		case err := <- errs:
+			combinedResponse.errs[err.err] = &Response{name: err.checkName}
+		case resp := <-responses:
+			if resp == nil {
+				// skip filtered checks that are not appropriate for this role.
+				continue
+			}
+			combinedResponse.checks[resp.name] = resp
+			combinedResponse.status = max(combinedResponse.status, resp.status)
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
-
-		currentCheck, ok := checkMap[name]
-		if !ok {
-			combinedResponse.errs["check not found"] = resp
-			combinedResponse.checkNotFound = true
-			continue
-		}
-
-		// find runner for the given role only.
-		if !currentCheck.verifyRole(r.role) {
-			continue
-		}
-
-		var (
-			combinedOutput []byte
-			code           int
-			err            error
-			checkDuration  string
-		)
-
-		if _, ok := combinedResponse.checks[name]; ok {
-			combinedResponse.errs["duplicate check"] = resp
-			continue
-		}
-
-		// list option disables the check execution
-		if !list {
-
-			start := time.Now()
-			combinedOutput, code, err = currentCheck.Run(ctx, r.role)
-			checkDuration = time.Since(start).String()
-		}
-
-		resp.output = string(combinedOutput)
-		resp.status = code
-		resp.duration = checkDuration
-		resp.description = currentCheck.Description
-		resp.cmd = currentCheck.Cmd
-		resp.timeout = currentCheck.Timeout
-		resp.list = list
-		combinedResponse.checks[name] = resp
-
-		// collect errors
-		if err != nil {
-			combinedResponse.errs[err.Error()] = resp
-		}
-
-		combinedResponse.status = max(combinedResponse.status, code)
 	}
 
 	return combinedResponse, nil
