@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"time"
-	"sync"
 
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/pkg/errors"
@@ -60,6 +59,7 @@ type responseError struct {
 	err           string
 	checkName     string
 	checkNotFound bool
+	response      *Response
 
 }
 
@@ -242,16 +242,14 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 
 	errs := make(chan responseError, len(currentCheckList))
 	responses := make(chan *Response, len(currentCheckList))
-	wg := &sync.WaitGroup{}
 
 	// main loop to get the checks info.
 	for _, name := range currentCheckList {
-		wg.Add(1)
+
 		go func(name string) {
-			defer wg.Done()
 			currentCheck, ok := checkMap[name]
 			if !ok {
-				errs <- responseError{"Check not found", name, true}
+				errs <- responseError{"Check not found", name, true, nil}
 				return
 			}
 
@@ -262,7 +260,7 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 			}
 
 			if _, ok := combinedResponse.checks[name]; ok {
-				errs <- responseError{"Duplicate check", name, false}
+				errs <- responseError{"Duplicate check", name, false, nil}
 				return
 			}
 
@@ -292,27 +290,25 @@ func (r *Runner) run(ctx context.Context, checkMap map[string]*Check, list bool,
 			resp.cmd = currentCheck.Cmd
 			resp.timeout = currentCheck.Timeout
 			resp.list = list
-			if err != nil {
-				responses <- resp
-			}
-			//combinedResponse.checks[name] = resp
+
+			responses <- resp
 
 			// collect errors
-			/*if err != nil {
-				combinedResponse.errs[err.Error()] = resp
-			}*/
-
-			//combinedResponse.status = max(combinedResponse.status, code)
-			
+			if err != nil {
+				errs <- responseError{err.Error(), name, false, resp}
+			}
 		}(name)
 	}
 
-	// might need this -
-	wg.Wait()
 	for range currentCheckList {
 		select {
 		case err := <- errs:
-			combinedResponse.errs[err.err] = &Response{name: err.checkName}
+			if err.response != nil {
+				combinedResponse.errs[err.err] = err.response
+			} else {
+				combinedResponse.errs[err.err] = &Response{name: err.checkName}
+			}
+			combinedResponse.checkNotFound = err.checkNotFound
 		case resp := <-responses:
 			if resp == nil {
 				// skip filtered checks that are not appropriate for this role.
