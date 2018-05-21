@@ -29,15 +29,27 @@ func (s *SystemdUnits) GetUnits(tools DCOSHelper) (allUnits []HealthResponseValu
 
 	// get and check each units state
 	for _, unit := range foundUnits {
+		var normalizedProperty HealthResponseValues
 		currentProperty, err := tools.GetUnitProperties(unit)
 		if err != nil {
 			logrus.Errorf("Could not get properties for Unit: %s", unit)
-			continue
+		} else {
+			normalizedProperty, err = normalizeProperty(currentProperty, tools)
+			if err != nil {
+				logrus.Errorf("Could not normalize property for Unit %s: %s", unit, err)
+				normalizedProperty.UnitID = ""
+			}
 		}
-		normalizedProperty, err := normalizeProperty(currentProperty, tools)
-		if err != nil {
-			logrus.Errorf("Could not normalize property for Unit %s: %s", unit, err)
-			continue
+		if normalizedProperty.UnitID == "" {
+			logrus.Errorf("Unit property error for %s", unit)
+			normalizedProperty = HealthResponseValues{
+				UnitID:     unit,
+				UnitHealth: 1,
+				UnitOutput: "",
+				UnitTitle:  "",
+				Help:       "",
+				PrettyName: "",
+			}
 		}
 		allUnits = append(allUnits, normalizedProperty)
 	}
