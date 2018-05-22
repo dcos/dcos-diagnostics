@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"encoding/json"
+
 	"github.com/pkg/errors"
 )
 
@@ -67,7 +68,7 @@ func TestRun(t *testing.T) {
 	var expectedOutput string
 	if runtime.GOOS == "windows" {
 		cfg = strings.Replace(cfg, "CombinedScriptName", CombinedPowershellScript, -1)
-		expectedOutput = "STDOUT\r\nSTDERR\r\n"	
+		expectedOutput = "STDOUT\r\nSTDERR\r\n"
 	} else {
 		cfg = strings.Replace(cfg, "CombinedScriptName", CombinedShScript, -1)
 		expectedOutput = "STDOUT\nSTDERR\n"
@@ -231,6 +232,10 @@ func TestTimeout(t *testing.T) {
     "poststart": ["check1", "check2"]
   }
 }`
+
+	if runtime.GOOS == "windows" {
+		t.Skip("TestTimeout was skipped on Windows")
+	}
 	err := r.Load(strings.NewReader(cfg))
 	if err != nil {
 		t.Fatal(err)
@@ -249,9 +254,9 @@ func TestTimeout(t *testing.T) {
 
 	type expectedOutput struct {
 		Status int `json:"status"`
-		Checks map[string] struct {
+		Checks map[string]struct {
 			Output string `json:"output"`
-			Status int `json:"status"`
+			Status int    `json:"status"`
 		} `json:"checks"`
 	}
 

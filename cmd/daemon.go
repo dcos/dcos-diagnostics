@@ -19,8 +19,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"runtime"
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
@@ -36,7 +34,6 @@ const (
 	diagnosticsBundleDir      = "/var/run/dcos/dcos-diagnostics/diagnostic_bundles"
 	diagnosticsEndpointConfig = "/opt/mesosphere/etc/endpoints_config.json"
 	exhibitorURL              = "http://127.0.0.1:8181/exhibitor/v1/cluster/status"
-	detectIPScriptPath        = "\\DCOS\\diagnostics\\detect_ip.ps1"
 )
 
 // override the defaultStateURL to use https scheme
@@ -130,9 +127,6 @@ func startDiagnosticsDaemon() {
 	var options []nodeutil.Option
 	if defaultConfig.FlagForceTLS {
 		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
-	}
-	if runtime.GOOS == "windows" {
-		options = append(options, nodeutil.OptionDetectIP(os.Getenv("SYSTEMDRIVE")+detectIPScriptPath))
 	}
 
 	nodeInfo, err := nodeutil.NewNodeInfo(client, defaultConfig.FlagRole, options...)
