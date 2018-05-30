@@ -21,11 +21,11 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 

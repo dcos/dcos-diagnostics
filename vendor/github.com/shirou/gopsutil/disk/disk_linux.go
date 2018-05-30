@@ -3,11 +3,14 @@
 package disk
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/shirou/gopsutil/internal/common"
 )
@@ -214,10 +217,12 @@ var fsTypeMap = map[int64]string{
 // Partitions returns disk partitions. If all is false, returns
 // physical devices only (e.g. hard disks, cd-rom drives, USB keys)
 // and ignore all others (e.g. memory partitions such as /dev/shm)
-//
-// should use setmntent(3) but this implement use /etc/mtab file
 func Partitions(all bool) ([]PartitionStat, error) {
-	filename := common.HostEtc("mtab")
+	return PartitionsWithContext(context.Background(), all)
+}
+
+func PartitionsWithContext(ctx context.Context, all bool) ([]PartitionStat, error) {
+	filename := common.HostProc("self/mounts")
 	lines, err := common.ReadLines(filename)
 	if err != nil {
 		return nil, err
@@ -272,7 +277,11 @@ func getFileSystems() ([]string, error) {
 	return ret, nil
 }
 
-func IOCounters() (map[string]IOCountersStat, error) {
+func IOCounters(names ...string) (map[string]IOCountersStat, error) {
+	return IOCountersWithContext(context.Background(), names...)
+}
+
+func IOCountersWithContext(ctx context.Context, names ...string) (map[string]IOCountersStat, error) {
 	filename := common.HostProc("diskstats")
 	lines, err := common.ReadLines(filename)
 	if err != nil {
@@ -281,10 +290,28 @@ func IOCounters() (map[string]IOCountersStat, error) {
 	ret := make(map[string]IOCountersStat, 0)
 	empty := IOCountersStat{}
 
+	// use only basename such as "/dev/sda1" to "sda1"
+	for i, name := range names {
+		names[i] = filepath.Base(name)
+	}
+
 	for _, line := range lines {
 		fields := strings.Fields(line)
+		if len(fields) < 14 {
+			// malformed line in /proc/diskstats, avoid panic by ignoring.
+			continue
+		}
 		name := fields[2]
+
+		if len(names) > 0 && !common.StringsHas(names, name) {
+			continue
+		}
+
 		reads, err := strconv.ParseUint((fields[3]), 10, 64)
+		if err != nil {
+			return ret, err
+		}
+		mergedReads, err := strconv.ParseUint((fields[4]), 10, 64)
 		if err != nil {
 			return ret, err
 		}
@@ -300,6 +327,10 @@ func IOCounters() (map[string]IOCountersStat, error) {
 		if err != nil {
 			return ret, err
 		}
+		mergedWrites, err := strconv.ParseUint((fields[8]), 10, 64)
+		if err != nil {
+			return ret, err
+		}
 		wbytes, err := strconv.ParseUint((fields[9]), 10, 64)
 		if err != nil {
 			return ret, err
@@ -308,18 +339,30 @@ func IOCounters() (map[string]IOCountersStat, error) {
 		if err != nil {
 			return ret, err
 		}
+		iopsInProgress, err := strconv.ParseUint((fields[11]), 10, 64)
+		if err != nil {
+			return ret, err
+		}
 		iotime, err := strconv.ParseUint((fields[12]), 10, 64)
 		if err != nil {
 			return ret, err
 		}
+		weightedIO, err := strconv.ParseUint((fields[13]), 10, 64)
+		if err != nil {
+			return ret, err
+		}
 		d := IOCountersStat{
-			ReadBytes:  rbytes * SectorSize,
-			WriteBytes: wbytes * SectorSize,
-			ReadCount:  reads,
-			WriteCount: writes,
-			ReadTime:   rtime,
-			WriteTime:  wtime,
-			IoTime:     iotime,
+			ReadBytes:        rbytes * SectorSize,
+			WriteBytes:       wbytes * SectorSize,
+			ReadCount:        reads,
+			WriteCount:       writes,
+			MergedReadCount:  mergedReads,
+			MergedWriteCount: mergedWrites,
+			ReadTime:         rtime,
+			WriteTime:        wtime,
+			IopsInProgress:   iopsInProgress,
+			IoTime:           iotime,
+			WeightedIO:       weightedIO,
 		}
 		if d == empty {
 			continue
@@ -332,14 +375,20 @@ func IOCounters() (map[string]IOCountersStat, error) {
 	return ret, nil
 }
 
+// GetDiskSerialNumber returns Serial Number of given device or empty string
+// on error. Name of device is expected, eg. /dev/sda
 func GetDiskSerialNumber(name string) string {
+	return GetDiskSerialNumberWithContext(context.Background(), name)
+}
+
+func GetDiskSerialNumberWithContext(ctx context.Context, name string) string {
 	n := fmt.Sprintf("--name=%s", name)
 	udevadm, err := exec.LookPath("/sbin/udevadm")
 	if err != nil {
 		return ""
 	}
 
-	out, err := exec.Command(udevadm, "info", "--query=property", n).Output()
+	out, err := invoke.CommandWithContext(ctx, udevadm, "info", "--query=property", n)
 
 	// does not return error, just an empty string
 	if err != nil {
@@ -357,7 +406,7 @@ func GetDiskSerialNumber(name string) string {
 	return ""
 }
 
-func getFsType(stat syscall.Statfs_t) string {
+func getFsType(stat unix.Statfs_t) string {
 	t := int64(stat.Type)
 	ret, ok := fsTypeMap[t]
 	if !ok {

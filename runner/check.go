@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // signalKilled is an error message returned by dcos-go/exec if the check exceeds timeout

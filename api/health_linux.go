@@ -4,8 +4,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/sirupsen/logrus"
 )
 
 // SystemdUnits used to make GetUnitsProperties thread safe.

@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-go/dcos"
+	"github.com/sirupsen/logrus"
 )
 
 const (
