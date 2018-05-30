@@ -7,9 +7,9 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 )
 
 type key int
