@@ -17,11 +17,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
+	"github.com/sirupsen/logrus"
 )
 
 const (

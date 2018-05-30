@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/coreos/go-systemd/dbus"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/dcos/dcos-log/dcos-log/journal/reader"
+	"github.com/sirupsen/logrus"
 )
 
 // DCOSTools is implementation of DCOSHelper interface.

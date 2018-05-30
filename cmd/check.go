@@ -1,4 +1,4 @@
-﻿// Copyright © 2017 Mesosphere Inc. <http://mesosphere.com>
+// Copyright © 2017 Mesosphere Inc. <http://mesosphere.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-diagnostics/runner"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
