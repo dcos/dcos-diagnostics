@@ -38,10 +38,10 @@
 			"revisionTime": "2016-10-26T22:29:26Z"
 		},
 		{
-			"checksumSHA1": "nQca8pxnWNzJAUXaWErBIrD0NVI=",
+			"checksumSHA1": "1CmU0EXKIo2WlHnZF11tz0U53Dc=",
 			"path": "github.com/dcos/dcos-go/dcos",
-			"revision": "2ea27a8b570e0273245d2e6ef7b04b26b78b7cbe",
-			"revisionTime": "2018-02-14T20:47:11Z"
+			"revision": "5fbb0f45aef42345d1d56872405f2f8d1eac404c",
+			"revisionTime": "2018-05-02T21:38:10Z"
 		},
 		{
 			"checksumSHA1": "Qz6GSjmNYD4CiTapDBqbkFAJYCI=",
