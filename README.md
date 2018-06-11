@@ -98,9 +98,6 @@ dcos-diagnostics daemon
 </pre>
 
 
-## dcos-diagnostics checks options
-TBD
-
 ## Test
 ```
 make test
