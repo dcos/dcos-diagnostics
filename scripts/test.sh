@@ -16,7 +16,7 @@ set -o pipefail
 export PATH="${GOPATH}/bin:${PATH}"
 
 PACKAGES="$(go list ./... | grep -v /vendor/)"
-SUBDIRS="api"
+SUBDIRS="api config cmd"
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build"
 
