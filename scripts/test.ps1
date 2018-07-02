@@ -78,7 +78,7 @@ function _goimports()
 function _golint()
 {
     logmsg("Running 'golint' ...")
-    & go get -u github.com/golang/lint/
+    & go get -u github.com/golang/lint/golint
     
     $text = & golint -set_exit_status  $PACKAGES
     fastfail("failed to run golint: $text")
