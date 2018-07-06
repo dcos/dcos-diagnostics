@@ -79,7 +79,8 @@ function _golint()
 {
     logmsg("Running 'golint' ...")
     & go get -u github.com/golang/lint/golint
-    
+    fastfail("failed to get golint")
+
     $text = & golint -set_exit_status  $PACKAGES
     fastfail("failed to run golint: $text")
 
@@ -105,7 +106,8 @@ function _govet()
 
 function _unittest_with_coverage {
     logmsg "Running 'go test' ..."
-    go test -cover -race -v $PACKAGES
+    $text = & go test -cover -race -v $PACKAGES
+    fastfail("failed to run go test: $text") 
 }
 
 # Main.
