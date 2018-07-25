@@ -2,6 +2,15 @@
 ## DC/OS Distributed Diagnostics Tool & Aggregation Service
 dcos-diagnostics is a monitoring agent which exposes a HTTP API for querying from the /system/health/v1 DC/OS api. dcos-diagnostics puller collects the data from agents and represents individual node health for things like system resources as well as DC/OS-specific services.
 
+## Health Status
+
+|Enum|Meaning    |
+|----|-----------|
+|  0 | working   |
+|  1 | error     |
+|  3 | unknown   |
+
+
 ## Build
 
 ```
