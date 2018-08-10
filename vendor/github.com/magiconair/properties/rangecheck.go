@@ -1,4 +1,4 @@
-// Copyright 2017 Frank Schroeder. All rights reserved.
+// Copyright 2018 Frank Schroeder. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -12,7 +12,7 @@ import (
 // make this a var to overwrite it in a test
 var is32Bit = ^uint(0) == math.MaxUint32
 
-// intRangeCheck runner if the value fits into the int type and
+// intRangeCheck checks if the value fits into the int type and
 // panics if it does not.
 func intRangeCheck(key string, v int64) int {
 	if is32Bit && (v < math.MinInt32 || v > math.MaxInt32) {
@@ -21,7 +21,7 @@ func intRangeCheck(key string, v int64) int {
 	return int(v)
 }
 
-// uintRangeCheck runner if the value fits into the uint type and
+// uintRangeCheck checks if the value fits into the uint type and
 // panics if it does not.
 func uintRangeCheck(key string, v uint64) uint {
 	if is32Bit && v > math.MaxUint32 {

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +45,7 @@ func WriteReader(fs Fs, path string, r io.Reader) (err error) {
 		err = fs.MkdirAll(ospath, 0777) // rwx, rw, r
 		if err != nil {
 			if err != os.ErrExist {
-				log.Panicln(err)
+				return err
 			}
 		}
 	}
@@ -61,7 +60,7 @@ func WriteReader(fs Fs, path string, r io.Reader) (err error) {
 	return
 }
 
-// Same as WriteReader but runner to see if file/directory already exists.
+// Same as WriteReader but checks to see if file/directory already exists.
 func (a Afero) SafeWriteReader(path string, r io.Reader) (err error) {
 	return SafeWriteReader(a.Fs, path, r)
 }
@@ -157,7 +156,7 @@ func UnicodeSanitize(s string) string {
 	return string(target)
 }
 
-// Transform characters with accents into plan forms
+// Transform characters with accents into plain forms.
 func NeuterAccents(s string) string {
 	t := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFC)
 	result, _, _ := transform.String(t, string(s))
@@ -255,7 +254,7 @@ func (a Afero) DirExists(path string) (bool, error) {
 	return DirExists(a.Fs, path)
 }
 
-// DirExists runner if a path exists and is a directory.
+// DirExists checks if a path exists and is a directory.
 func DirExists(fs Fs, path string) (bool, error) {
 	fi, err := fs.Stat(path)
 	if err == nil && fi.IsDir() {
@@ -271,7 +270,7 @@ func (a Afero) IsDir(path string) (bool, error) {
 	return IsDir(a.Fs, path)
 }
 
-// IsDir runner if a given path is a directory.
+// IsDir checks if a given path is a directory.
 func IsDir(fs Fs, path string) (bool, error) {
 	fi, err := fs.Stat(path)
 	if err != nil {
@@ -284,7 +283,7 @@ func (a Afero) IsEmpty(path string) (bool, error) {
 	return IsEmpty(a.Fs, path)
 }
 
-// IsEmpty runner if a given file or directory is empty.
+// IsEmpty checks if a given file or directory is empty.
 func IsEmpty(fs Fs, path string) (bool, error) {
 	if b, _ := Exists(fs, path); !b {
 		return false, fmt.Errorf("%q path does not exist", path)

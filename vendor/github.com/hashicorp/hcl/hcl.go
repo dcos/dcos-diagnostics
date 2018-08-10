@@ -6,6 +6,6 @@
 //
 // If you choose to parse HCL into a raw AST, the benefit is that you
 // can write custom visitor implementations to implement custom
-// semantic runner. By default, HCL does not perform any semantic
-// runner.
+// semantic checks. By default, HCL does not perform any semantic
+// checks.
 package hcl
