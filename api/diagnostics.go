@@ -271,7 +271,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
 		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, BaseRoute)
-		endpoints := make(map[string]string)
+		var endpoints []*LogEndpoint
 		body, statusCode, err := DCOSTools.Get(url, time.Duration(time.Second*3))
 		if err != nil {
 			errMsg := fmt.Sprintf("could not get a list of logs, url: %s, status code %d", url, statusCode)
@@ -464,7 +464,7 @@ func (d diagnosticsJobCanceledError) Error() string {
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.
-func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string, folder string, zipWriter *zip.Writer,
+func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints []*LogEndpoint, folder string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, cfg *config.Config, DCOSTools DCOSHelper, percentPerNode float32) error {
 	if len(endpoints) == 0 || percentPerNode == 0 {
 		j.JobProgressPercentage += percentPerNode
@@ -472,8 +472,9 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 	}
 
 	percentPerURL := percentPerNode / float32(len(endpoints))
-	for fileName, httpEndpoint := range endpoints {
-		fullURL, err := useTLSScheme("http://"+node.IP+httpEndpoint, cfg.FlagForceTLS)
+	for _, httpEndpoint := range endpoints {
+		fileName := httpEndpoint.FileName
+		fullURL, err := useTLSScheme("http://"+node.IP+httpEndpoint.URL, cfg.FlagForceTLS)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 			logrus.Errorf("Could not read force-tls flag: %s", err)
@@ -508,6 +509,11 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 			continue
 		}
 		request.Header.Add("Accept-Encoding", "gzip")
+
+		// add custom headers required for this endpoint
+		for k, v := range httpEndpoint.Headers {
+			request.Header.Add(k, v)
+		}
 
 		client := NewHTTPClient(timeout, j.Transport)
 		resp, err := client.Do(request)
@@ -755,6 +761,7 @@ type HTTPProvider struct {
 	URI      string
 	FileName string
 	Role     []string
+	Headers  map[string]string
 }
 
 // FileProvider is a local file provider.
@@ -769,6 +776,14 @@ type CommandProvider struct {
 	Command        []string
 	Role           []string
 	indexedCommand string
+}
+
+// LogEndpoint describes a structure of a log entry exposed via /system/health/v1/logs
+// this structure is built based on endpoints config.
+type LogEndpoint struct {
+	FileName string            `json:"file_name"`
+	URL      string            `json:"url"`
+	Headers  map[string]string `json:"headers,omitempty"`
 }
 
 func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
@@ -830,10 +845,9 @@ func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalCo
 	}, nil
 }
 
-func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelper) (endpoints map[string]string, err error) {
-	endpoints = make(map[string]string)
+func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelper) (endpoints []*LogEndpoint, err error) {
 	if j.logProviders == nil {
-		return endpoints, errors.New("log provders have not been initialized")
+		return nil, errors.New("log provders have not been initialized")
 	}
 
 	currentRole, err := DCOSTools.GetNodeRole()
@@ -843,7 +857,7 @@ func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelp
 
 	port, err := getPullPortByRole(cfg, currentRole)
 	if err != nil {
-		return endpoints, err
+		return nil, err
 	}
 
 	matchRole := func(currentRole string, roles []string) bool {
@@ -868,7 +882,12 @@ func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelp
 		if !matchRole(currentRole, httpEndpoint.Role) {
 			continue
 		}
-		endpoints[httpEndpoint.FileName] = fmt.Sprintf(":%d%s", httpEndpoint.Port, httpEndpoint.URI)
+
+		endpoints = append(endpoints, &LogEndpoint{
+			FileName: httpEndpoint.FileName,
+			URL:      fmt.Sprintf(":%d%s", httpEndpoint.Port, httpEndpoint.URI),
+			Headers:  httpEndpoint.Headers,
+		})
 	}
 
 	// file endpoints
@@ -876,7 +895,10 @@ func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelp
 		if !matchRole(currentRole, file.Role) {
 			continue
 		}
-		endpoints[file.Location] = fmt.Sprintf(":%d%s/logs/files/%s", port, BaseRoute, file.sanitizedLocation)
+		endpoints = append(endpoints, &LogEndpoint{
+			FileName: file.Location,
+			URL:      fmt.Sprintf(":%d%s/logs/files/%s", port, BaseRoute, file.sanitizedLocation),
+		})
 	}
 
 	// command endpoints
@@ -885,7 +907,10 @@ func (j *DiagnosticsJob) getLogsEndpoints(cfg *config.Config, DCOSTools DCOSHelp
 			continue
 		}
 		if c.indexedCommand != "" {
-			endpoints[c.indexedCommand] = fmt.Sprintf(":%d%s/logs/cmds/%s", port, BaseRoute, c.indexedCommand)
+			endpoints = append(endpoints, &LogEndpoint{
+				FileName: c.indexedCommand,
+				URL:      fmt.Sprintf(":%d%s/logs/cmds/%s", port, BaseRoute, c.indexedCommand),
+			})
 		}
 	}
 	return endpoints, nil
