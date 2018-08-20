@@ -25,38 +25,10 @@ function logmsg {
     echo -e "\n\n*** $1 ***\n"
 }
 
-function _gofmt {
-    logmsg "Running 'gofmt' ..."
-    test -z "$(gofmt -l -d ${SUBDIRS} | tee /dev/stderr)"
+function _gometalinter {
+    logmsg "Running 'gometaliner' ..."
+    gometalinter  --config=.gometalinter.json
 }
-
-function _misspell {
-    logmsg "Running 'misspell' ..."
-    go get -u github.com/client9/misspell/cmd/misspell
-    misspell -error $(ls | grep -v vendor)
-}
-
-function _goimports {
-    logmsg "Running 'goimports' ..."
-    go get -u golang.org/x/tools/cmd/goimports
-    test -z "$(gofmt -l -d ${SUBDIRS} | tee /dev/stderr)"
-}
-
-
-function _golint {
-    logmsg "Running 'go lint' ..."
-    go get -u github.com/golang/lint/golint
-    for pkg in $PACKAGES; do
-        golint -set_exit_status $pkg
-    done
-}
-
-
-function _govet {
-    logmsg "Running 'go vet' ..."
-    go vet ${PACKAGES}
-}
-
 
 function _unittest_with_coverage {
 	go test -cover -race -test.v ${PACKAGES}
@@ -65,11 +37,7 @@ function _unittest_with_coverage {
 
 # Main.
 function main {
-    _misspell
-    _gofmt
-    _goimports
-    _golint
-    _govet
+    _gometalinter
     _unittest_with_coverage
 }
 

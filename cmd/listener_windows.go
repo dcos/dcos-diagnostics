@@ -16,13 +16,8 @@ package cmd
 
 import (
 	"net"
-	"os"
 )
 
 func getListener(unsetEnv bool) ([]net.Listener, error) {
 	return nil, nil
-}
-
-func getFiles(unsetEnv bool) []*os.File {
-	return nil
 }

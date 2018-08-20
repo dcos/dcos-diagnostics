@@ -16,15 +16,10 @@ package cmd
 
 import (
 	"net"
-	"os"
 
 	"github.com/coreos/go-systemd/activation"
 )
 
 func getListener(unsetEnv bool) ([]net.Listener, error) {
 	return activation.Listeners()
-}
-
-func getFiles(unsetEnv bool) []*os.File {
-	return activation.Files(unsetEnv)
 }
