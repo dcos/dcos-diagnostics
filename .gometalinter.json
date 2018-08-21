@@ -1,7 +1,7 @@
 {
   "Aggregate": true,
   "Concurrency": 4,
-  "LineLength": 160,
+  "LineLength": 150,
   "Cyclo": 20,
   "Deadline": "300s",
   "DisableAll": true,

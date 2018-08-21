@@ -221,7 +221,7 @@ func deleteBundleHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := mux.Vars(r)
-	response, err := dt.DtDiagnosticsJob.delete(vars["file"], dt.Cfg, dt.DtDCOSTools)
+	response, err := dt.DtDiagnosticsJob.delete(vars["file"])
 	if err != nil {
 		log.Errorf("Could not delete a file %s: %s", vars["file"], err)
 	}
@@ -236,7 +236,7 @@ func diagnosticsJobStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(dt.DtDiagnosticsJob.getStatus(dt.Cfg)); err != nil {
+	if err := json.NewEncoder(w).Encode(dt.DtDiagnosticsJob.getStatus()); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
@@ -249,7 +249,7 @@ func diagnosticsJobStatusAllHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := dt.DtDiagnosticsJob.getStatusAll(dt.Cfg, dt.DtDCOSTools)
+	status, err := dt.DtDiagnosticsJob.getStatusAll()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -269,7 +269,7 @@ func cancelBundleReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := dt.DtDiagnosticsJob.cancel(dt.Cfg, dt.DtDCOSTools)
+	response, err := dt.DtDiagnosticsJob.cancel()
 	if err != nil {
 		log.Errorf("Could not cancel a job: %s", err)
 	}
@@ -303,7 +303,7 @@ func listAvailableLocalBundlesFilesHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	matches, err := dt.DtDiagnosticsJob.findLocalBundle(dt.Cfg)
+	matches, err := dt.DtDiagnosticsJob.findLocalBundle()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -339,7 +339,7 @@ func downloadBundleHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := mux.Vars(r)
-	node, location, ok, err := dt.DtDiagnosticsJob.isBundleAvailable(vars["file"], dt.Cfg, dt.DtDCOSTools)
+	node, location, ok, err := dt.DtDiagnosticsJob.isBundleAvailable(vars["file"])
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -405,7 +405,7 @@ func logsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	endspoints, err := dt.DtDiagnosticsJob.getLogsEndpoints(dt.Cfg, dt.DtDCOSTools)
+	endspoints, err := dt.DtDiagnosticsJob.getLogsEndpoints()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -429,7 +429,7 @@ func getUnitLogHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	unitLogOut, err := dt.DtDiagnosticsJob.dispatchLogs(ctx, vars["provider"], vars["entity"], dt.Cfg, dt.DtDCOSTools)
+	unitLogOut, err := dt.DtDiagnosticsJob.dispatchLogs(ctx, vars["provider"], vars["entity"])
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
