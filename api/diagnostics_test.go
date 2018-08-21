@@ -34,10 +34,11 @@ func (s *DiagnosticsTestSuit) http(url, method string, body io.Reader) ([]byte, 
 
 func (s *DiagnosticsTestSuit) SetupTest() {
 	s.assert = assertPackage.New(s.T())
+	tools := &fakeDCOSTools{}
 	s.dt = &Dt{
 		Cfg:              testCfg,
-		DtDCOSTools:      &fakeDCOSTools{},
-		DtDiagnosticsJob: &DiagnosticsJob{},
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	s.router = NewRouter(s.dt)
@@ -125,7 +126,7 @@ func (s *DiagnosticsTestSuit) TestFindRequestedNodes() {
 }
 
 func (s *DiagnosticsTestSuit) TestGetStatus() {
-	status := s.dt.DtDiagnosticsJob.getStatus(s.dt.Cfg)
+	status := s.dt.DtDiagnosticsJob.getStatus()
 	s.assert.Equal(status.DiagnosticBundlesBaseDir, DiagnosticsBundleDir)
 }
 
@@ -151,8 +152,9 @@ func (s *DiagnosticsTestSuit) TestGetAllStatus() {
 	st := &fakeDCOSTools{}
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 	s.dt.DtDCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
 
-	status, err := s.dt.DtDiagnosticsJob.getStatusAll(s.dt.Cfg, s.dt.DtDCOSTools)
+	status, err := s.dt.DtDiagnosticsJob.getStatusAll()
 	s.assert.Nil(err)
 	s.assert.Contains(status, "127.0.0.1")
 	s.assert.Equal(status["127.0.0.1"], bundleReportStatus{
@@ -178,16 +180,17 @@ func (s *DiagnosticsTestSuit) TestisSnapshotAvailable() {
 	st := &fakeDCOSTools{}
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 	s.dt.DtDCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
 
 	// should find
-	host, remoteSnapshot, ok, err := s.dt.DtDiagnosticsJob.isBundleAvailable("bundle-2016-05-13T22:11:36.zip", s.dt.Cfg, s.dt.DtDCOSTools)
+	host, remoteSnapshot, ok, err := s.dt.DtDiagnosticsJob.isBundleAvailable("bundle-2016-05-13T22:11:36.zip")
 	s.assert.True(ok)
 	s.assert.Equal(host, "127.0.0.1")
 	s.assert.Equal(remoteSnapshot, "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip")
 	s.assert.Nil(err)
 
 	// should not find
-	host, remoteSnapshot, ok, err = s.dt.DtDiagnosticsJob.isBundleAvailable("bundle-123.zip", s.dt.Cfg, s.dt.DtDCOSTools)
+	host, remoteSnapshot, ok, err = s.dt.DtDiagnosticsJob.isBundleAvailable("bundle-123.zip")
 	s.assert.False(ok)
 	s.assert.Empty(host)
 	s.assert.Empty(remoteSnapshot)
@@ -216,6 +219,7 @@ func (s *DiagnosticsTestSuit) TestCancelNotRunningJob() {
 	st := &fakeDCOSTools{}
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 	s.dt.DtDCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
 
 	// Job should fail because it is not running
 	response, code := s.http("/system/health/v1/report/diagnostics/cancel", "POST", nil)
@@ -271,6 +275,7 @@ func (s *DiagnosticsTestSuit) TestCancelGlobalJob() {
 	`
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 	s.dt.DtDCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
 
 	s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
 
@@ -319,6 +324,7 @@ func (s *DiagnosticsTestSuit) TestFailRunSnapshotJob() {
 	st := &fakeDCOSTools{}
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 	s.dt.DtDCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
 
 	// should fail since request is in wrong format
 	body := bytes.NewBuffer([]byte(`{"nodes": "wrong"}`))
@@ -363,6 +369,8 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 
 	// update DtDCOSTools
 	s.dt.DtDCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
+	s.dt.DtDiagnosticsJob.DCOSTools = st
 
 	body := bytes.NewBuffer([]byte(`{"nodes": ["all"]}`))
 	response, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)

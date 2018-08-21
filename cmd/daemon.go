@@ -145,9 +145,11 @@ func startDiagnosticsDaemon() {
 	// Create and init diagnostics job, do not hard fail on error
 	diagnosticsJob := &api.DiagnosticsJob{
 		Transport: tr,
+		Cfg:       defaultConfig,
+		DCOSTools: DCOSTools,
 	}
 
-	err = diagnosticsJob.Init(defaultConfig, DCOSTools)
+	err = diagnosticsJob.Init()
 	if err != nil {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}

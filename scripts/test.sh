@@ -27,7 +27,7 @@ function logmsg {
 
 function _gometalinter {
     logmsg "Running 'gometaliner' ..."
-    gometalinter  --config=.gometalinter.json
+    gometalinter ./...  --config=.gometalinter.json
 }
 
 function _unittest_with_coverage {
