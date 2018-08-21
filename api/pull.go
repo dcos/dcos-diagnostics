@@ -41,7 +41,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 	if f.getFn == nil {
 		return nodes, errors.New("could not initialize HTTP GET function. Make sure you set getFn in the constructor")
 	}
-	timeout := time.Duration(time.Second * 11)
+	timeout := time.Second * 11
 	body, statusCode, err := f.getFn(f.url, timeout)
 	if err != nil {
 		return nodes, err
@@ -51,7 +51,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 	}
 
 	var exhibitorNodesResponse []exhibitorNodeResponse
-	if err := json.Unmarshal([]byte(body), &exhibitorNodesResponse); err != nil {
+	if err := json.Unmarshal(body, &exhibitorNodesResponse); err != nil {
 		return nodes, err
 	}
 	if len(exhibitorNodesResponse) == 0 {
@@ -212,7 +212,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 		return nodes, err
 	}
 
-	timeout := time.Duration(time.Second)
+	timeout := time.Second
 	body, statusCode, err := f.getFn(url, timeout)
 	if err != nil {
 		return nodes, err
@@ -334,7 +334,7 @@ func (mr *MonitoringResponse) GetNodesForUnit(unitName string) (NodesResponseJSO
 }
 
 // GetSpecificNodeForUnit gets a specific node for a given Unit from a status tree.
-func (mr *MonitoringResponse) GetSpecificNodeForUnit(unitName string, nodeIP string) (NodeResponseFieldsWithErrorStruct, error) {
+func (mr *MonitoringResponse) GetSpecificNodeForUnit(unitName, nodeIP string) (NodeResponseFieldsWithErrorStruct, error) {
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Units[unitName]; !ok {
@@ -437,7 +437,7 @@ func (mr *MonitoringResponse) GetNodeUnitsID(nodeIP string) (UnitsResponseJSONSt
 }
 
 // GetNodeUnitByNodeIDUnitID returns a Unit status by node IP address and Unit ID.
-func (mr *MonitoringResponse) GetNodeUnitByNodeIDUnitID(nodeIP string, unitID string) (HealthResponseValues, error) {
+func (mr *MonitoringResponse) GetNodeUnitByNodeIDUnitID(nodeIP, unitID string) (HealthResponseValues, error) {
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Nodes[nodeIP]; !ok {

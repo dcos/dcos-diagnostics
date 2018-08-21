@@ -154,9 +154,10 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 
 //
 func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOSTools DCOSHelper) {
+	const jobFailedStatus = "Job failed"
 	if len(nodes) == 0 {
 		e := "Nodes length cannot be 0"
-		j.Status = "Job failed"
+		j.Status = jobFailedStatus
 		j.Errors = append(j.Errors, e)
 		return
 	}
@@ -181,7 +182,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 		case <-time.After(time.Minute * time.Duration(cfg.FlagDiagnosticsJobTimeoutMinutes)):
 			errMsg := fmt.Sprintf("diagnostics job timedout after: %s", time.Since(j.JobStarted))
 			j.Lock()
-			j.Status = "Job failed"
+			j.Status = jobFailedStatus
 			j.Errors = append(j.Errors, errMsg)
 			j.Unlock()
 			logrus.Error(errMsg)
@@ -202,7 +203,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 	// create a zip file
 	zipfile, err := os.Create(j.LastBundlePath)
 	if err != nil {
-		j.Status = "Job failed"
+		j.Status = jobFailedStatus
 		errMsg := fmt.Sprintf("Could not create zip file: %s", j.LastBundlePath)
 		j.Errors = append(j.Errors, errMsg)
 		logrus.Error(errMsg)
@@ -272,7 +273,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node, cfg *config.Config, DCOS
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
 		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, BaseRoute)
 		endpoints := make(map[string]string)
-		body, statusCode, err := DCOSTools.Get(url, time.Duration(time.Second*3))
+		body, statusCode, err := DCOSTools.Get(url, time.Second*3)
 		if err != nil {
 			errMsg := fmt.Sprintf("could not get a list of logs, url: %s, status code %d", url, statusCode)
 			j.Errors = append(j.Errors, errMsg)
@@ -359,7 +360,7 @@ func (j *DiagnosticsJob) delete(bundleName string, cfg *config.Config, DCOSTools
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/delete/%s", node, cfg.FlagMasterPort, BaseRoute, bundleName)
 		j.Status = "Attempting to delete a bundle on a remote host. POST " + url
 		logrus.Debug(j.Status)
-		timeout := time.Duration(time.Second * 5)
+		timeout := time.Second * 5
 		response, _, err := DCOSTools.Post(url, timeout)
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
@@ -390,7 +391,7 @@ func (j *DiagnosticsJob) isRunning(cfg *config.Config, DCOSTools DCOSHelper) (bo
 		return false, "", err
 	}
 	for node, status := range clusterDiagnosticsJobStatus {
-		if status.Running == true {
+		if status.Running {
 			return true, node, nil
 		}
 	}
@@ -412,9 +413,14 @@ func (j *DiagnosticsJob) getStatusAll(cfg *config.Config, DCOSTools DCOSHelper) 
 	for _, master := range masterNodes {
 		var status bundleReportStatus
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/status", master.IP, cfg.FlagMasterPort, BaseRoute)
-		body, _, err := DCOSTools.Get(url, time.Duration(time.Second*3))
-		if err = json.Unmarshal(body, &status); err != nil {
-			logrus.Errorf("Could not determine job status for node %s: %s", master.IP, err)
+		body, _, err := DCOSTools.Get(url, time.Second*3)
+		if err != nil {
+			logrus.WithError(err).WithField("URL", url).Error("Could not get data")
+			continue
+		}
+		err = json.Unmarshal(body, &status)
+		if err != nil {
+			logrus.WithError(err).WithField("IP", master.IP).Errorf("Could not determine job status for master")
 			continue
 		}
 		statuses[master.IP] = status
@@ -498,7 +504,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 
 		j.Status = "GET " + fullURL
 		updateSummaryReport("START "+j.Status, node, "", summaryReport)
-		timeout := time.Duration(time.Minute * time.Duration(cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes))
+		timeout := time.Minute * time.Duration(cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
 		request, err := http.NewRequest("GET", fullURL, nil)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
@@ -636,7 +642,7 @@ func listAllBundles(cfg *config.Config, DCOSTools DCOSHelper) (map[string][]bund
 	for _, master := range masterNodes {
 		var bundleUrls []bundle
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/list", master.IP, cfg.FlagMasterPort, BaseRoute)
-		body, _, err := DCOSTools.Get(url, time.Duration(time.Second*3))
+		body, _, err := DCOSTools.Get(url, time.Second*3)
 		if err != nil {
 			logrus.Errorf("Could not HTTP GET %s: %s", url, err)
 			continue
@@ -675,6 +681,9 @@ func (j *DiagnosticsJob) isBundleAvailable(bundleName string, cfg *config.Config
 // return a a list of bundles available on a localhost.
 func (j *DiagnosticsJob) findLocalBundle(cfg *config.Config) (bundles []string, err error) {
 	matches, err := filepath.Glob(cfg.FlagDiagnosticsBundleDir + "/bundle-*.zip")
+	if err != nil {
+		return bundles, err
+	}
 	for _, localBundle := range matches {
 		// skip a bundle zip file if the job is running
 		if localBundle == j.LastBundlePath && j.Running {
@@ -683,13 +692,11 @@ func (j *DiagnosticsJob) findLocalBundle(cfg *config.Config) (bundles []string, 
 		}
 		bundles = append(bundles, localBundle)
 	}
-	if err != nil {
-		return bundles, err
-	}
+
 	return bundles, nil
 }
 
-func matchRequestedNodes(requestedNodes []string, masterNodes []Node, agentNodes []Node) ([]Node, error) {
+func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []Node) ([]Node, error) {
 	var matchedNodes []Node
 	clusterNodes := append(masterNodes, agentNodes...)
 	if len(requestedNodes) == 0 || len(clusterNodes) == 0 {
@@ -1019,8 +1026,8 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 }
 
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
-func updateSummaryReport(preflix string, node Node, error string, r *bytes.Buffer) {
-	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), preflix, node.IP, node.Role, error))
+func updateSummaryReport(preflix string, node Node, err string, r *bytes.Buffer) {
+	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), preflix, node.IP, node.Role, err))
 }
 
 // implement a io.ReadCloser wrapper over dcos/exec

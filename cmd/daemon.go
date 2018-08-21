@@ -107,7 +107,7 @@ func init() {
 
 func startDiagnosticsDaemon() {
 	// init new transport
-	transportOptions := []transport.OptionTransportFunc{}
+	var transportOptions []transport.OptionTransportFunc
 	if defaultConfig.FlagCACertFile != "" {
 		transportOptions = append(transportOptions, transport.OptionCaCertificatePath(defaultConfig.FlagCACertFile))
 	}
@@ -146,7 +146,9 @@ func startDiagnosticsDaemon() {
 	diagnosticsJob := &api.DiagnosticsJob{
 		Transport: tr,
 	}
-	if err := diagnosticsJob.Init(defaultConfig, DCOSTools); err != nil {
+
+	err = diagnosticsJob.Init(defaultConfig, DCOSTools)
+	if err != nil {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 

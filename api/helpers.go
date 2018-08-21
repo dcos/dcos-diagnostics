@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -83,7 +84,8 @@ func useTLSScheme(url string, use bool) (string, error) {
 
 // GetMesosNodeID return a mesos node id.
 func (st *DCOSTools) GetMesosNodeID() (string, error) {
-	return st.NodeInfo.MesosID(nil)
+	// TODO(janisz): We need to decide if we need a context
+	return st.NodeInfo.MesosID(context.TODO())
 }
 
 // Help functions

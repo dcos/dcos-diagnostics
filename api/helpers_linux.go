@@ -29,8 +29,6 @@ type DCOSTools struct {
 
 	dcon     *dbus.Conn
 	hostname string
-	ip       string
-	mesosID  string
 }
 
 // InitializeUnitControllerConnection opens a dbus connection. The connection is available via st.dcon
@@ -63,9 +61,8 @@ func (st *DCOSTools) CloseUnitControllerConnection() error {
 }
 
 // GetUnitProperties return a map of systemd Unit properties received from dbus.
-func (st *DCOSTools) GetUnitProperties(pname string) (result map[string]interface{}, err error) {
-	result = make(map[string]interface{})
-	result, err = st.dcon.GetUnitProperties(pname)
+func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, error) {
+	result, err := st.dcon.GetUnitProperties(pname)
 	if err != nil {
 		return result, err
 	}
