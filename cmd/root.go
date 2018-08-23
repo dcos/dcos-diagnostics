@@ -39,7 +39,6 @@ var RootCmd = &cobra.Command{
 	Long: `DC/OS diagnostics service provides health information about cluster.
 
 dcos-diagnostics daemon start an http server and polls the components health.
-dcos-diagnostics check provides CLI functionality to run checks on DC/OS cluster.
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
