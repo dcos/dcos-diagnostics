@@ -127,7 +127,7 @@ func (st *fakeDCOSTools) Get(url string, timeout time.Duration) (body []byte, st
 	}
 	var response string
 	// master
-	if url == fmt.Sprintf("http://127.0.0.1:1050%s", BaseRoute) {
+	if url == fmt.Sprintf("http://127.0.0.1:1050%s", baseRoute) {
 		response = `
 			{
 			  "units": [
@@ -158,7 +158,7 @@ func (st *fakeDCOSTools) Get(url string, timeout time.Duration) (body []byte, st
 	}
 
 	// agent
-	if url == fmt.Sprintf("http://127.0.0.2:1050%s", BaseRoute) {
+	if url == fmt.Sprintf("http://127.0.0.2:1050%s", baseRoute) {
 		response = `
 			{
 			  "units": [
