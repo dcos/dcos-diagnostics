@@ -127,7 +127,7 @@ func TestGetAllStatus(t *testing.T) {
 		MR:               &MonitoringResponse{},
 	}
 
-	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", BaseRoute)
+	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", baseRoute)
 	mockedResponse := `
 			{
 			  "is_running":true,
@@ -175,7 +175,7 @@ func TestIsSnapshotAvailable(t *testing.T) {
 		MR:               &MonitoringResponse{},
 	}
 
-	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/list", BaseRoute)
+	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/list", baseRoute)
 	mockedResponse := `[{"file_name": "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip", "file_size": 123}]`
 
 	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
@@ -205,7 +205,7 @@ func TestCancelNotRunningJob(t *testing.T) {
 	}
 	router := NewRouter(dt)
 
-	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", BaseRoute)
+	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", baseRoute)
 	mockedResponse := `
 			{
 			  "is_running":false,
@@ -338,7 +338,7 @@ func TestFailRunSnapshotJob(t *testing.T) {
 	}
 	router := NewRouter(dt)
 
-	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", BaseRoute)
+	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", baseRoute)
 	mockedResponse := `
 			{
 			  "is_running":false,

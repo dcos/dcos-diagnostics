@@ -16,8 +16,8 @@ type key int
 
 var dtKey key = 1
 
-// BaseRoute a base dcos-diagnostics endpoint location.
-const BaseRoute string = "/system/health/v1"
+// baseRoute a base dcos-diagnostics endpoint location.
+const baseRoute string = "/system/health/v1"
 
 type routeHandler struct {
 	url                 string
@@ -102,18 +102,18 @@ func getRoutes(debug bool) []routeHandler {
 	routes := []routeHandler{
 		{
 			// /system/health/v1
-			url:     BaseRoute,
+			url:     baseRoute,
 			handler: unitsHealthStatus,
 		},
 		{
 			// /system/health/v1/report
-			url:           fmt.Sprintf("%s/report", BaseRoute),
+			url:           fmt.Sprintf("%s/report", baseRoute),
 			handler:       reportHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/report/download
-			url:     fmt.Sprintf("%s/report/download", BaseRoute),
+			url:     fmt.Sprintf("%s/report/download", baseRoute),
 			handler: reportHandler,
 			headers: []header{
 				{
@@ -125,49 +125,49 @@ func getRoutes(debug bool) []routeHandler {
 		},
 		{
 			// /system/health/v1/units
-			url:           fmt.Sprintf("%s/units", BaseRoute),
+			url:           fmt.Sprintf("%s/units", baseRoute),
 			handler:       getAllUnitsHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/units/<unitid>
-			url:           fmt.Sprintf("%s/units/{unitid}", BaseRoute),
+			url:           fmt.Sprintf("%s/units/{unitid}", baseRoute),
 			handler:       getUnitByIDHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/units/<unitid>/nodes
-			url:           fmt.Sprintf("%s/units/{unitid}/nodes", BaseRoute),
+			url:           fmt.Sprintf("%s/units/{unitid}/nodes", baseRoute),
 			handler:       getNodesByUnitIDHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/units/<unitid>/nodes/<nodeid>
-			url:           fmt.Sprintf("%s/units/{unitid}/nodes/{nodeid}", BaseRoute),
+			url:           fmt.Sprintf("%s/units/{unitid}/nodes/{nodeid}", baseRoute),
 			handler:       getNodeByUnitIDNodeIDHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/nodes
-			url:           fmt.Sprintf("%s/nodes", BaseRoute),
+			url:           fmt.Sprintf("%s/nodes", baseRoute),
 			handler:       getNodesHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/nodes/<nodeid>
-			url:           fmt.Sprintf("%s/nodes/{nodeid}", BaseRoute),
+			url:           fmt.Sprintf("%s/nodes/{nodeid}", baseRoute),
 			handler:       getNodeByIDHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/nodes/<nodeid>/units
-			url:           fmt.Sprintf("%s/nodes/{nodeid}/units", BaseRoute),
+			url:           fmt.Sprintf("%s/nodes/{nodeid}/units", baseRoute),
 			handler:       getNodeUnitsByNodeIDHandler,
 			canFlushCache: true,
 		},
 		{
 			// /system/health/v1/nodes/<nodeid>/units/<unitid>
-			url:           fmt.Sprintf("%s/nodes/{nodeid}/units/{unitid}", BaseRoute),
+			url:           fmt.Sprintf("%s/nodes/{nodeid}/units/{unitid}", baseRoute),
 			handler:       getNodeUnitByNodeIDUnitIDHandler,
 			canFlushCache: true,
 		},
@@ -175,12 +175,12 @@ func getRoutes(debug bool) []routeHandler {
 		// diagnostics routes
 		{
 			// /system/health/v1/logs
-			url:     BaseRoute + "/logs",
+			url:     baseRoute + "/logs",
 			handler: logsListHandler,
 		},
 		{
 			// /system/health/v1/logs/<unitid/<hours>
-			url:     BaseRoute + "/logs/{provider}/{entity}",
+			url:     baseRoute + "/logs/{provider}/{entity}",
 			handler: getUnitLogHandler,
 			headers: []header{
 				{
@@ -192,36 +192,36 @@ func getRoutes(debug bool) []routeHandler {
 		},
 		{
 			// /system/health/v1/report/diagnostics
-			url:     BaseRoute + "/report/diagnostics/create",
+			url:     baseRoute + "/report/diagnostics/create",
 			handler: createBundleHandler,
 			methods: []string{"POST"},
 		},
 		{
-			url:     BaseRoute + "/report/diagnostics/cancel",
+			url:     baseRoute + "/report/diagnostics/cancel",
 			handler: cancelBundleReportHandler,
 			methods: []string{"POST"},
 		},
 		{
-			url:     BaseRoute + "/report/diagnostics/status",
+			url:     baseRoute + "/report/diagnostics/status",
 			handler: diagnosticsJobStatusHandler,
 		},
 		{
-			url:     BaseRoute + "/report/diagnostics/status/all",
+			url:     baseRoute + "/report/diagnostics/status/all",
 			handler: diagnosticsJobStatusAllHandler,
 		},
 		{
 			// /system/health/v1/report/diagnostics/list
-			url:     BaseRoute + "/report/diagnostics/list",
+			url:     baseRoute + "/report/diagnostics/list",
 			handler: listAvailableLocalBundlesFilesHandler,
 		},
 		{
 			// /system/health/v1/report/diagnostics/list/all
-			url:     BaseRoute + "/report/diagnostics/list/all",
+			url:     baseRoute + "/report/diagnostics/list/all",
 			handler: listAvailableGLobalBundlesFilesHandler,
 		},
 		{
 			// /system/health/v1/report/diagnostics/serve/<file>
-			url:     BaseRoute + "/report/diagnostics/serve/{file}",
+			url:     baseRoute + "/report/diagnostics/serve/{file}",
 			handler: downloadBundleHandler,
 			headers: []header{
 				{
@@ -232,13 +232,13 @@ func getRoutes(debug bool) []routeHandler {
 		},
 		{
 			// /system/health/v1/report/diagnostics/delete/<file>
-			url:     BaseRoute + "/report/diagnostics/delete/{file}",
+			url:     baseRoute + "/report/diagnostics/delete/{file}",
 			handler: deleteBundleHandler,
 			methods: []string{"POST"},
 		},
 		// self test route
 		{
-			url:     BaseRoute + "/selftest/info",
+			url:     baseRoute + "/selftest/info",
 			handler: selfTestHandler,
 		},
 	}
@@ -247,7 +247,7 @@ func getRoutes(debug bool) []routeHandler {
 		logrus.Debug("Enabling pprof endpoints.")
 		routes = append(routes, []routeHandler{
 			{
-				url:     BaseRoute + "/debug/pprof/",
+				url:     baseRoute + "/debug/pprof/",
 				handler: pprof.Index,
 				gzip:    true,
 				headers: []header{
@@ -258,7 +258,7 @@ func getRoutes(debug bool) []routeHandler {
 				},
 			},
 			{
-				url:     BaseRoute + "/debug/pprof/cmdline",
+				url:     baseRoute + "/debug/pprof/cmdline",
 				handler: pprof.Cmdline,
 				gzip:    true,
 				headers: []header{
@@ -269,7 +269,7 @@ func getRoutes(debug bool) []routeHandler {
 				},
 			},
 			{
-				url:     BaseRoute + "/debug/pprof/profile",
+				url:     baseRoute + "/debug/pprof/profile",
 				handler: pprof.Profile,
 				gzip:    true,
 				headers: []header{
@@ -280,7 +280,7 @@ func getRoutes(debug bool) []routeHandler {
 				},
 			},
 			{
-				url:     BaseRoute + "/debug/pprof/symbol",
+				url:     baseRoute + "/debug/pprof/symbol",
 				handler: pprof.Symbol,
 				gzip:    true,
 				headers: []header{
@@ -291,7 +291,7 @@ func getRoutes(debug bool) []routeHandler {
 				},
 			},
 			{
-				url:     BaseRoute + "/debug/pprof/trace",
+				url:     baseRoute + "/debug/pprof/trace",
 				handler: pprof.Trace,
 				gzip:    true,
 				headers: []header{
@@ -302,7 +302,7 @@ func getRoutes(debug bool) []routeHandler {
 				},
 			},
 			{
-				url: BaseRoute + "/debug/pprof/{profile}",
+				url: baseRoute + "/debug/pprof/{profile}",
 				handler: func(w http.ResponseWriter, req *http.Request) {
 					profile := mux.Vars(req)["profile"]
 					pprof.Handler(profile).ServeHTTP(w, req)

@@ -572,7 +572,7 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 		return
 	}
 
-	baseURL := fmt.Sprintf("http://%s:%d%s", host.IP, port, BaseRoute)
+	baseURL := fmt.Sprintf("http://%s:%d%s", host.IP, port, baseRoute)
 
 	// UnitsRoute available in router.go
 	url, err := useTLSScheme(baseURL, dt.Cfg.FlagForceTLS)

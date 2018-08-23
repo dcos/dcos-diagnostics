@@ -320,7 +320,7 @@ func listAvailableLocalBundlesFilesHandler(w http.ResponseWriter, r *http.Reques
 		}
 
 		localBundles = append(localBundles, bundle{
-			File: fmt.Sprintf("%s/report/diagnostics/serve/%s", BaseRoute, baseFile),
+			File: fmt.Sprintf("%s/report/diagnostics/serve/%s", baseRoute, baseFile),
 			Size: fileInfo.Size(),
 		})
 	}

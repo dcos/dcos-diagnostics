@@ -275,7 +275,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node) {
 		}
 
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
-		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, BaseRoute)
+		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, baseRoute)
 		endpoints := make(map[string]string)
 		body, statusCode, err := j.DCOSTools.Get(url, time.Second*3)
 		if err != nil {
@@ -361,7 +361,7 @@ func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportRe
 		return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 	}
 	if ok {
-		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/delete/%s", node, j.Cfg.FlagMasterPort, BaseRoute, bundleName)
+		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/delete/%s", node, j.Cfg.FlagMasterPort, baseRoute, bundleName)
 		j.Status = "Attempting to delete a bundle on a remote host. POST " + url
 		logrus.Debug(j.Status)
 		timeout := time.Second * 5
@@ -416,7 +416,7 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 
 	for _, master := range masterNodes {
 		var status bundleReportStatus
-		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/status", master.IP, j.Cfg.FlagMasterPort, BaseRoute)
+		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/status", master.IP, j.Cfg.FlagMasterPort, baseRoute)
 		body, _, err := j.DCOSTools.Get(url, time.Second*3)
 		if err != nil {
 			logrus.WithError(err).WithField("URL", url).Error("Could not get data")
@@ -615,7 +615,7 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 		j.cancelChan <- true
 		logrus.Debug("Cancelling a local job")
 	} else {
-		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/cancel", node, j.Cfg.FlagMasterPort, BaseRoute)
+		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/cancel", node, j.Cfg.FlagMasterPort, baseRoute)
 		j.Status = "Attempting to cancel a job on a remote host. POST " + url
 		logrus.Debug(j.Status)
 		response, _, err := j.DCOSTools.Post(url, time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)*time.Minute)
@@ -654,7 +654,7 @@ func listAllBundles(cfg *config.Config, DCOSTools DCOSHelper) (map[string][]bund
 	}
 	for _, master := range masterNodes {
 		var bundleUrls []bundle
-		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/list", master.IP, cfg.FlagMasterPort, BaseRoute)
+		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/list", master.IP, cfg.FlagMasterPort, baseRoute)
 		body, _, err := DCOSTools.Get(url, time.Second*3)
 		if err != nil {
 			logrus.Errorf("Could not HTTP GET %s: %s", url, err)
@@ -833,7 +833,7 @@ func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalCo
 	for _, unit := range append(units, cfg.SystemdUnits...) {
 		httpEndpoints = append(httpEndpoints, HTTPProvider{
 			Port:     port,
-			URI:      fmt.Sprintf("%s/logs/units/%s", BaseRoute, unit),
+			URI:      fmt.Sprintf("%s/logs/units/%s", baseRoute, unit),
 			FileName: unit,
 		})
 	}
@@ -841,7 +841,7 @@ func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalCo
 	// add dcos-diagnostics health report.
 	httpEndpoints = append(httpEndpoints, HTTPProvider{
 		Port:     port,
-		URI:      BaseRoute,
+		URI:      baseRoute,
 		FileName: "dcos-diagnostics-health.json",
 	})
 
@@ -896,7 +896,7 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 		if !matchRole(currentRole, file.Role) {
 			continue
 		}
-		endpoints[file.Location] = fmt.Sprintf(":%d%s/logs/files/%s", port, BaseRoute, file.sanitizedLocation)
+		endpoints[file.Location] = fmt.Sprintf(":%d%s/logs/files/%s", port, baseRoute, file.sanitizedLocation)
 	}
 
 	// command endpoints
@@ -905,7 +905,7 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 			continue
 		}
 		if c.indexedCommand != "" {
-			endpoints[c.indexedCommand] = fmt.Sprintf(":%d%s/logs/cmds/%s", port, BaseRoute, c.indexedCommand)
+			endpoints[c.indexedCommand] = fmt.Sprintf(":%d%s/logs/cmds/%s", port, baseRoute, c.indexedCommand)
 		}
 	}
 	return endpoints, nil
