@@ -195,14 +195,14 @@ func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (Heal
 	}, nil
 }
 
-// CheckUnitHealth tells if the Unit is healthy
-func (u *UnitPropertiesResponse) CheckUnitHealth() (int, string, error) {
+// CheckUnitHealth tells if the Unit is Healthy
+func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
 
 	if u.ActiveState != string(svc.Running) {
 		logrus.Infof("The ActiveState is %s, not in running state(4)", u.ActiveState)
-		return 1, fmt.Sprintf("The ActiveState is %s, not in running state(4)", u.ActiveState), nil
+		return Healthy, fmt.Sprintf("The ActiveState is %s, not in running state(4)", u.ActiveState), nil
 	}
-	return 0, "", nil
+	return Unhealthy, "", nil
 }
 
 func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
