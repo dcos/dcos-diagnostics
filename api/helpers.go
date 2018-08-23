@@ -20,24 +20,6 @@ const (
 	unitProperty        = "UNIT"
 )
 
-/*
-// DCOSTools is implementation of DCOSHelper interface.
-type DCOSTools struct {
-	sync.Mutex
-
-	ExhibitorURL string
-	Role         string
-	ForceTLS     bool
-	NodeInfo     nodeutil.NodeInfo
-	Transport    http.RoundTripper
-
-	dcon     *dbus.Conn
-	hostname string
-	ip       string
-	mesosID  string
-}
-*/
-
 // GetHostname return a localhost hostname.
 func (st *DCOSTools) GetHostname() (string, error) {
 	if st.hostname != "" {
