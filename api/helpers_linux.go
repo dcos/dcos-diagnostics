@@ -166,25 +166,25 @@ func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (Heal
 }
 
 // CheckUnitHealth tells if the Unit is healthy
-func (u *UnitPropertiesResponse) CheckUnitHealth() (int, string, error) {
+func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
 	if u.LoadState == "" || u.ActiveState == "" || u.SubState == "" {
-		return 1, "", fmt.Errorf("LoadState: %s, ActiveState: %s and SubState: %s must be set",
+		return Healthy, "", fmt.Errorf("LoadState: %s, ActiveState: %s and SubState: %s must be set",
 			u.LoadState, u.ActiveState, u.SubState)
 	}
 
 	if u.LoadState != "loaded" {
-		return 1, fmt.Sprintf("%s is not loaded. Please check `systemctl show all` to check current Unit status.", u.ID), nil
+		return Healthy, fmt.Sprintf("%s is not loaded. Please check `systemctl show all` to check current Unit status.", u.ID), nil
 	}
 
 	okActiveStates := []string{"active", "inactive", "activating"}
 	if !isInList(u.ActiveState, okActiveStates) {
-		return 1, fmt.Sprintf(
+		return Healthy, fmt.Sprintf(
 			"%s state is not one of the possible states %s. Current state is [ %s ]. "+
 				"Please check `systemctl show all %s` to check current Unit state. ", u.ID, okActiveStates, u.ActiveState, u.ID), nil
 	}
 	logrus.Debugf("%s| ExecMainStatus = %d", u.ID, u.ExecMainStatus)
 	if u.ExecMainStatus != 0 {
-		return 1, fmt.Sprintf("ExecMainStatus return failed status for %s", u.ID), nil
+		return Healthy, fmt.Sprintf("ExecMainStatus return failed status for %s", u.ID), nil
 	}
 
 	// https://www.freedesktop.org/wiki/Software/systemd/dbus/
@@ -193,17 +193,17 @@ func (u *UnitPropertiesResponse) CheckUnitHealth() (int, string, error) {
 		// If ActiveEnterTimestampMonotonic is 0, it means that Unit has never been able to switch to active state.
 		// Most likely a ExecStartPre fails before the Unit can execute ExecStart.
 		if u.ActiveEnterTimestampMonotonic == 0 {
-			return 1, fmt.Sprintf("Unit %s has never entered `active` state", u.ID), nil
+			return Healthy, fmt.Sprintf("Unit %s has never entered `active` state", u.ID), nil
 		}
 
 		// If InactiveEnterTimestampMonotonic > ActiveEnterTimestampMonotonic that means that a Unit was active
 		// some time ago, but then something happened and it cannot restart.
 		if u.InactiveEnterTimestampMonotonic > u.ActiveEnterTimestampMonotonic {
-			return 1, fmt.Sprintf("Unit %s is flapping. Please check `systemctl status %s` to check current Unit state.", u.ID, u.ID), nil
+			return Healthy, fmt.Sprintf("Unit %s is flapping. Please check `systemctl status %s` to check current Unit state.", u.ID, u.ID), nil
 		}
 	}
 
-	return 0, "", nil
+	return Unhealthy, "", nil
 }
 
 func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {

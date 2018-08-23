@@ -626,7 +626,7 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 
 	host.Output = make(map[string]string)
 
-	// if at least one Unit is not healthy, the host should be set unhealthy
+	// if at least one Unit is not Healthy, the host should be set Unhealthy
 	for _, propertiesMap := range jsonBody.Array {
 		if propertiesMap.UnitHealth > host.Health {
 			host.Health = propertiesMap.UnitHealth

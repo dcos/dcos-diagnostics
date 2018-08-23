@@ -16,11 +16,21 @@ type MonitoringResponse struct {
 	UpdatedTime time.Time
 }
 
+// Health is a type to indicates health of the unit.
+type Health int
+
+const (
+	// Unhealthy indicates Unit is not healthy
+	Unhealthy = 0
+	// Healthy indicates Unit is healthy
+	Healthy = 1
+)
+
 // Unit for stands for systemd unit.
 type Unit struct {
 	UnitName   string
 	Nodes      []Node `json:",omitempty"`
-	Health     int
+	Health     Health
 	Title      string
 	Timestamp  time.Time
 	PrettyName string
@@ -32,7 +42,7 @@ type Node struct {
 	Role    string
 	IP      string
 	Host    string
-	Health  int
+	Health  Health
 	Output  map[string]string
 	Units   []Unit `json:",omitempty"`
 	MesosID string
@@ -59,7 +69,7 @@ type UnitsHealthResponseJSONStruct struct {
 // HealthResponseValues is a health values json response.
 type HealthResponseValues struct {
 	UnitID     string `json:"id"`
-	UnitHealth int    `json:"health"`
+	UnitHealth Health `json:"health"`
 	UnitOutput string `json:"output"`
 	UnitTitle  string `json:"description"`
 	Help       string `json:"help"`
@@ -75,7 +85,7 @@ type UnitsResponseJSONStruct struct {
 type UnitResponseFieldsStruct struct {
 	UnitID     string `json:"id"`
 	PrettyName string `json:"name"`
-	UnitHealth int    `json:"health"`
+	UnitHealth Health `json:"health"`
 	UnitTitle  string `json:"description"`
 }
 
@@ -87,14 +97,14 @@ type NodesResponseJSONStruct struct {
 // NodeResponseFieldsStruct contains a response from a node.
 type NodeResponseFieldsStruct struct {
 	HostIP     string `json:"host_ip"`
-	NodeHealth int    `json:"health"`
+	NodeHealth Health `json:"health"`
 	NodeRole   string `json:"role"`
 }
 
 // NodeResponseFieldsWithErrorStruct contains node response with errors.
 type NodeResponseFieldsWithErrorStruct struct {
 	HostIP     string `json:"host_ip"`
-	NodeHealth int    `json:"health"`
+	NodeHealth Health `json:"health"`
 	NodeRole   string `json:"role"`
 	UnitOutput string `json:"output"`
 	Help       string `json:"help"`
