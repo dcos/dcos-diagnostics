@@ -393,7 +393,9 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 
 	s.assert.Equal(responseJSON.Status, "Job has been successfully started")
 	s.assert.NotEmpty(responseJSON.Extra.LastBundleFile)
-	time.Sleep(2 * time.Second)
+
+	s.assert.True(s.waitForBundle())
+
 	snapshotFiles, err := ioutil.ReadDir(DiagnosticsBundleDir)
 	s.assert.NoError(err)
 	s.assert.True(len(snapshotFiles) > 0)
@@ -401,6 +403,34 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 	stat, err := os.Stat(bundle)
 	s.assert.NoError(err)
 	s.assert.False(stat.IsDir())
+}
+
+func (s *DiagnosticsTestSuit) waitForBundle() bool {
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			s.T().Log("Timeout!")
+			return false
+		default:
+			response, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/status", "GET", nil)
+			if code != http.StatusOK {
+				s.T().Logf("Invalid status code: %d", code)
+				continue
+			}
+			diagnosticsJob := bundleReportStatus{}
+			if err := json.Unmarshal(response, &diagnosticsJob); err != nil {
+				s.T().Logf("Error when unmarshaling response: %s", err)
+				continue
+			}
+			if diagnosticsJob.Running {
+				s.T().Log("Bundle is not available. Retrying")
+				continue
+			}
+			s.T().Logf("Bundle is available: %s", diagnosticsJob.LastBundlePath)
+			return true
+		}
+	}
 }
 
 func TestSnapshotTestSuit(t *testing.T) {

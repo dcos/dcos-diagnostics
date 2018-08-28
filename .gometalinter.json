@@ -3,7 +3,7 @@
   "Concurrency": 4,
   "LineLength": 150,
   "Cyclo": 20,
-  "Deadline": "300s",
+  "Deadline": "600s",
   "DisableAll": true,
   "Enable": [
     "deadcode",
