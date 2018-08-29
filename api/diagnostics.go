@@ -37,7 +37,7 @@ const (
 
 // DiagnosticsJob is the main structure for a logs collection job.
 type DiagnosticsJob struct {
-	sync.Mutex
+	sync.RWMutex
 	cancelChan   chan bool
 	logProviders *LogProviders
 
@@ -123,7 +123,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 	if err != nil {
 		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, err)
 	}
-	logrus.Debugf("Found requested nodes: %s", foundNodes)
+	logrus.Debugf("Found requested nodes: %x", foundNodes)
 
 	// try to create directory for diagnostic bundles
 	_, err = os.Stat(dt.Cfg.FlagDiagnosticsBundleDir)
@@ -446,10 +446,12 @@ func (j *DiagnosticsJob) getStatus() bundleReportStatus {
 	} else {
 		logrus.Errorf("Could not get a disk usage %s: %s", cfg.FlagDiagnosticsBundleDir, err)
 	}
-	return bundleReportStatus{
+
+	j.RLock()
+	status := bundleReportStatus{
 		Running:               j.Running,
 		Status:                j.Status,
-		Errors:                j.Errors,
+		Errors:                append([]string{}, j.Errors...),
 		LastBundlePath:        j.LastBundlePath,
 		JobStarted:            j.JobStarted.String(),
 		JobEnded:              j.JobEnded.String(),
@@ -464,6 +466,8 @@ func (j *DiagnosticsJob) getStatus() bundleReportStatus {
 
 		DiskUsedPercent: used,
 	}
+	j.RUnlock()
+	return status
 }
 
 type diagnosticsJobCanceledError struct {
@@ -630,11 +634,15 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 }
 
 func (j *DiagnosticsJob) start() {
+	j.Lock()
 	j.Running = true
+	j.Unlock()
 }
 
 func (j *DiagnosticsJob) stop() {
+	j.Lock()
 	j.Running = false
+	j.Unlock()
 }
 
 // get a list of all bundles across the cluster.
