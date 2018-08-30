@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,38 +12,19 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	assertPackage "github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type DiagnosticsTestSuit struct {
-	suite.Suite
-	assert *assertPackage.Assertions
-	dt     *Dt
-	router *mux.Router
-}
-
-func (s *DiagnosticsTestSuit) http(url, method string, body io.Reader) ([]byte, int) {
-	// Create a new router for each request
-	router := NewRouter(s.dt)
-	response, statusCode, err := MakeHTTPRequest(s.T(), router, url, method, body)
-	s.assert.NoError(err)
-	return response, statusCode
-}
-
-func (s *DiagnosticsTestSuit) SetupTest() {
-	s.assert = assertPackage.New(s.T())
+func TestFindRequestedNodes(t *testing.T) {
 	tools := &fakeDCOSTools{}
-	s.dt = &Dt{
+	dt := &Dt{
 		Cfg:              testCfg,
 		DtDCOSTools:      tools,
 		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
-	s.router = NewRouter(s.dt)
-}
 
-func (s *DiagnosticsTestSuit) TestFindRequestedNodes() {
 	mockedGlobalMonitoringResponse := &MonitoringResponse{
 		Nodes: map[string]Node{
 			"10.10.0.1": {
@@ -67,70 +47,86 @@ func (s *DiagnosticsTestSuit) TestFindRequestedNodes() {
 			},
 		},
 	}
-	s.dt.MR.UpdateMonitoringResponse(mockedGlobalMonitoringResponse)
+	dt.MR.UpdateMonitoringResponse(mockedGlobalMonitoringResponse)
 
 	// should return masters + agents
 	requestedNodes := []string{"all"}
-	nodes, err := findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 4)
-	s.assert.Contains(nodes, Node{IP: "10.10.0.1", Role: "master"})
-	s.assert.Contains(nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-	s.assert.Contains(nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
-	s.assert.Contains(nodes, Node{IP: "127.0.0.1", Role: "agent"})
+	nodes, err := findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 4)
+	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
+	assert.Contains(t, nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
+	assert.Contains(t, nodes, Node{IP: "127.0.0.1", Role: "agent"})
 
 	// should return only masters
 	requestedNodes = []string{"masters"}
-	nodes, err = findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 3)
-	s.assert.Contains(nodes, Node{IP: "10.10.0.1", Role: "master"})
-	s.assert.Contains(nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-	s.assert.Contains(nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
+	nodes, err = findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 3)
+	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
+	assert.Contains(t, nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
 
 	// should return only agents
 	requestedNodes = []string{"agents"}
-	nodes, err = findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 1)
-	s.assert.Contains(nodes, Node{IP: "127.0.0.1", Role: "agent"})
+	nodes, err = findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Contains(t, nodes, Node{IP: "127.0.0.1", Role: "agent"})
 
 	// should return host with ip
 	requestedNodes = []string{"10.10.0.1"}
-	nodes, err = findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 1)
-	s.assert.Contains(nodes, Node{IP: "10.10.0.1", Role: "master"})
+	nodes, err = findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
 
 	// should return host with hostname
 	requestedNodes = []string{"my-host.com"}
-	nodes, err = findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 1)
-	s.assert.Contains(nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
+	nodes, err = findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Contains(t, nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
 
 	// should return host with mesos-id
 	requestedNodes = []string{"12345-12345"}
-	nodes, err = findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 1)
-	s.assert.Contains(nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
+	nodes, err = findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Contains(t, nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
 
 	// should return agents and node with ip
 	requestedNodes = []string{"agents", "10.10.0.1"}
-	nodes, err = findRequestedNodes(requestedNodes, s.dt)
-	s.assert.Nil(err)
-	s.assert.Len(nodes, 2)
-	s.assert.Contains(nodes, Node{IP: "10.10.0.1", Role: "master"})
-	s.assert.Contains(nodes, Node{IP: "127.0.0.1", Role: "agent"})
+	nodes, err = findRequestedNodes(requestedNodes, dt)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 2)
+	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, Node{IP: "127.0.0.1", Role: "agent"})
 }
 
-func (s *DiagnosticsTestSuit) TestGetStatus() {
-	status := s.dt.DtDiagnosticsJob.getStatus()
-	s.assert.Equal(status.DiagnosticBundlesBaseDir, DiagnosticsBundleDir)
+func TestGetStatus(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+
+	status := dt.DtDiagnosticsJob.getStatus()
+	assert.Equal(t, status.DiagnosticBundlesBaseDir, DiagnosticsBundleDir)
 }
 
-func (s *DiagnosticsTestSuit) TestGetAllStatus() {
+func TestGetAllStatus(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+
 	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", BaseRoute)
 	mockedResponse := `
 			{
@@ -149,15 +145,12 @@ func (s *DiagnosticsTestSuit) TestGetAllStatus() {
 			  "command_exec_timeout_sec": 10
 			}
 	`
-	st := &fakeDCOSTools{}
-	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-	s.dt.DtDCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
+	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 
-	status, err := s.dt.DtDiagnosticsJob.getStatusAll()
-	s.assert.Nil(err)
-	s.assert.Contains(status, "127.0.0.1")
-	s.assert.Equal(status["127.0.0.1"], bundleReportStatus{
+	status, err := dt.DtDiagnosticsJob.getStatusAll()
+	require.NoError(t, err)
+	assert.Contains(t, status, "127.0.0.1")
+	assert.Equal(t, status["127.0.0.1"], bundleReportStatus{
 		Running:                                  true,
 		Status:                                   "MyStatus",
 		LastBundlePath:                           "/path/to/snapshot",
@@ -173,31 +166,45 @@ func (s *DiagnosticsTestSuit) TestGetAllStatus() {
 	})
 }
 
-func (s *DiagnosticsTestSuit) TestisSnapshotAvailable() {
+func TestIsSnapshotAvailable(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+
 	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/list", BaseRoute)
 	mockedResponse := `[{"file_name": "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip", "file_size": 123}]`
 
-	st := &fakeDCOSTools{}
-	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-	s.dt.DtDCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
+	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 
 	// should find
-	host, remoteSnapshot, ok, err := s.dt.DtDiagnosticsJob.isBundleAvailable("bundle-2016-05-13T22:11:36.zip")
-	s.assert.True(ok)
-	s.assert.Equal(host, "127.0.0.1")
-	s.assert.Equal(remoteSnapshot, "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip")
-	s.assert.Nil(err)
+	host, remoteSnapshot, ok, err := dt.DtDiagnosticsJob.isBundleAvailable("bundle-2016-05-13T22:11:36.zip")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, host, "127.0.0.1")
+	assert.Equal(t, remoteSnapshot, "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip")
 
 	// should not find
-	host, remoteSnapshot, ok, err = s.dt.DtDiagnosticsJob.isBundleAvailable("bundle-123.zip")
-	s.assert.False(ok)
-	s.assert.Empty(host)
-	s.assert.Empty(remoteSnapshot)
-	s.assert.Nil(err)
+	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("bundle-123.zip")
+	assert.False(t, ok)
+	assert.Empty(t, host)
+	assert.Empty(t, remoteSnapshot)
+	require.NoError(t, err)
 }
 
-func (s *DiagnosticsTestSuit) TestCancelNotRunningJob() {
+func TestCancelNotRunningJob(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+	router := NewRouter(dt)
+
 	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", BaseRoute)
 	mockedResponse := `
 			{
@@ -218,16 +225,17 @@ func (s *DiagnosticsTestSuit) TestCancelNotRunningJob() {
 	`
 	st := &fakeDCOSTools{}
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-	s.dt.DtDCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
+	dt.DtDCOSTools = st
+	dt.DtDiagnosticsJob.DCOSTools = st
 
 	// Job should fail because it is not running
-	response, code := s.http("/system/health/v1/report/diagnostics/cancel", "POST", nil)
-	s.assert.Equal(code, http.StatusServiceUnavailable)
+	response, code, err := MakeHTTPRequest(t, router, "/system/health/v1/report/diagnostics/cancel", "POST", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, code, http.StatusServiceUnavailable)
 	var responseJSON diagnosticsReportResponse
-	err := json.Unmarshal(response, &responseJSON)
-	s.assert.NoError(err)
-	s.assert.Equal(responseJSON, diagnosticsReportResponse{
+	err = json.Unmarshal(response, &responseJSON)
+	assert.NoError(t, err)
+	assert.Equal(t, responseJSON, diagnosticsReportResponse{
 		Version:      1,
 		Status:       "Job is not running",
 		ResponseCode: http.StatusServiceUnavailable,
@@ -235,7 +243,15 @@ func (s *DiagnosticsTestSuit) TestCancelNotRunningJob() {
 }
 
 // Test we can cancel a job running on a different node.
-func (s *DiagnosticsTestSuit) TestCancelGlobalJob() {
+func TestCancelGlobalJob(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+	router := NewRouter(dt)
 
 	// mock job status response
 	url := "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status/all"
@@ -274,35 +290,54 @@ func (s *DiagnosticsTestSuit) TestCancelGlobalJob() {
 			}
 	`
 	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-	s.dt.DtDCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
+	dt.DtDCOSTools = st
+	dt.DtDiagnosticsJob.DCOSTools = st
 
-	s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
+	MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
 
 	// if we have the url in f.postRequestsMade, that means the redirect worked correctly
-	s.assert.Contains(st.postRequestsMade, "http://10.0.7.252:1050/system/health/v1/report/diagnostics/cancel")
+	assert.Contains(t, st.postRequestsMade, "http://10.0.7.252:1050/system/health/v1/report/diagnostics/cancel")
 }
 
 // try cancel a local job
-func (s *DiagnosticsTestSuit) TestCancelLocalJob() {
-	s.dt.DtDiagnosticsJob.Running = true
-	s.dt.DtDiagnosticsJob.cancelChan = make(chan bool, 1)
-	response, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
-	s.assert.Equal(code, http.StatusOK)
+func TestCancelLocalJob(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+	router := NewRouter(dt)
+
+	dt.DtDiagnosticsJob.Running = true
+	dt.DtDiagnosticsJob.cancelChan = make(chan bool, 1)
+	response, code, err := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, code, http.StatusOK)
 
 	var responseJSON diagnosticsReportResponse
-	err := json.Unmarshal(response, &responseJSON)
-	s.assert.NoError(err)
-	s.assert.Equal(responseJSON, diagnosticsReportResponse{
+	err = json.Unmarshal(response, &responseJSON)
+	require.NoError(t, err)
+	assert.Equal(t, responseJSON, diagnosticsReportResponse{
 		Version:      1,
 		Status:       "Attempting to cancel a job, please check job status.",
 		ResponseCode: http.StatusOK,
 	})
-	r := <-s.dt.DtDiagnosticsJob.cancelChan
-	s.assert.True(r)
+	r := <-dt.DtDiagnosticsJob.cancelChan
+	assert.True(t, r)
 }
 
-func (s *DiagnosticsTestSuit) TestFailRunSnapshotJob() {
+func TestFailRunSnapshotJob(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+	router := NewRouter(dt)
+
 	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", BaseRoute)
 	mockedResponse := `
 			{
@@ -321,31 +356,33 @@ func (s *DiagnosticsTestSuit) TestFailRunSnapshotJob() {
 			  "command_exec_timeout_sec": 10
 			}
 	`
-	st := &fakeDCOSTools{}
-	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-	s.dt.DtDCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
+	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 
 	// should fail since request is in wrong format
 	body := bytes.NewBuffer([]byte(`{"nodes": "wrong"}`))
-	_, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)
-	s.assert.Equal(code, http.StatusBadRequest)
+	_, code, _ := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)
+	assert.Equal(t, code, http.StatusBadRequest)
 
 	// node should not be found
 	body = bytes.NewBuffer([]byte(`{"nodes": ["192.168.0.1"]}`))
-	response, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)
-	s.assert.Equal(code, http.StatusServiceUnavailable)
+	response, code, _ := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)
+	assert.Equal(t, code, http.StatusServiceUnavailable)
 
 	var responseJSON diagnosticsReportResponse
-	if err := json.Unmarshal(response, &responseJSON); err != nil {
-		s.Assert()
-	}
-	s.assert.Equal(responseJSON.Status, "Requested nodes: [192.168.0.1] not found")
+	err := json.Unmarshal(response, &responseJSON)
+	require.NoError(t, err)
+	assert.Equal(t, responseJSON.Status, "Requested nodes: [192.168.0.1] not found")
 }
 
-func (s *DiagnosticsTestSuit) TestRunSnapshot() {
-	// add fake response for status/all
-	st := &fakeDCOSTools{}
+func TestRunSnapshot(t *testing.T) {
+	tools := &fakeDCOSTools{}
+	dt := &Dt{
+		Cfg:              testCfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		MR:               &MonitoringResponse{},
+	}
+	router := NewRouter(dt)
 
 	url := "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status"
 	mockedResponse := `
@@ -365,74 +402,68 @@ func (s *DiagnosticsTestSuit) TestRunSnapshot() {
 			  "command_exec_timeout_sec": 10
 			}
 	`
-	st.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-
-	// update DtDCOSTools
-	s.dt.DtDCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
-	s.dt.DtDiagnosticsJob.DCOSTools = st
+	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 
 	body := bytes.NewBuffer([]byte(`{"nodes": ["all"]}`))
-	response, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)
-	s.assert.Equal(code, http.StatusOK)
+	response, code, _ := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)
+	assert.Equal(t, code, http.StatusOK)
 	var responseJSON createResponse
-	if err := json.Unmarshal(response, &responseJSON); err != nil {
-		s.Assert()
-	}
+	err := json.Unmarshal(response, &responseJSON)
+	assert.NoError(t, err)
 
 	bundle := DiagnosticsBundleDir + "/" + responseJSON.Extra.LastBundleFile
 	defer func() {
 		err := os.Remove(bundle)
-		s.assert.NoError(err)
+		assert.NoError(t, err)
 	}()
 
 	bundleRegexp := `^bundle-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{10}\.zip$`
 	validBundleName := regexp.MustCompile(bundleRegexp)
-	s.assert.True(validBundleName.MatchString(responseJSON.Extra.LastBundleFile),
+	assert.True(t, validBundleName.MatchString(responseJSON.Extra.LastBundleFile),
 		"invalid bundle name %s. Must match regexp: %s", responseJSON.Extra.LastBundleFile, bundleRegexp)
 
-	s.assert.Equal(responseJSON.Status, "Job has been successfully started")
-	s.assert.NotEmpty(responseJSON.Extra.LastBundleFile)
+	assert.Equal(t, responseJSON.Status, "Job has been successfully started")
+	assert.NotEmpty(t, responseJSON.Extra.LastBundleFile)
 
-	s.assert.True(s.waitForBundle())
+	assert.True(t, waitForBundle(t, router))
 
 	snapshotFiles, err := ioutil.ReadDir(DiagnosticsBundleDir)
-	s.assert.NoError(err)
-	s.assert.True(len(snapshotFiles) > 0)
+	assert.NoError(t, err)
+	assert.True(t, len(snapshotFiles) > 0)
 
 	stat, err := os.Stat(bundle)
-	s.assert.NoError(err)
-	s.assert.False(stat.IsDir())
+	assert.NoError(t, err)
+	assert.False(t, stat.IsDir())
 }
 
-func (s *DiagnosticsTestSuit) waitForBundle() bool {
+func waitForBundle(t *testing.T, router *mux.Router) bool {
 	timeout := time.After(2 * time.Second)
 	for {
 		select {
 		case <-timeout:
-			s.T().Log("Timeout!")
+			t.Log("Timeout!")
 			return false
 		default:
-			response, code := s.http("http://127.0.0.1:1050/system/health/v1/report/diagnostics/status", "GET", nil)
+			response, code, err := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status", "GET", nil)
+			if err != nil {
+				t.Logf("Error: %d", err)
+				continue
+			}
 			if code != http.StatusOK {
-				s.T().Logf("Invalid status code: %d", code)
+				t.Logf("Invalid status code: %d", code)
 				continue
 			}
 			diagnosticsJob := bundleReportStatus{}
 			if err := json.Unmarshal(response, &diagnosticsJob); err != nil {
-				s.T().Logf("Error when unmarshaling response: %s", err)
+				t.Logf("Error when unmarshaling response: %s", err)
 				continue
 			}
 			if diagnosticsJob.Running {
-				s.T().Log("Bundle is not available. Retrying")
+				t.Log("Bundle is not available. Retrying")
 				continue
 			}
-			s.T().Logf("Bundle is available: %s", diagnosticsJob.LastBundlePath)
+			t.Logf("Bundle is available: %s", diagnosticsJob.LastBundlePath)
 			return true
 		}
 	}
-}
-
-func TestSnapshotTestSuit(t *testing.T) {
-	suite.Run(t, new(DiagnosticsTestSuit))
 }
