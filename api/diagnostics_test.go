@@ -19,9 +19,9 @@ import (
 func TestFindRequestedNodes(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 
@@ -107,23 +107,24 @@ func TestFindRequestedNodes(t *testing.T) {
 
 func TestGetStatus(t *testing.T) {
 	tools := &fakeDCOSTools{}
+	config := testCfg()
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              config,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: config, DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 
 	status := dt.DtDiagnosticsJob.getStatus()
-	assert.Equal(t, status.DiagnosticBundlesBaseDir, DiagnosticsBundleDir)
+	assert.Equal(t, status.DiagnosticBundlesBaseDir, config.FlagDiagnosticsBundleDir)
 }
 
 func TestGetAllStatus(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 
@@ -169,9 +170,9 @@ func TestGetAllStatus(t *testing.T) {
 func TestIsSnapshotAvailable(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 
@@ -198,9 +199,9 @@ func TestIsSnapshotAvailable(t *testing.T) {
 func TestCancelNotRunningJob(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -246,9 +247,9 @@ func TestCancelNotRunningJob(t *testing.T) {
 func TestCancelGlobalJob(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -303,9 +304,9 @@ func TestCancelGlobalJob(t *testing.T) {
 func TestCancelLocalJob(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -331,9 +332,9 @@ func TestCancelLocalJob(t *testing.T) {
 func TestFailRunSnapshotJob(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -377,9 +378,9 @@ func TestFailRunSnapshotJob(t *testing.T) {
 func TestRunSnapshot(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
-		Cfg:              testCfg,
+		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -411,7 +412,7 @@ func TestRunSnapshot(t *testing.T) {
 	err := json.Unmarshal(response, &responseJSON)
 	assert.NoError(t, err)
 
-	bundle := DiagnosticsBundleDir + "/" + responseJSON.Extra.LastBundleFile
+	bundle := dt.Cfg.FlagDiagnosticsBundleDir + "/" + responseJSON.Extra.LastBundleFile
 	defer func() {
 		err := os.Remove(bundle)
 		assert.NoError(t, err)
@@ -427,7 +428,7 @@ func TestRunSnapshot(t *testing.T) {
 
 	assert.True(t, waitForBundle(t, router))
 
-	snapshotFiles, err := ioutil.ReadDir(DiagnosticsBundleDir)
+	snapshotFiles, err := ioutil.ReadDir(dt.Cfg.FlagDiagnosticsBundleDir)
 	assert.NoError(t, err)
 	assert.True(t, len(snapshotFiles) > 0)
 

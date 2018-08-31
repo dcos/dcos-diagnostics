@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -19,17 +19,16 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-var DiagnosticsBundleDir = "/tmp/snapshot-test"
-var testCfg *config.Config
 
-func init() {
-	if runtime.GOOS == "windows" {
-		DiagnosticsBundleDir = os.Getenv("SYSTEMDRIVE") + "\\tmp\\snapshot-test"
+func testCfg() *config.Config {
+	diagnosticsBundleDir, err := ioutil.TempDir("", "diagnostic-bundle")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	testCfg = &config.Config{
+	return &config.Config{
 		FlagRole:                 "master",
-		FlagDiagnosticsBundleDir: DiagnosticsBundleDir,
+		FlagDiagnosticsBundleDir: diagnosticsBundleDir,
 		FlagPort:                 1050,
 		FlagMasterPort:           1050,
 	}
@@ -246,7 +245,7 @@ type HandlersTestSuit struct {
 func (s *HandlersTestSuit) SetupTest() {
 	// setup variables
 	s.dt = &Dt{
-		Cfg:         testCfg,
+		Cfg:         testCfg(),
 		DtDCOSTools: &fakeDCOSTools{},
 		MR:          &MonitoringResponse{},
 	}

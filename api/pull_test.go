@@ -18,7 +18,7 @@ func (s *PullerTestSuit) SetupTest() {
 	s.assert = assertPackage.New(s.T())
 	s.dt = &Dt{
 		DtDCOSTools: &fakeDCOSTools{},
-		Cfg:         testCfg,
+		Cfg:         testCfg(),
 		MR:          &MonitoringResponse{},
 	}
 	runPull(s.dt)
