@@ -1,0 +1,31 @@
+language: go
+
+language: go
+
+go:
+- 1.x
+- tip
+
+matrix:
+  fast_finish: true
+  allow_failures:
+  - go: tip
+
+before_install:
+- sudo apt-get install -y libsystemd-journal-dev
+
+script: go build
+
+jobs:
+  include:
+  - name: "Linter"            # names the first Tests stage job
+    script: go get -u github.com/alecthomas/gometalinter && gometalinter --install && gometalinter ./... --config .gometalinter.json
+  - name: "Tests"
+    script: go test -coverprofile=coverage.txt -covermode=atomic ./...
+
+after_success:
+- bash <(curl -s https://codecov.io/bash)
+
+addons:
+  apt:
+    update: true
