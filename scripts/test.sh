@@ -26,8 +26,8 @@ function logmsg {
 }
 
 function _gometalinter {
-    logmsg "Disable 'gometaliner' until https://github.com/alecthomas/gometalinter/issues/521"
-    #gometalinter ./...  --config=.gometalinter.json
+    logmsg "Running 'gometaliner' ..."
+    gometalinter ./...  --config=.gometalinter.json
 }
 
 function _unittest_with_coverage {
