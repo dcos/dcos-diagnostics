@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -169,10 +168,12 @@ func TestGetAllStatus(t *testing.T) {
 
 func TestIsSnapshotAvailable(t *testing.T) {
 	tools := &fakeDCOSTools{}
+	cfg := testCfg()
+	defer os.RemoveAll(cfg.FlagDiagnosticsBundleDir)
 	dt := &Dt{
-		Cfg:              testCfg(),
+		Cfg:              cfg,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 
@@ -377,8 +378,10 @@ func TestFailRunSnapshotJob(t *testing.T) {
 
 func TestRunSnapshot(t *testing.T) {
 	tools := &fakeDCOSTools{}
+	cfg := testCfg()
+	defer os.RemoveAll(cfg.FlagDiagnosticsBundleDir)
 	dt := &Dt{
-		Cfg:              testCfg(),
+		Cfg:              cfg,
 		DtDCOSTools:      tools,
 		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
 		MR:               &MonitoringResponse{},
@@ -412,12 +415,6 @@ func TestRunSnapshot(t *testing.T) {
 	err := json.Unmarshal(response, &responseJSON)
 	assert.NoError(t, err)
 
-	bundle := dt.Cfg.FlagDiagnosticsBundleDir + "/" + responseJSON.Extra.LastBundleFile
-	defer func() {
-		err := os.Remove(bundle)
-		assert.NoError(t, err)
-	}()
-
 	bundleRegexp := `^bundle-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{10}\.zip$`
 	validBundleName := regexp.MustCompile(bundleRegexp)
 	assert.True(t, validBundleName.MatchString(responseJSON.Extra.LastBundleFile),
@@ -426,18 +423,11 @@ func TestRunSnapshot(t *testing.T) {
 	assert.Equal(t, responseJSON.Status, "Job has been successfully started")
 	assert.NotEmpty(t, responseJSON.Extra.LastBundleFile)
 
-	assert.True(t, waitForBundle(t, router))
-
-	snapshotFiles, err := ioutil.ReadDir(dt.Cfg.FlagDiagnosticsBundleDir)
-	assert.NoError(t, err)
-	assert.True(t, len(snapshotFiles) > 0)
-
-	stat, err := os.Stat(bundle)
-	assert.NoError(t, err)
-	assert.False(t, stat.IsDir())
+	bundle := filepath.Join(dt.Cfg.FlagDiagnosticsBundleDir, responseJSON.Extra.LastBundleFile)
+	assert.True(t, waitForBundle(t, bundle))
 }
 
-func waitForBundle(t *testing.T, router *mux.Router) bool {
+func waitForBundle(t *testing.T, bundlePath string) bool {
 	timeout := time.After(2 * time.Second)
 	for {
 		select {
@@ -445,25 +435,13 @@ func waitForBundle(t *testing.T, router *mux.Router) bool {
 			t.Log("Timeout!")
 			return false
 		default:
-			response, code, err := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status", "GET", nil)
+			stat, err := os.Stat(bundlePath)
 			if err != nil {
 				t.Logf("Error: %d", err)
+				time.Sleep(time.Millisecond)
 				continue
 			}
-			if code != http.StatusOK {
-				t.Logf("Invalid status code: %d", code)
-				continue
-			}
-			diagnosticsJob := bundleReportStatus{}
-			if err := json.Unmarshal(response, &diagnosticsJob); err != nil {
-				t.Logf("Error when unmarshaling response: %s", err)
-				continue
-			}
-			if diagnosticsJob.Running {
-				t.Log("Bundle is not available. Retrying")
-				continue
-			}
-			t.Logf("Bundle is available: %s", diagnosticsJob.LastBundlePath)
+			assert.False(t, stat.IsDir())
 			return true
 		}
 	}
