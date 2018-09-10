@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-
 func testCfg() *config.Config {
 	diagnosticsBundleDir, err := ioutil.TempDir("", "diagnostic-bundle")
 	if err != nil {
@@ -27,10 +26,11 @@ func testCfg() *config.Config {
 	}
 
 	return &config.Config{
-		FlagRole:                 "master",
-		FlagDiagnosticsBundleDir: diagnosticsBundleDir,
-		FlagPort:                 1050,
-		FlagMasterPort:           1050,
+		FlagRole:                         "master",
+		FlagDiagnosticsBundleDir:         diagnosticsBundleDir,
+		FlagPort:                         1050,
+		FlagMasterPort:                   1050,
+		FlagDiagnosticsJobTimeoutMinutes: 1,
 	}
 }
 

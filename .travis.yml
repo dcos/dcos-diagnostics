@@ -24,6 +24,8 @@ jobs:
     script: go get -u github.com/alecthomas/gometalinter && gometalinter --install && gometalinter ./... --config .gometalinter.json
   - name: "Tests"
     script: go test -coverprofile=coverage.txt -covermode=atomic ./...
+  - name: "Test for flakines"
+    script: GOCACHE=off go test -run TestRunSnapshot ./api -count=50
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
