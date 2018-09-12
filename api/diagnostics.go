@@ -673,6 +673,7 @@ func listAllBundles(cfg *config.Config, DCOSTools DCOSHelper) (map[string][]bund
 func (j *DiagnosticsJob) isBundleAvailable(bundleName string) (string, string, bool, error) {
 	logrus.WithField("Bundle", bundleName).Infof("Trying to find a bundle locally")
 	localBundles, err := j.findLocalBundle()
+	logrus.WithField("localBundles", localBundles).Info("Get list of local bundles")
 	if err == nil {
 		for _, bundle := range localBundles {
 			if path.Base(bundle) == bundleName {
