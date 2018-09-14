@@ -671,18 +671,6 @@ func listAllBundles(cfg *config.Config, DCOSTools DCOSHelper) (map[string][]bund
 
 // check if a bundle is available on a cluster.
 func (j *DiagnosticsJob) isBundleAvailable(bundleName string) (string, string, bool, error) {
-	logrus.WithField("Bundle", bundleName).Infof("Trying to find a bundle locally")
-	localBundles, err := j.findLocalBundle()
-	logrus.WithField("localBundles", localBundles).Info("Get list of local bundles")
-	if err == nil {
-		for _, bundle := range localBundles {
-			if path.Base(bundle) == bundleName {
-				return "", "", true, nil
-			}
-		}
-	}
-	logrus.WithField("Bundle", bundleName).WithError(err).Info("Not found bundle locally")
-
 	bundles, err := listAllBundles(j.Cfg, j.DCOSTools)
 	if err != nil {
 		return "", "", false, err
