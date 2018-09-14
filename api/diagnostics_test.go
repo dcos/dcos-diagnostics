@@ -182,31 +182,14 @@ func TestIsSnapshotAvailable(t *testing.T) {
 
 	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 
-	validFilePath := filepath.Join(cfg.FlagDiagnosticsBundleDir, "bundle-local.zip")
-	_, err := os.Create(validFilePath)
-	require.NoError(t, err)
-	invalidFilePath := filepath.Join(cfg.FlagDiagnosticsBundleDir, "local-bundle.zip")
-	_, err = os.Create(invalidFilePath)
-	require.NoError(t, err)
-
+	// should find
 	host, remoteSnapshot, ok, err := dt.DtDiagnosticsJob.isBundleAvailable("bundle-2016-05-13T22:11:36.zip")
 	require.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, host, "127.0.0.1")
 	assert.Equal(t, remoteSnapshot, "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip")
 
-	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("bundle-local.zip")
-	require.NoError(t, err)
-	assert.True(t, ok)
-	assert.Empty(t, host)
-	assert.Empty(t, remoteSnapshot)
-
-	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("local-bundle.zip")
-	require.NoError(t, err)
-	assert.False(t, ok, "bundles must mach bundle-*.zip pattern")
-	assert.Empty(t, host)
-	assert.Empty(t, remoteSnapshot)
-
+	// should not find
 	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("bundle-123.zip")
 	assert.False(t, ok)
 	assert.Empty(t, host)
