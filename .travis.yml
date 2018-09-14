@@ -13,19 +13,14 @@ matrix:
 
 before_install:
 - sudo apt-get install -y libsystemd-journal-dev
+- go get -u github.com/golang/dep/cmd/dep
+- go get -u github.com/alecthomas/gometalinter
+- gometalinter --install
 
-script: go build
-
-jobs:
-  include:
-  - name: "Dep"
-    script: go get -u github.com/golang/dep/cmd/dep && dep check
-  - name: "Linter"            # names the first Tests stage job
-    script: go get -u github.com/alecthomas/gometalinter && gometalinter --install && gometalinter ./... --config .gometalinter.json
-  - name: "Tests"
-    script: go test -coverprofile=coverage.txt -covermode=atomic ./...
-  - name: "Test for flakines"
-    script: GOCACHE=off go test -run TestRunSnapshot ./api -count=50
+script:
+  - dep check
+  - gometalinter ./... --config .gometalinter.json
+  - go test -coverprofile=coverage.txt -covermode=atomic ./...
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
