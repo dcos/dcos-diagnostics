@@ -676,7 +676,7 @@ func (j *DiagnosticsJob) isBundleAvailable(bundleName string) (string, string, b
 	logrus.WithField("localBundles", localBundles).Info("Get list of local bundles")
 	if err == nil {
 		for _, bundle := range localBundles {
-			if path.Base(bundle) == bundleName {
+			if filepath.Base(bundle) == bundleName {
 				return "", "", true, nil
 			}
 		}
@@ -690,7 +690,7 @@ func (j *DiagnosticsJob) isBundleAvailable(bundleName string) (string, string, b
 	logrus.Infof("Trying to find a bundle %s on remote hosts", bundleName)
 	for host, remoteBundles := range bundles {
 		for _, remoteBundle := range remoteBundles {
-			if bundleName == path.Base(remoteBundle.File) {
+			if bundleName == filepath.Base(remoteBundle.File) {
 				logrus.Infof("Bundle %s found on a host: %s", bundleName, host)
 				hostPort := strings.Split(host, ":")
 				if len(hostPort) > 0 {
