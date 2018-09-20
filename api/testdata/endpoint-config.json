@@ -1,0 +1,73 @@
+{
+  "HTTPEndpoints": [
+    {
+      "Port": 5050,
+      "Uri": "/__processes__",
+      "Role": ["master"]
+    },
+    {
+      "Port": 5050,
+      "Uri": "/master/state-summary",
+      "Role": ["master"]
+    },
+    {
+      "Port": 5050,
+      "Uri": "/registrar(1)/registry",
+      "Role": ["master"]
+    },
+    {
+      "Port": 5050,
+      "Uri": "/system/stats.json",
+      "Role": ["master"]
+    },
+    {
+      "Port": 5051,
+      "Uri": "/__processes__",
+      "Role":["agent", "agent_public"]
+    },
+    {
+      "Port": 5051,
+      "Uri": "/metrics/snapshot",
+      "Role":["agent", "agent_public"]
+    },
+    {
+      "Port": 5051,
+      "Uri": "/system/stats.json",
+      "Role":["agent", "agent_public"]
+    }
+  ],
+  "LocalFiles": [
+    {
+      "Location": "/opt/mesosphere/active.buildinfo.full.json"
+    },
+    {
+      "Location": "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid",
+      "Role": ["master"]
+    },
+    {
+      "Location": "/var/lib/dcos/exhibitor/conf/zoo.cfg",
+      "Role": ["master"]
+    },
+    {
+      "Location": "/etc/resolv.conf"
+    }
+  ],
+  "LocalCommands": [
+    {
+      "Command": ["dmesg", "-T"]
+    },
+    {
+      "Command": ["ps", "aux", "ww", "Z"]
+    },
+    {
+      "Command": ["/opt/mesosphere/bin/curl", "-s", "-S", "http://localhost:62080/v1/vips"],
+      "Role":["agent", "agent_public"]
+    },
+    {
+      "Command": ["/bin/sh", "-c", "cat /etc/*-release"]
+    },
+    {
+      "Command": ["systemctl", "list-units", "dcos*"]
+    }
+  ]
+}

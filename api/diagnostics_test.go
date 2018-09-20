@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDiagnosticsJobInit(t *testing.T) {
+func TestDiagnosticsJobInitReturnsErrorWhenConfigurationIsInvalid(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
 
 	// file does not exist
@@ -33,12 +33,52 @@ func TestDiagnosticsJobInit(t *testing.T) {
 
 	err = job.Init()
 	assert.EqualError(t, err, "could not init diagnostic job: could not initialize external log providers: unexpected end of JSON input")
+}
 
-	_, err = tmpfile.WriteString("{}")
-	require.NoError(t, err)
+func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
 
-	err = job.Init()
+	err := job.Init()
 	assert.NoError(t, err)
+
+	assert.Equal(t, float32(-1), job.JobProgressPercentage)
+	httpProviders := map[string]HTTPProvider{
+		"5050-__processes__.json":         {Port: 5050, URI: "/__processes__", Role: []string{"master"}},
+		"5050-master_state-summary.json":  {Port: 5050, URI: "/master/state-summary", Role: []string{"master"}},
+		"5050-registrar_1__registry.json": {Port: 5050, URI: "/registrar(1)/registry", Role: []string{"master"}},
+		"5050-system_stats_json.json":     {Port: 5050, URI: "/system/stats.json", Role: []string{"master"}},
+		"5051-__processes__.json":         {Port: 5051, URI: "/__processes__", Role: []string{"agent", "agent_public"}},
+		"5051-metrics_snapshot.json":      {Port: 5051, URI: "/metrics/snapshot", Role: []string{"agent", "agent_public"}},
+		"5051-system_stats_json.json":     {Port: 5051, URI: "/system/stats.json", Role: []string{"agent", "agent_public"}},
+		"dcos-diagnostics-health.json":    {Port: 1050, URI: "/system/health/v1", FileName: "dcos-diagnostics-health.json"},
+		"dcos-download.service":           {Port: 1050, URI: "/system/health/v1/logs/units/dcos-download.service", FileName: "dcos-download.service"},
+		"dcos-link-env.service":           {Port: 1050, URI: "/system/health/v1/logs/units/dcos-link-env.service", FileName: "dcos-link-env.service"},
+		"dcos-setup.service":              {Port: 1050, URI: "/system/health/v1/logs/units/dcos-setup.service", FileName: "dcos-setup.service"},
+		"unit_a":                          {Port: 1050, URI: "/system/health/v1/logs/units/unit_a", FileName: "unit_a"},
+		"unit_b":                          {Port: 1050, URI: "/system/health/v1/logs/units/unit_b", FileName: "unit_b"},
+		"unit_c":                          {Port: 1050, URI: "/system/health/v1/logs/units/unit_c", FileName: "unit_c"},
+		"unit_to_fail":                    {Port: 1050, URI: "/system/health/v1/logs/units/unit_to_fail", FileName: "unit_to_fail"},
+	}
+
+	assert.Equal(t, httpProviders, job.logProviders.HTTPEndpoints)
+	assert.Equal(t, map[string]FileProvider{
+		"etc_resolv.conf": {Location: "/etc/resolv.conf"},
+		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json"},
+		"var_lib_dcos_exhibitor_conf_zoo.cfg":            {Location: "/var/lib/dcos/exhibitor/conf/zoo.cfg", Role: []string{"master"}},
+		"var_lib_dcos_exhibitor_zookeeper_snapshot_myid": {Location: "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid", Role: []string{"master"}},
+	}, job.logProviders.LocalFiles)
+
+	assert.Equal(t, map[string]CommandProvider{
+		"binsh_-c_cat etc*-release-3.output": {Command: []string{"/bin/sh", "-c", "cat /etc/*-release"}},
+		"dmesg_-T-0.output":                  {Command: []string{"dmesg", "-T"}},
+		"optmesospherebincurl_-s_-S_http:localhost:62080v1vips-2.output": {
+			Command: []string{"/opt/mesosphere/bin/curl", "-s", "-S", "http://localhost:62080/v1/vips"},
+			Role:    []string{"agent", "agent_public"},
+		},
+		"ps_aux_ww_Z-1.output":                {Command: []string{"ps", "aux", "ww", "Z"}},
+		"systemctl_list-units_dcos*-4.output": {Command: []string{"systemctl", "list-units", "dcos*"}},
+	}, job.logProviders.LocalCommands)
 
 }
 
