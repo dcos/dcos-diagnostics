@@ -28,6 +28,11 @@ const (
 	AgentPublicRole = dcos.RoleAgentPublic
 )
 
+// with the nodeFinder interface we can chain finding methods
+type nodeFinder interface {
+	find() ([]Node, error)
+}
+
 // find masters via dns. Used to find master nodes from agents.
 type findMastersInExhibitor struct {
 	url  string

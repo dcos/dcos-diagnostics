@@ -1,18 +1,8 @@
 package api
 
 import (
-	"net/http"
 	"time"
-
-	"github.com/dcos/dcos-diagnostics/config"
 )
-
-// HTTPRequester is an interface to make HTTP requests
-type HTTPRequester interface {
-	Init(*config.Config, DCOSHelper) error
-	Do(*http.Request, time.Duration) (*http.Response, error)
-	Transport() http.RoundTripper
-}
 
 // DCOSHelper DC/OS specific tools interface.
 type DCOSHelper interface {
@@ -62,9 +52,4 @@ type DCOSHelper interface {
 
 	// Get timestamp
 	GetTimestamp() time.Time
-}
-
-// with the nodeFinder interface we can chain finding methods
-type nodeFinder interface {
-	find() ([]Node, error)
 }
