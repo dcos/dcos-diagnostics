@@ -803,16 +803,26 @@ type CommandProvider struct {
 	indexedCommand string
 }
 
-func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
-	// return if Cfg file not found.
-	logrus.Debugf("Cfg.FlagDiagnosticsBundleEndpointsConfigFile: %s", cfg.FlagDiagnosticsBundleEndpointsConfigFile)
-	if _, err = os.Stat(cfg.FlagDiagnosticsBundleEndpointsConfigFile); err != nil {
-		if os.IsNotExist(err) {
-			logrus.Infof("%s not found", cfg.FlagDiagnosticsBundleEndpointsConfigFile)
-			return externalProviders, nil
-		}
+func loadProviders(cfg *config.Config, DCOSTools DCOSHelper) (*LogProviders, error) {
+	// load the internal providers
+	internalProviders, err := loadInternalProviders(cfg, DCOSTools)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
+	}
+	// load the external providers from a Cfg file
+	externalProviders, err := loadExternalProviders(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize external log providers: %s", err)
 	}
 
+	return &LogProviders{
+		HTTPEndpoints: append(internalProviders.HTTPEndpoints, externalProviders.HTTPEndpoints...),
+		LocalFiles:    append(internalProviders.LocalFiles, externalProviders.LocalFiles...),
+		LocalCommands: append(internalProviders.LocalCommands, externalProviders.LocalCommands...),
+	}, nil
+}
+
+func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
 	endpointsConfig, err := ioutil.ReadFile(cfg.FlagDiagnosticsBundleEndpointsConfigFile)
 	if err != nil {
 		return externalProviders, err
@@ -865,7 +875,7 @@ func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalCo
 func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err error) {
 	endpoints = make(map[string]string)
 	if j.logProviders == nil {
-		return endpoints, errors.New("log provders have not been initialized")
+		return endpoints, errors.New("log providers have not been initialized")
 	}
 
 	currentRole, err := j.DCOSTools.GetNodeRole()
@@ -924,28 +934,13 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 }
 
 // Init will prepare diagnostics job, read config files etc.
-func (j *DiagnosticsJob) Init() error {
-	j.logProviders = &LogProviders{}
-
+func (j *DiagnosticsJob) Init() (err error) {
+	j.logProviders, err = loadProviders(j.Cfg, j.DCOSTools)
+	if err != nil {
+		return fmt.Errorf("could not init diagnostic job: %s", err)
+	}
 	// set JobProgressPercentage -1 means the job has never been executed
 	j.JobProgressPercentage = -1
-
-	// load the internal providers
-	internalProviders, err := loadInternalProviders(j.Cfg, j.DCOSTools)
-	if err != nil {
-		logrus.Errorf("Could not initialize internal log providers: %s", err)
-	}
-
-	// load the external providers from a Cfg file
-	externalProviders, err := loadExternalProviders(j.Cfg)
-	if err != nil {
-		logrus.Errorf("Could not initialize external log providers: %s", err)
-	}
-
-	j.logProviders.HTTPEndpoints = append(internalProviders.HTTPEndpoints, externalProviders.HTTPEndpoints...)
-	j.logProviders.LocalFiles = append(internalProviders.LocalFiles, externalProviders.LocalFiles...)
-	j.logProviders.LocalCommands = append(internalProviders.LocalCommands, externalProviders.LocalCommands...)
-
 	// set filename if not set
 	for index, endpoint := range j.logProviders.HTTPEndpoints {
 		if endpoint.FileName == "" {
