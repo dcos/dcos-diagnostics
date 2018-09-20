@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +15,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDiagnosticsJobInit(t *testing.T) {
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+
+	// file does not exist
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = "test_endpoints-config.json"
+
+	err := job.Init()
+	assert.Error(t, err) // we can't use ErrorEqual: system errors differ between unix and windows
+	assert.Contains(t, err.Error(), "could not init diagnostic job: could not initialize external log providers: open test_endpoints-config.json:")
+
+	// file exists but is not valid JSON
+	tmpfile, err := ioutil.TempFile("", "test_endpoints-config.json")
+	defer os.Remove(tmpfile.Name())
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = tmpfile.Name()
+
+	err = job.Init()
+	assert.EqualError(t, err, "could not init diagnostic job: could not initialize external log providers: unexpected end of JSON input")
+
+	_, err = tmpfile.WriteString("{}")
+	require.NoError(t, err)
+
+	err = job.Init()
+	assert.NoError(t, err)
+
+}
 
 func TestFindRequestedNodes(t *testing.T) {
 	tools := &fakeDCOSTools{}

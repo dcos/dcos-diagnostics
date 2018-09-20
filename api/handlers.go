@@ -405,13 +405,13 @@ func logsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	endspoints, err := dt.DtDiagnosticsJob.getLogsEndpoints()
+	endpoints, err := dt.DtDiagnosticsJob.getLogsEndpoints()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
 		return
 	}
-	if err := json.NewEncoder(w).Encode(endspoints); err != nil {
+	if err := json.NewEncoder(w).Encode(endpoints); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
