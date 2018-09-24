@@ -55,10 +55,12 @@ type FakeHTTPContainer struct {
 }
 
 func (st *fakeDCOSTools) makeMockedResponse(url string, response []byte, statusCode int, e error) error {
+	if st.mockedRequest == nil {
+		st.mockedRequest = make(map[string]FakeHTTPContainer)
+	}
 	if _, ok := st.mockedRequest[url]; ok {
 		return errors.New(url + " is already added")
 	}
-	st.mockedRequest = make(map[string]FakeHTTPContainer)
 	st.mockedRequest[url] = FakeHTTPContainer{
 		mockResponse:   response,
 		mockStatusCode: statusCode,
