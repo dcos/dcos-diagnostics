@@ -108,7 +108,7 @@ func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, er
 		return nil, err
 	}
 	logrus.Debugf("config.DisplayName: [%s]", config.DisplayName)
-	logrus.Debugf("config.Description: [%d]", config.Description)
+	logrus.Debugf("config.Description: [%s]", config.Description)
 	logrus.Debugf("config.BinaryPathName: [%s]", config.BinaryPathName)
 
 	status, err := serviceHandle.Query()
@@ -123,7 +123,7 @@ func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, er
 	result["SubState"] = string(status.State)
 	result["Description"] = config.Description
 
-	logrus.Debugf("GetUnitProperties for service: result= %v", pname, result)
+	logrus.WithField("Result", result).WithField("Id", pname).Debug("GetUnitProperties for service")
 	return result, nil
 }
 
