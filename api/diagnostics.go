@@ -310,7 +310,8 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node) {
 			continue
 		}
 		// add http endpoints
-		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
+		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport,
+			summaryReport, percentPerNode)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 
@@ -341,7 +342,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node) {
 // delete a bundle
 func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportResponse, err error) {
 	if !strings.HasPrefix(bundleName, "bundle-") || !strings.HasSuffix(bundleName, ".zip") {
-		return prepareResponseWithErr(http.StatusServiceUnavailable, errors.New("format allowed  bundle-*.zip"))
+		return prepareResponseWithErr(http.StatusBadRequest, errors.New("format allowed  bundle-*.zip"))
 	}
 
 	j.Lock()
@@ -485,12 +486,11 @@ func (d diagnosticsJobCanceledError) Error() string {
 // fetch an HTTP endpoint and append the output to a zip file.
 func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
-	if len(endpoints) == 0 || percentPerNode == 0 {
-		j.JobProgressPercentage += percentPerNode
-		return fmt.Errorf("`endpoints` length or `percentPerNode` arguments cannot be empty. Got: %s, %f", endpoints, percentPerNode)
-	}
-
 	percentPerURL := percentPerNode / float32(len(endpoints))
+
+	timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
+	client := NewHTTPClient(timeout, j.Transport)
+
 	for fileName, httpEndpoint := range endpoints {
 		fullURL, err := useTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
 		if err != nil {
@@ -500,7 +500,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 			j.JobProgressPercentage += percentPerURL
 			continue
 		}
-		logrus.Debugf("Using URL %s to collect a log", fullURL)
+
 		select {
 		case _, ok := <-j.cancelChan:
 			if ok {
@@ -517,32 +517,11 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 
 		j.Status = "GET " + fullURL
 		updateSummaryReport("START "+j.Status, node, "", summaryReport)
-		timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
-		request, err := http.NewRequest("GET", fullURL, nil)
+		resp, err := get(client, fullURL)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
-			logrus.Errorf("Could not create a new HTTP request: %s", err)
-			updateSummaryReport(fmt.Sprintf("could not create request for url: %s", fullURL), node, err.Error(), summaryErrorsReport)
-			j.JobProgressPercentage += percentPerURL
-			continue
-		}
-		request.Header.Add("Accept-Encoding", "gzip")
-
-		client := NewHTTPClient(timeout, j.Transport)
-		resp, err := client.Do(request)
-		if err != nil {
-			j.Errors = append(j.Errors, err.Error())
-			logrus.Errorf("Could not fetch url %s: %s", fullURL, err)
-			updateSummaryReport(fmt.Sprintf("could not fetch url: %s", fullURL), node, err.Error(), summaryErrorsReport)
-			j.JobProgressPercentage += percentPerURL
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			errMsg := fmt.Sprintf("unable to fetch %s. Return code %d", fullURL, resp.StatusCode)
-			logrus.Error(errMsg)
-			j.Errors = append(j.Errors, errMsg)
-			updateSummaryReport("wrong status code returned", node, errMsg, summaryErrorsReport)
+			logrus.WithError(err).WithField("URL", fullURL).Error("Could not get from url")
+			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
 			j.JobProgressPercentage += percentPerURL
 			continue
 		}
@@ -567,6 +546,27 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 		j.JobProgressPercentage += percentPerURL
 	}
 	return nil
+}
+
+func get(client *http.Client, url string) (*http.Response, error) {
+	logrus.Debugf("Using URL %s to collect a log", url)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not create a new HTTP request: %s", err)
+	}
+	request.Header.Add("Accept-Encoding", "gzip")
+
+	resp, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch url %s: %s", url, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("unable to fetch %s. Return code %d", url, resp.StatusCode)
+	}
+
+	return resp, err
 }
 
 func prepareResponseOk(httpStatusCode int, okMsg string) (response diagnosticsReportResponse, err error) {
@@ -783,7 +783,7 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 
 	currentRole, err := j.DCOSTools.GetNodeRole()
 	if err != nil {
-		logrus.Errorf("Failed to get a current role for a Cfg: %s", err)
+		return nil, fmt.Errorf("failed to get a current role for a Cfg: %s", err)
 	}
 
 	port, err := getPullPortByRole(j.Cfg, currentRole)
@@ -791,26 +791,12 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 		return endpoints, err
 	}
 
-	matchRole := func(currentRole string, roles []string) bool {
-		// if roles is empty, use for all roles.
-		if len(roles) == 0 {
-			return true
-		}
-
-		for _, role := range roles {
-			if role == currentRole {
-				return true
-			}
-		}
-		return false
-	}
-
 	// http endpoints
 	for fileName, httpEndpoint := range j.logProviders.HTTPEndpoints {
 		// if a role wasn't detected, consider to load all endpoints from a Cfg file.
 		// if the role could not be detected or it is not set in a Cfg file use the log endpoint.
 		// do not use the role only if it is set, detected and does not match the role form a Cfg.
-		if !matchRole(currentRole, httpEndpoint.Role) {
+		if !roleMatched(currentRole, httpEndpoint.Role) {
 			continue
 		}
 		endpoints[fileName] = fmt.Sprintf(":%d%s", httpEndpoint.Port, httpEndpoint.URI)
@@ -818,7 +804,7 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 
 	// file endpoints
 	for sanitizedLocation, file := range j.logProviders.LocalFiles {
-		if !matchRole(currentRole, file.Role) {
+		if !roleMatched(currentRole, file.Role) {
 			continue
 		}
 		endpoints[file.Location] = fmt.Sprintf(":%d%s/logs/files/%s", port, baseRoute, sanitizedLocation)
@@ -826,7 +812,7 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 
 	// command endpoints
 	for indexedCommand, c := range j.logProviders.LocalCommands {
-		if !matchRole(currentRole, c.Role) {
+		if !roleMatched(currentRole, c.Role) {
 			continue
 		}
 		if indexedCommand != "" {
@@ -876,39 +862,31 @@ func (j *DiagnosticsJob) Init() error {
 	return nil
 }
 
-func roleMatched(roles []string, DCOSTools DCOSHelper) (bool, error) {
+func roleMatched(myRole string, roles []string) bool {
 	// if a role is empty, that means it does not matter master or agent, always return true.
 	if len(roles) == 0 {
-		return true, nil
+		return true
 	}
-
-	myRole, err := DCOSTools.GetNodeRole()
-	if err != nil {
-		logrus.Errorf("Could not get a node role: %s", err)
-		return false, err
-	}
-	logrus.Debugf("Roles requested: %s, detected: %s", roles, myRole)
-	return isInList(myRole, roles), nil
+	return isInList(myRole, roles)
 }
 
 func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity string) (r io.ReadCloser, err error) {
-	// make a buffered doneChan to communicate back to process.
+	myRole, err := j.DCOSTools.GetNodeRole()
+	if err != nil {
+		return r, fmt.Errorf("could not get a node role: %s", err)
+	}
 
 	if provider == "units" {
 		endpoint, ok := j.logProviders.HTTPEndpoints[entity]
 		if !ok {
 			return r, errors.New("Not found " + entity)
 		}
-		canExecute, err := roleMatched(endpoint.Role, j.DCOSTools)
-		if err != nil {
-			return r, err
-		}
+		canExecute := roleMatched(myRole, endpoint.Role)
 		if !canExecute {
 			return r, errors.New("Only DC/OS systemd units are available")
 		}
 		logrus.Debugf("dispatching a Unit %s", entity)
-		r, err = readJournalOutputSince(entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
-		return r, err
+		return readJournalOutputSince(entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
 	}
 
 	if provider == "files" {
@@ -917,10 +895,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 		if !ok {
 			return r, errors.New("Not found " + entity)
 		}
-		canExecute, err := roleMatched(fileProvider.Role, j.DCOSTools)
-		if err != nil {
-			return r, err
-		}
+		canExecute := roleMatched(myRole, fileProvider.Role)
 		if !canExecute {
 			return r, errors.New("Not allowed to read a file")
 		}
@@ -933,10 +908,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 		if !ok {
 			return r, errors.New("Not found " + entity)
 		}
-		canExecute, err := roleMatched(cmdProvider.Role, j.DCOSTools)
-		if err != nil {
-			return r, err
-		}
+		canExecute := roleMatched(myRole, cmdProvider.Role)
 		if !canExecute {
 			return r, errors.New("Not allowed to execute a command")
 		}

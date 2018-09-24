@@ -68,6 +68,9 @@
     },
     {
       "Command": ["systemctl", "list-units", "dcos*"]
+    },
+    {
+      "Command": ["echo", "OK"]
     }
   ]
 }
