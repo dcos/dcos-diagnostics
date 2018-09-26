@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -349,7 +348,7 @@ func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportRe
 	defer j.Unlock()
 
 	// first try to locate a bundle on a local disk.
-	bundlePath := path.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
+	bundlePath := filepath.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
 	logrus.Debugf("Trying remove a bundle: %s", bundlePath)
 	_, err = os.Stat(bundlePath)
 	if err == nil {
