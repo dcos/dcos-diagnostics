@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"testing"
 	"time"
 
@@ -159,6 +160,10 @@ func TestDispatchLogsForFiles(t *testing.T) {
 }
 
 func TestDispatchLogsForUnit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
 	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
 
@@ -171,6 +176,22 @@ func TestDispatchLogsForUnit(t *testing.T) {
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
 	assert.Empty(t, data)
+}
+
+func TestDispatchLogsForUnit_Windows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip()
+	}
+
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+
+	err := job.Init()
+	require.NoError(t, err)
+
+	r, err := job.dispatchLogs(context.TODO(), "units", "unit_a")
+	assert.Nil(t, r)
+	assert.EqualError(t, err, "there is no journal on Windows")
 }
 
 func TestDispatchLogsWithUnknownProvider(t *testing.T) {
