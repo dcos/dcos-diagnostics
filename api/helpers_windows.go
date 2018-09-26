@@ -206,5 +206,5 @@ func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
 }
 
 func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
-	return nil, nil
+	return nil, fmt.Errorf("there is no journal on Windows")
 }

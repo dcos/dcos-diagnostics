@@ -2,64 +2,63 @@ package api
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
-	"time"
-
-	assertPackage "github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 )
 
-type HelpersTestSuite struct {
-	suite.Suite
-	assert *assertPackage.Assertions
-	testID string
-}
-
-// SetUp/Teardown
-func (s *HelpersTestSuite) SetupTest() {
-	// Setup assert function
-	s.assert = assertPackage.New(s.T())
-
-	// Set a unique test ID
-	s.testID = fmt.Sprintf("tmp-%d", time.Now().UnixNano())
-}
-func (s *HelpersTestSuite) TearDownTest() {}
-
-//Tests
-func (s *HelpersTestSuite) TestReadFileNoFile() {
+func TestReadFileNoFile(t *testing.T) {
 	r, err := readFile("/noFile")
-	s.assert.Error(err)
-	s.assert.Nil(r)
+	assert.Error(t, err)
+	assert.Nil(t, r)
 }
 
-func (s *HelpersTestSuite) TestReadFile() {
+func TestReadFile(t *testing.T) {
 	// create a test file
-	tempFile, err := ioutil.TempFile("", s.testID)
-	if err == nil {
-		defer os.Remove(tempFile.Name())
-	}
-	s.assert.NoError(err)
-	tempFile.WriteString(s.testID)
-	tempFile.Close()
+	tempFile, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+	defer os.Remove(tempFile.Name())
+
+	_, err = tempFile.WriteString("test")
+	require.NoError(t, err)
 
 	r, err := readFile(filepath.Join(tempFile.Name()))
 	if err == nil {
 		defer r.Close()
 	}
 
-	s.assert.NotNil(r)
-	s.assert.NoError(err)
+	assert.NotNil(t, r)
+	assert.NoError(t, err)
 	buf := new(bytes.Buffer)
 	io.Copy(buf, r)
-	s.assert.Equal(buf.String(), s.testID)
+	assert.Equal(t, buf.String(), "test")
 }
 
-// Run test suit
-func TestHelpersTestSuit(t *testing.T) {
-	suite.Run(t, new(HelpersTestSuite))
+func TestReadJournalOutputSince_Windows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip()
+	}
+
+	r, err := readJournalOutputSince("", "")
+	assert.Nil(t, r)
+	assert.EqualError(t, err, "there is no journal on Windows")
+}
+
+func TestReadJournalOutputSince_Linux(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip()
+	}
+
+	r, err := readJournalOutputSince("not-existing.service", "")
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+
+	assert.Empty(t, data)
 }

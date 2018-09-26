@@ -214,12 +214,7 @@ func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
 		duration = time.Hour * 24
 	}
 	format := reader.NewEntryFormatter("text/plain", false)
-	j, err := reader.NewReader(format, reader.OptionMatchOR(matches), reader.OptionSince(duration))
-	if err != nil {
-		return nil, err
-	}
-
-	return j, nil
+	return reader.NewReader(format, reader.OptionMatchOR(matches), reader.OptionSince(duration))
 }
 
 // returns default reader.JournalEntryMatch for a given systemd unit.
