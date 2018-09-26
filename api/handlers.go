@@ -31,7 +31,7 @@ func unitsHealthStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	health, err := dt.SystemdUnits.GetUnitsProperties(dt.Cfg, dt.DtDCOSTools)
+	health, err := dt.SystemdUnits.GetUnitsProperties(dt.DtDCOSTools)
 	if err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
