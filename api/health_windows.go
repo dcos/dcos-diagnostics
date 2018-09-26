@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const dcosVersionEnvName = "DCOS_VERSION"
+
 // SystemdUnits used to make GetUnitsProperties thread safe.
 type SystemdUnits struct {
 	sync.Mutex
@@ -57,7 +59,7 @@ func (s *SystemdUnits) GetUnits(tools DCOSHelper) (allUnits []HealthResponseValu
 }
 
 // GetUnitsProperties return a structured units health response of UnitsHealthResponseJsonStruct type.
-func (s *SystemdUnits) GetUnitsProperties(cfg *config.Config, tools DCOSHelper) (healthReport UnitsHealthResponseJSONStruct, err error) {
+func (s *SystemdUnits) GetUnitsProperties(tools DCOSHelper) (healthReport UnitsHealthResponseJSONStruct, err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -78,7 +80,7 @@ func (s *SystemdUnits) GetUnitsProperties(cfg *config.Config, tools DCOSHelper) 
 		logrus.Errorf("Could not detect IP: %s", err)
 	}
 
-	healthReport.DcosVersion = os.Getenv("DCOS_VERSION")
+	healthReport.DcosVersion = os.Getenv(dcosVersionEnvName)
 	if healthReport.DcosVersion == "" {
 		var emptyReport UnitsHealthResponseJSONStruct
 		return emptyReport, errors.New("DCOS_VERSION was not defined")
