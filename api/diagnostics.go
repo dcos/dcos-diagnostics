@@ -113,7 +113,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 	}
 
 	if role == AgentRole || role == AgentPublicRole {
-		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, errors.New("running diagnostics job on agent node is not implemented"))
+		return prepareCreateResponseWithErr(http.StatusBadRequest, errors.New("running diagnostics job on agent node is not implemented"))
 	}
 
 	isRunning, _, err := j.isRunning()
@@ -121,7 +121,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, err)
 	}
 	if isRunning {
-		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, errors.New("Job is already running"))
+		return prepareCreateResponseWithErr(http.StatusConflict, errors.New("Job is already running"))
 	}
 
 	foundNodes, err := findRequestedNodes(req.Nodes, dt)
@@ -310,8 +310,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []Node) {
 			continue
 		}
 		// add http endpoints
-		err = j.getHTTPAddToZip(node, endpoints, j.LastBundlePath, zipWriter, summaryErrorsReport,
-			summaryReport, percentPerNode)
+		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 
@@ -484,7 +483,7 @@ func (d diagnosticsJobCanceledError) Error() string {
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.
-func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string, folder string, zipWriter *zip.Writer,
+func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
 	if len(endpoints) == 0 || percentPerNode == 0 {
 		j.JobProgressPercentage += percentPerNode

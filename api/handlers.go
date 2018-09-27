@@ -265,7 +265,7 @@ func diagnosticsJobStatusAllHandler(w http.ResponseWriter, r *http.Request) {
 func cancelBundleReportHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
@@ -280,7 +280,7 @@ func cancelBundleReportHandler(w http.ResponseWriter, r *http.Request) {
 func listAvailableGLobalBundlesFilesHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
@@ -299,7 +299,7 @@ func listAvailableGLobalBundlesFilesHandler(w http.ResponseWriter, r *http.Reque
 func listAvailableLocalBundlesFilesHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
@@ -334,7 +334,7 @@ func listAvailableLocalBundlesFilesHandler(w http.ResponseWriter, r *http.Reques
 func downloadBundleHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
@@ -379,7 +379,7 @@ func downloadBundleHandler(w http.ResponseWriter, r *http.Request) {
 func createBundleHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
@@ -401,7 +401,7 @@ func createBundleHandler(w http.ResponseWriter, r *http.Request) {
 func logsListHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
@@ -420,7 +420,7 @@ func logsListHandler(w http.ResponseWriter, r *http.Request) {
 func getUnitLogHandler(w http.ResponseWriter, r *http.Request) {
 	dt, ok := getDtFromContext(r.Context())
 	if !ok {
-		httpError(w, "Unable to get a required context from a request", http.StatusInternalServerError)
+		httpError(w, "Unable to get a required context from a request", http.StatusBadRequest)
 		return
 	}
 
