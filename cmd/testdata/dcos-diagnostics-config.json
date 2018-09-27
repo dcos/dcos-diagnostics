@@ -1,0 +1,8 @@
+{
+  "role": "master",
+  "pull": true,
+  "diagnostics-bundle-dir": "diag-bundles",
+  "endpoint-config": "dcos-diagnostics-endpoint-config.json",
+  "no-unix-socket": true,
+  "agent-port": 61001
+}
