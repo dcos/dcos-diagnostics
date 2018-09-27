@@ -89,8 +89,8 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		if err := defaultConfig.LoadFromViper(viper.AllSettings()); err != nil {
-			logrus.Fatalf("Error loading config file: %s", err)
+		if err := viper.Unmarshal(defaultConfig); err != nil {
+			logrus.WithError(err).Fatalf("Error loading config file")
 		}
 	}
 }
