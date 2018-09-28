@@ -1,21 +1,9 @@
 package api
 
 import (
-	"sync"
-	"time"
-
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
 )
-
-// MonitoringResponse top level global variable to store the entire units/nodes status tree.
-type MonitoringResponse struct {
-	sync.RWMutex
-
-	Units       map[string]dcos.Unit
-	Nodes       map[string]dcos.Node
-	UpdatedTime time.Time
-}
 
 // httpResponse a structure of http response from a remote host.
 type httpResponse struct {
