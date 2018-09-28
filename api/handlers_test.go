@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/gorilla/mux"
 	assertPackage "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -34,12 +35,12 @@ func testCfg() *config.Config {
 	}
 }
 
-// fakeDCOSTools is a DCOSHelper interface implementation used for testing.
+// fakeDCOSTools is a Tools interface implementation used for testing.
 type fakeDCOSTools struct {
 	sync.Mutex
 	units             []string
 	fakeHTTPResponses []*httpResponse
-	fakeMasters       []Node
+	fakeMasters       []dcos.Node
 
 	// HTTP GET, POST
 	mockedRequest    map[string]FakeHTTPContainer
@@ -215,19 +216,19 @@ func (st *fakeDCOSTools) GetTimestamp() time.Time {
 	return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 }
 
-func (st *fakeDCOSTools) GetMasterNodes() (nodes []Node, err error) {
+func (st *fakeDCOSTools) GetMasterNodes() (nodes []dcos.Node, err error) {
 	if len(st.fakeMasters) > 0 {
 		return st.fakeMasters, nil
 	}
-	var fakeMasterHost Node
+	var fakeMasterHost dcos.Node
 	fakeMasterHost.IP = "127.0.0.1"
 	fakeMasterHost.Role = "master"
 	nodes = append(nodes, fakeMasterHost)
 	return nodes, nil
 }
 
-func (st *fakeDCOSTools) GetAgentNodes() (nodes []Node, err error) {
-	var fakeAgentHost Node
+func (st *fakeDCOSTools) GetAgentNodes() (nodes []dcos.Node, err error) {
+	var fakeAgentHost dcos.Node
 	fakeAgentHost.IP = "127.0.0.2"
 	fakeAgentHost.Role = "agent"
 	nodes = append(nodes, fakeAgentHost)
@@ -278,10 +279,10 @@ func (s *HandlersTestSuit) SetupTest() {
 		TdtVersion:  "1.2.3",
 	}
 	s.mockedMonitoringResponse = MonitoringResponse{
-		Units: map[string]Unit{
+		Units: map[string]dcos.Unit{
 			"dcos-adminrouter-reload.service": {
 				UnitName: "dcos-adminrouter-reload.service",
-				Nodes: []Node{
+				Nodes: []dcos.Node{
 					{
 						Role:   "master",
 						IP:     "10.0.7.190",
@@ -312,7 +313,7 @@ func (s *HandlersTestSuit) SetupTest() {
 			},
 			"dcos-cosmos.service": {
 				UnitName: "dcos-cosmos.service",
-				Nodes: []Node{
+				Nodes: []dcos.Node{
 					{
 						Role:   "agent",
 						IP:     "10.0.7.192",
@@ -342,7 +343,7 @@ func (s *HandlersTestSuit) SetupTest() {
 				PrettyName: "Package Service",
 			},
 		},
-		Nodes: map[string]Node{
+		Nodes: map[string]dcos.Node{
 			"10.0.7.190": {
 				Role:   "master",
 				IP:     "10.0.7.190",
@@ -351,10 +352,10 @@ func (s *HandlersTestSuit) SetupTest() {
 					"dcos-adminrouter-reload.service": "",
 					"dcos-adminrouter-reload.timer":   "",
 				},
-				Units: []Unit{
+				Units: []dcos.Unit{
 					{
 						UnitName: "dcos-adminrouter-reload.service",
-						Nodes: []Node{
+						Nodes: []dcos.Node{
 							{
 								Role:   "master",
 								IP:     "10.0.7.190",
@@ -398,7 +399,7 @@ func (s *HandlersTestSuit) TearDownTest() {
 	s.dt.MR.UpdateMonitoringResponse(&MonitoringResponse{})
 }
 
-// Helper functions
+// Tools functions
 func MakeHTTPRequest(t *testing.T, router *mux.Router, url, method string, body io.Reader) (response []byte, statusCode int, err error) {
 	req, err := http.NewRequest(method, url, body)
 	w := httptest.NewRecorder()

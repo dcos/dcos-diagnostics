@@ -1,13 +1,15 @@
 package api
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
 	title = "My fake description"
-	name = "PrettyName"
+	name  = "PrettyName"
 )
 
 func TestSystemdUnits_GetUnits(t *testing.T) {
@@ -32,11 +34,10 @@ func TestSystemdUnits_GetUnitsProperties(t *testing.T) {
 	expected := UnitsHealthResponseJSONStruct{
 		Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "", Role: "master", MesosID: "node-id-123", TdtVersion: "0.4.0",
 		Array: []HealthResponseValues{
-			{UnitID: "unit_a", UnitHealth: Unhealthy, UnitTitle: title, PrettyName: name},
-			{UnitID: "unit_b", UnitHealth: Unhealthy, UnitTitle: title, PrettyName: name},
-			{UnitID: "unit_c", UnitHealth: Unhealthy, UnitTitle: title, PrettyName: name},
+			{UnitID: "unit_a", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
+			{UnitID: "unit_b", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
+			{UnitID: "unit_c", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
 		},
 	}
 	assert.Equal(t, expected, units)
 }
-

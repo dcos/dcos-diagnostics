@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dcos/dcos-diagnostics/dcos"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -227,7 +229,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	summaryErrorsReport := new(bytes.Buffer)
 
 	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
-	node := Node{IP: server.URL[7:]} // strip http://
+	node := dcos.Node{IP: server.URL[7:]} // strip http://
 
 	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
@@ -293,7 +295,7 @@ func TestFindRequestedNodes(t *testing.T) {
 	}
 
 	mockedGlobalMonitoringResponse := &MonitoringResponse{
-		Nodes: map[string]Node{
+		Nodes: map[string]dcos.Node{
 			"10.10.0.1": {
 				IP:   "10.10.0.1",
 				Role: "master",
@@ -321,55 +323,55 @@ func TestFindRequestedNodes(t *testing.T) {
 	nodes, err := findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 4)
-	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
-	assert.Contains(t, nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-	assert.Contains(t, nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
-	assert.Contains(t, nodes, Node{IP: "127.0.0.1", Role: "agent"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
+	assert.Contains(t, nodes, dcos.Node{IP: "127.0.0.1", Role: "agent"})
 
 	// should return only masters
 	requestedNodes = []string{"masters"}
 	nodes, err = findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 3)
-	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
-	assert.Contains(t, nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-	assert.Contains(t, nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
 
 	// should return only agents
 	requestedNodes = []string{"agents"}
 	nodes, err = findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, Node{IP: "127.0.0.1", Role: "agent"})
+	assert.Contains(t, nodes, dcos.Node{IP: "127.0.0.1", Role: "agent"})
 
 	// should return host with ip
 	requestedNodes = []string{"10.10.0.1"}
 	nodes, err = findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
 
 	// should return host with hostname
 	requestedNodes = []string{"my-host.com"}
 	nodes, err = findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
 
 	// should return host with mesos-id
 	requestedNodes = []string{"12345-12345"}
 	nodes, err = findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
 
 	// should return agents and node with ip
 	requestedNodes = []string{"agents", "10.10.0.1"}
 	nodes, err = findRequestedNodes(requestedNodes, dt)
 	require.NoError(t, err)
 	assert.Len(t, nodes, 2)
-	assert.Contains(t, nodes, Node{IP: "10.10.0.1", Role: "master"})
-	assert.Contains(t, nodes, Node{IP: "127.0.0.1", Role: "agent"})
+	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
+	assert.Contains(t, nodes, dcos.Node{IP: "127.0.0.1", Role: "agent"})
 }
 
 func TestGetStatus(t *testing.T) {
@@ -544,7 +546,7 @@ func TestCancelGlobalJob(t *testing.T) {
 	url := "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status/all"
 	mockedResponse := `{"10.0.7.252":{"is_running":false}}`
 
-	mockedMasters := []Node{
+	mockedMasters := []dcos.Node{
 		{
 			Role: "master",
 			IP:   "10.0.7.252",

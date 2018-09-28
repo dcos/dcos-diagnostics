@@ -24,7 +24,7 @@ const (
 	WindowsServiceListFile = "servicelist.txt"
 )
 
-// DCOSTools is implementation of DCOSHelper interface.
+// DCOSTools is implementation of dcos.Tools interface.
 type DCOSTools struct {
 	sync.Mutex
 

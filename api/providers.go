@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/dcos"
 )
 
 // LogProviders a structure defines a list of Providers
@@ -35,7 +36,7 @@ type CommandProvider struct {
 	Role    []string
 }
 
-func loadProviders(cfg *config.Config, DCOSTools DCOSHelper) (*LogProviders, error) {
+func loadProviders(cfg *config.Config, DCOSTools dcos.Tools) (*LogProviders, error) {
 	// load the internal providers
 	internalProviders, err := loadInternalProviders(cfg, DCOSTools)
 	if err != nil {
@@ -66,7 +67,7 @@ func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, 
 	return externalProviders, nil
 }
 
-func loadInternalProviders(cfg *config.Config, DCOSTools DCOSHelper) (internalConfigProviders LogProviders, err error) {
+func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tools) (internalConfigProviders LogProviders, err error) {
 	units, err := DCOSTools.GetUnitNames()
 	if err != nil {
 		return internalConfigProviders, err

@@ -1,8 +1,9 @@
-package api
+package dcos
 
 import (
-	"testing"
 	"encoding/json"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,9 +20,9 @@ func TestUnitSerialization(t *testing.T) {
 }`
 
 	expected := Unit{
-		UnitName: "test name",
-		Health: 1,
-		Title: "test title",
+		UnitName:   "test name",
+		Health:     1,
+		Title:      "test title",
 		PrettyName: "this is very pretty name",
 	}
 	var actual Unit

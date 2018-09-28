@@ -1,11 +1,56 @@
-package api
+package dcos
 
 import (
 	"time"
+
+	"github.com/dcos/dcos-go/dcos"
 )
 
-// DCOSHelper DC/OS specific tools interface.
-type DCOSHelper interface {
+// Health is a type to indicates health of the unit.
+type Health int
+
+const (
+	// Unhealthy indicates Unit is not healthy
+	Unhealthy = 0
+	// Healthy indicates Unit is healthy
+	Healthy = 1
+)
+
+const (
+	// MasterRole DC/OS role for a master.
+	MasterRole = dcos.RoleMaster
+
+	// AgentRole DC/OS role for an agent.
+	AgentRole = dcos.RoleAgent
+
+	// AgentPublicRole DC/OS role for a public agent.
+	AgentPublicRole = dcos.RoleAgentPublic
+)
+
+// Unit for stands for systemd unit.
+type Unit struct {
+	UnitName   string
+	Nodes      []Node `json:",omitempty"`
+	Health     Health
+	Title      string
+	Timestamp  time.Time
+	PrettyName string
+}
+
+// Node for DC/OS node.
+type Node struct {
+	Leader  bool
+	Role    string
+	IP      string
+	Host    string
+	Health  Health
+	Output  map[string]string
+	Units   []Unit `json:",omitempty"`
+	MesosID string
+}
+
+// Tools DC/OS specific tools interface.
+type Tools interface {
 	// open dbus connection
 	InitializeUnitControllerConnection() error
 
