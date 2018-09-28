@@ -596,8 +596,8 @@ func (s *HandlersTestSuit) TestreportHandlerFunc() {
 
 func (s *HandlersTestSuit) TestIsInListFunc() {
 	array := []string{"DC", "OS", "SYS"}
-	s.assert.Equal(isInList("DC", array), true, "DC should be in test array")
-	s.assert.Equal(isInList("CD", array), false, "CD should not be in test array")
+	s.assert.Contains(array, "DC")
+	s.assert.NotContains(array, "CD")
 
 }
 

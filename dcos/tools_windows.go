@@ -1,11 +1,10 @@
-package api
+package dcos
 
 import (
 	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -203,8 +202,4 @@ func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
 		return Healthy, fmt.Sprintf("The ActiveState is %s, not in running state(4)", u.ActiveState), nil
 	}
 	return Unhealthy, "", nil
-}
-
-func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
-	return nil, fmt.Errorf("there is no journal on Windows")
 }
