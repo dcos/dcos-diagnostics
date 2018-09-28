@@ -20,6 +20,7 @@ import (
 
 	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -97,7 +98,7 @@ func initConfig() {
 
 func runDiag() int {
 	sdu := &api.SystemdUnits{}
-	units, err := sdu.GetUnits(&api.DCOSTools{})
+	units, err := sdu.GetUnits(&dcos.DCOSTools{})
 	if err != nil {
 		logrus.Errorf("Error getting units properties: %s", err)
 		return 1

@@ -3,15 +3,13 @@ package api
 import (
 	"fmt"
 
+	"github.com/dcos/dcos-diagnostics/dcos"
 	log "github.com/sirupsen/logrus"
 )
 
 func findAgentsInHistoryServiceSelfTest(pastTime string) error {
-	finder := &findAgentsInHistoryService{
-		pastTime: pastTime,
-		next:     nil,
-	}
-	nodes, err := finder.find()
+	finder := &dcos.FindAgentsInHistoryService{PastTime: pastTime}
+	nodes, err := finder.Find()
 	if err != nil {
 		return err
 	}
@@ -58,7 +56,7 @@ func runSelfTest() map[string]*selfTestResponse {
 		} else {
 			// check for NodesNotFoundError. Do not fail if this happens. It just means history service
 			// was did not dump anything yet.
-			if serr, ok := err.(NodesNotFoundError); ok {
+			if serr, ok := err.(dcos.NodesNotFoundError); ok {
 				log.Debugf("Non critical error recevied: %s", serr)
 				result[selfTestName].Success = true
 			} else {

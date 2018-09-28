@@ -67,23 +67,6 @@ type NodeResponseFieldsWithErrorStruct struct {
 	Help       string      `json:"help"`
 }
 
-// Agent response json format
-type agentsResponse struct {
-	Agents []struct {
-		Hostname   string `json:"hostname"`
-		Attributes struct {
-			PublicIP string `json:"public_ip"`
-		} `json:"attributes"`
-	} `json:"slaves"`
-}
-
-type exhibitorNodeResponse struct {
-	Code        int
-	Description string
-	Hostname    string
-	IsLeader    bool
-}
-
 // Dt is a struct of dependencies used in dcos-diagnostics code. There are 2 implementations, the one runs on a real system and
 // the one used for testing.
 type Dt struct {

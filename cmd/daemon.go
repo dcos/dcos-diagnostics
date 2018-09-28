@@ -22,7 +22,8 @@ import (
 	"strconv"
 
 	"github.com/dcos/dcos-diagnostics/api"
-	"github.com/dcos/dcos-go/dcos"
+	"github.com/dcos/dcos-diagnostics/dcos"
+	dcosGo "github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/sirupsen/logrus"
@@ -39,7 +40,7 @@ const (
 // override the defaultStateURL to use https scheme
 var defaultStateURL = url.URL{
 	Scheme: "https",
-	Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
+	Host:   net.JoinHostPort(dcosGo.DNSRecordLeader, strconv.Itoa(dcosGo.PortMesosMaster)),
 	Path:   "/state",
 }
 
@@ -128,7 +129,7 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not initialize nodeInfo: %s", err)
 	}
 
-	DCOSTools := &api.DCOSTools{
+	DCOSTools := &dcos.DCOSTools{
 		ExhibitorURL: defaultConfig.FlagExhibitorClusterStatusURL,
 		ForceTLS:     defaultConfig.FlagForceTLS,
 		Role:         defaultConfig.FlagRole,

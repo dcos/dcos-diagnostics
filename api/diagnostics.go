@@ -17,6 +17,7 @@ import (
 
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/dcos/dcos-diagnostics/units"
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
@@ -489,10 +490,10 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 	percentPerURL := percentPerNode / float32(len(endpoints))
 
 	timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
-	client := NewHTTPClient(timeout, j.Transport)
+	client := util.NewHTTPClient(timeout, j.Transport)
 
 	for fileName, httpEndpoint := range endpoints {
-		fullURL, err := useTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
+		fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 			logrus.Errorf("Could not read force-tls flag: %s", err)
@@ -867,7 +868,7 @@ func roleMatched(myRole string, roles []string) bool {
 	if len(roles) == 0 {
 		return true
 	}
-	return isInList(myRole, roles)
+	return util.IsInList(myRole, roles)
 }
 
 func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity string) (r io.ReadCloser, err error) {
@@ -886,7 +887,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 			return r, errors.New("Only DC/OS systemd units are available")
 		}
 		logrus.Debugf("dispatching a Unit %s", entity)
-		return readJournalOutputSince(entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
+		return units.ReadJournalOutputSince(entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
 	}
 
 	if provider == "files" {
@@ -900,7 +901,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 			return r, errors.New("Not allowed to read a file")
 		}
 		logrus.Debugf("Found a file %s", fileProvider.Location)
-		return readFile(fileProvider.Location)
+		return os.Open(fileProvider.Location)
 	}
 	if provider == "cmds" {
 		logrus.Debugf("dispatching a command %s", entity)
