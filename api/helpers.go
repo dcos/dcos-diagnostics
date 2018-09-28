@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/dcos/dcos-diagnostics/dcos"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -121,14 +123,14 @@ func (st *DCOSTools) GetTimestamp() time.Time {
 }
 
 // GetMasterNodes finds DC/OS masters.
-func (st *DCOSTools) GetMasterNodes() (nodesResponse []Node, err error) {
+func (st *DCOSTools) GetMasterNodes() (nodesResponse []dcos.Node, err error) {
 	finder := &findMastersInExhibitor{
 		url:   st.ExhibitorURL,
 		getFn: st.Get,
 		next: &findNodesInDNS{
 			forceTLS:  st.ForceTLS,
 			dnsRecord: "master.mesos",
-			role:      MasterRole,
+			role:      dcos.MasterRole,
 			next:      nil,
 		},
 	}
@@ -136,11 +138,11 @@ func (st *DCOSTools) GetMasterNodes() (nodesResponse []Node, err error) {
 }
 
 // GetAgentNodes finds DC/OS agents.
-func (st *DCOSTools) GetAgentNodes() (nodes []Node, err error) {
+func (st *DCOSTools) GetAgentNodes() (nodes []dcos.Node, err error) {
 	finder := &findNodesInDNS{
 		forceTLS:  st.ForceTLS,
 		dnsRecord: "leader.mesos",
-		role:      AgentRole,
+		role:      dcos.AgentRole,
 		getFn:     st.Get,
 		next: &findAgentsInHistoryService{
 			pastTime: "/minute/",

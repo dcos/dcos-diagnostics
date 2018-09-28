@@ -12,12 +12,13 @@ import (
 	"time"
 
 	"github.com/coreos/go-systemd/dbus"
+	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/dcos/dcos-log/dcos-log/journal/reader"
 	"github.com/sirupsen/logrus"
 )
 
-// DCOSTools is implementation of DCOSHelper interface.
+// DCOSTools is implementation of Tools interface.
 type DCOSTools struct {
 	sync.Mutex
 
@@ -117,7 +118,7 @@ func (st *DCOSTools) GetJournalOutput(unit string) (string, error) {
 	return string(entries), nil
 }
 
-func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (HealthResponseValues, error) {
+func normalizeProperty(unitProps map[string]interface{}, tools dcos.Tools) (HealthResponseValues, error) {
 	var (
 		description, prettyName string
 		propsResponse           UnitPropertiesResponse
@@ -166,25 +167,25 @@ func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (Heal
 }
 
 // CheckUnitHealth tells if the Unit is healthy
-func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
+func (u *UnitPropertiesResponse) CheckUnitHealth() (dcos.Health, string, error) {
 	if u.LoadState == "" || u.ActiveState == "" || u.SubState == "" {
-		return Healthy, "", fmt.Errorf("LoadState: %s, ActiveState: %s and SubState: %s must be set",
+		return dcos.Healthy, "", fmt.Errorf("LoadState: %s, ActiveState: %s and SubState: %s must be set",
 			u.LoadState, u.ActiveState, u.SubState)
 	}
 
 	if u.LoadState != "loaded" {
-		return Healthy, fmt.Sprintf("%s is not loaded. Please check `systemctl show all` to check current Unit status.", u.ID), nil
+		return dcos.Healthy, fmt.Sprintf("%s is not loaded. Please check `systemctl show all` to check current Unit status.", u.ID), nil
 	}
 
 	okActiveStates := []string{"active", "inactive", "activating"}
 	if !isInList(u.ActiveState, okActiveStates) {
-		return Healthy, fmt.Sprintf(
+		return dcos.Healthy, fmt.Sprintf(
 			"%s state is not one of the possible states %s. Current state is [ %s ]. "+
 				"Please check `systemctl show all %s` to check current Unit state. ", u.ID, okActiveStates, u.ActiveState, u.ID), nil
 	}
 	logrus.Debugf("%s| ExecMainStatus = %d", u.ID, u.ExecMainStatus)
 	if u.ExecMainStatus != 0 {
-		return Healthy, fmt.Sprintf("ExecMainStatus return failed status for %s", u.ID), nil
+		return dcos.Healthy, fmt.Sprintf("ExecMainStatus return failed status for %s", u.ID), nil
 	}
 
 	// https://www.freedesktop.org/wiki/Software/systemd/dbus/
@@ -193,17 +194,17 @@ func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
 		// If ActiveEnterTimestampMonotonic is 0, it means that Unit has never been able to switch to active state.
 		// Most likely a ExecStartPre fails before the Unit can execute ExecStart.
 		if u.ActiveEnterTimestampMonotonic == 0 {
-			return Healthy, fmt.Sprintf("Unit %s has never entered `active` state", u.ID), nil
+			return dcos.Healthy, fmt.Sprintf("Unit %s has never entered `active` state", u.ID), nil
 		}
 
 		// If InactiveEnterTimestampMonotonic > ActiveEnterTimestampMonotonic that means that a Unit was active
 		// some time ago, but then something happened and it cannot restart.
 		if u.InactiveEnterTimestampMonotonic > u.ActiveEnterTimestampMonotonic {
-			return Healthy, fmt.Sprintf("Unit %s is flapping. Please check `systemctl status %s` to check current Unit state.", u.ID, u.ID), nil
+			return dcos.Healthy, fmt.Sprintf("Unit %s is flapping. Please check `systemctl status %s` to check current Unit state.", u.ID, u.ID), nil
 		}
 	}
 
-	return Unhealthy, "", nil
+	return dcos.Unhealthy, "", nil
 }
 
 func readJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {

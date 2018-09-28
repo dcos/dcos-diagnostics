@@ -13,24 +13,13 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/config"
-	"github.com/dcos/dcos-go/dcos"
+	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	// MasterRole DC/OS role for a master.
-	MasterRole = dcos.RoleMaster
-
-	// AgentRole DC/OS role for an agent.
-	AgentRole = dcos.RoleAgent
-
-	// AgentPublicRole DC/OS role for a public agent.
-	AgentPublicRole = dcos.RoleAgentPublic
 )
 
 // with the nodeFinder interface we can chain finding methods
 type nodeFinder interface {
-	find() ([]Node, error)
+	find() ([]dcos.Node, error)
 }
 
 // find masters via dns. Used to find master nodes from agents.
@@ -42,7 +31,7 @@ type findMastersInExhibitor struct {
 	getFn func(string, time.Duration) ([]byte, int, error)
 }
 
-func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
+func (f *findMastersInExhibitor) findMesosMasters() (nodes []dcos.Node, err error) {
 	if f.getFn == nil {
 		return nodes, errors.New("could not initialize HTTP GET function. Make sure you set getFn in the constructor")
 	}
@@ -64,8 +53,8 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 	}
 
 	for _, exhibitorNodeResponse := range exhibitorNodesResponse {
-		nodes = append(nodes, Node{
-			Role:   MasterRole,
+		nodes = append(nodes, dcos.Node{
+			Role:   dcos.MasterRole,
 			IP:     exhibitorNodeResponse.Hostname,
 			Leader: exhibitorNodeResponse.IsLeader,
 		})
@@ -73,7 +62,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 	return nodes, nil
 }
 
-func (f *findMastersInExhibitor) find() (nodes []Node, err error) {
+func (f *findMastersInExhibitor) find() (nodes []dcos.Node, err error) {
 	nodes, err = f.findMesosMasters()
 	if err == nil {
 		logrus.Debug("Found masters in exhibitor")
@@ -102,7 +91,7 @@ type findAgentsInHistoryService struct {
 	next     nodeFinder
 }
 
-func (f *findAgentsInHistoryService) getMesosAgents() (nodes []Node, err error) {
+func (f *findAgentsInHistoryService) getMesosAgents() (nodes []dcos.Node, err error) {
 	basePath := "/var/lib/dcos/dcos-history" + f.pastTime
 	files, err := ioutil.ReadDir(basePath)
 	if err != nil {
@@ -145,15 +134,15 @@ func (f *findAgentsInHistoryService) getMesosAgents() (nodes []Node, err error) 
 	}
 
 	for ip := range nodeCount {
-		nodes = append(nodes, Node{
-			Role: AgentRole,
+		nodes = append(nodes, dcos.Node{
+			Role: dcos.AgentRole,
 			IP:   ip,
 		})
 	}
 	return nodes, nil
 }
 
-func (f *findAgentsInHistoryService) find() (nodes []Node, err error) {
+func (f *findAgentsInHistoryService) find() (nodes []dcos.Node, err error) {
 	nodes, err = f.getMesosAgents()
 	if err == nil {
 		logrus.Debugf("Found agents in the history service for past %s", f.pastTime)
@@ -182,7 +171,7 @@ func (f *findNodesInDNS) resolveDomain() (ips []string, err error) {
 	return net.LookupHost(f.dnsRecord)
 }
 
-func (f *findNodesInDNS) getMesosMasters() (nodes []Node, err error) {
+func (f *findNodesInDNS) getMesosMasters() (nodes []dcos.Node, err error) {
 	ips, err := f.resolveDomain()
 	if err != nil {
 		return nodes, err
@@ -192,15 +181,15 @@ func (f *findNodesInDNS) getMesosMasters() (nodes []Node, err error) {
 	}
 
 	for _, ip := range ips {
-		nodes = append(nodes, Node{
-			Role: MasterRole,
+		nodes = append(nodes, dcos.Node{
+			Role: dcos.MasterRole,
 			IP:   ip,
 		})
 	}
 	return nodes, nil
 }
 
-func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
+func (f *findNodesInDNS) getMesosAgents() (nodes []dcos.Node, err error) {
 	if f.getFn == nil {
 		return nodes, errors.New("Could not initialize HTTP GET function. Make sure you set getFn in constractor")
 	}
@@ -232,13 +221,13 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 	}
 
 	for _, agent := range sr.Agents {
-		role := AgentRole
+		role := dcos.AgentRole
 
 		// if a node has "attributes": {"public_ip": "true"} we consider it to be a public agent
 		if agent.Attributes.PublicIP == "true" {
-			role = AgentPublicRole
+			role = dcos.AgentPublicRole
 		}
-		nodes = append(nodes, Node{
+		nodes = append(nodes, dcos.Node{
 			Role: role,
 			IP:   agent.Hostname,
 		})
@@ -246,17 +235,17 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 	return nodes, nil
 }
 
-func (f *findNodesInDNS) dispatchGetNodesByRole() (nodes []Node, err error) {
-	if f.role == MasterRole {
+func (f *findNodesInDNS) dispatchGetNodesByRole() (nodes []dcos.Node, err error) {
+	if f.role == dcos.MasterRole {
 		return f.getMesosMasters()
 	}
-	if f.role != AgentRole {
-		return nodes, fmt.Errorf("%s role is incorrect, must be %s or %s", f.role, MasterRole, AgentRole)
+	if f.role != dcos.AgentRole {
+		return nodes, fmt.Errorf("%s role is incorrect, must be %s or %s", f.role, dcos.MasterRole, dcos.AgentRole)
 	}
 	return f.getMesosAgents()
 }
 
-func (f *findNodesInDNS) find() (nodes []Node, err error) {
+func (f *findNodesInDNS) find() (nodes []dcos.Node, err error) {
 	nodes, err = f.dispatchGetNodesByRole()
 	if err == nil {
 		logrus.Debugf("Found %s nodes by resolving %s", f.role, f.dnsRecord)
@@ -381,18 +370,18 @@ func (mr *MonitoringResponse) GetNodes() NodesResponseJSONStruct {
 }
 
 // GetMasterAgentNodes returns a list of master and agent nodes available in status tree.
-func (mr *MonitoringResponse) GetMasterAgentNodes() ([]Node, []Node, error) {
+func (mr *MonitoringResponse) GetMasterAgentNodes() ([]dcos.Node, []dcos.Node, error) {
 	mr.Lock()
 	defer mr.Unlock()
 
-	var masterNodes, agentNodes []Node
+	var masterNodes, agentNodes []dcos.Node
 	for _, node := range mr.Nodes {
-		if node.Role == MasterRole {
+		if node.Role == dcos.MasterRole {
 			masterNodes = append(masterNodes, node)
 			continue
 		}
 
-		if node.Role == AgentRole || node.Role == AgentPublicRole {
+		if node.Role == dcos.AgentRole || node.Role == dcos.AgentPublicRole {
 			agentNodes = append(agentNodes, node)
 		}
 	}
@@ -530,8 +519,8 @@ func runPull(dt *Dt) {
 // function builds a map of all unique units with status
 func updateHealthStatus(responses <-chan *httpResponse, dt *Dt) {
 	var (
-		units = make(map[string]Unit)
-		nodes = make(map[string]Node)
+		units = make(map[string]dcos.Unit)
+		nodes = make(map[string]dcos.Node)
 	)
 
 	for {
@@ -564,7 +553,7 @@ func updateHealthStatus(responses <-chan *httpResponse, dt *Dt) {
 	}
 }
 
-func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.WaitGroup) {
+func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var response httpResponse
 	port, err := getPullPortByRole(dt.Cfg, host.Role)
@@ -642,13 +631,13 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 	for _, propertiesMap := range jsonBody.Array {
 		// update error message per host per Unit
 		host.Output[propertiesMap.UnitID] = propertiesMap.UnitOutput
-		response.Units = append(response.Units, Unit{
-			propertiesMap.UnitID,
-			[]Node{host},
-			propertiesMap.UnitHealth,
-			propertiesMap.UnitTitle,
-			dt.DtDCOSTools.GetTimestamp(),
-			propertiesMap.PrettyName,
+		response.Units = append(response.Units, dcos.Unit{
+			UnitName:   propertiesMap.UnitID,
+			Nodes:      []dcos.Node{host},
+			Health:     propertiesMap.UnitHealth,
+			Title:      propertiesMap.UnitTitle,
+			Timestamp:  dt.DtDCOSTools.GetTimestamp(),
+			PrettyName: propertiesMap.PrettyName,
 		})
 	}
 	response.Node = host
@@ -658,11 +647,11 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 
 func getPullPortByRole(cfg *config.Config, role string) (int, error) {
 	var port int
-	if role != MasterRole && role != AgentRole && role != AgentPublicRole {
-		return port, fmt.Errorf("Incorrect role %s, must be: %s, %s or %s", role, MasterRole, AgentRole, AgentPublicRole)
+	if role != dcos.MasterRole && role != dcos.AgentRole && role != dcos.AgentPublicRole {
+		return port, fmt.Errorf("Incorrect role %s, must be: %s, %s or %s", role, dcos.MasterRole, dcos.AgentRole, dcos.AgentPublicRole)
 	}
 	port = cfg.FlagAgentPort
-	if role == MasterRole {
+	if role == dcos.MasterRole {
 		port = cfg.FlagMasterPort
 	}
 	return port, nil

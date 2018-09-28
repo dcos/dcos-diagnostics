@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +18,7 @@ type SystemdUnits struct {
 }
 
 // GetUnits returns a list of found unit properties.
-func (s *SystemdUnits) GetUnits(tools DCOSHelper) (allUnits []HealthResponseValues, err error) {
+func (s *SystemdUnits) GetUnits(tools dcos.Tools) (allUnits []HealthResponseValues, err error) {
 	if err = tools.InitializeUnitControllerConnection(); err != nil {
 		return nil, err
 	}

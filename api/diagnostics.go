@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
@@ -40,7 +41,7 @@ type DiagnosticsJob struct {
 	logProviders logProviders
 
 	Cfg       *config.Config    `json:"-"`
-	DCOSTools DCOSHelper        `json:"-"`
+	DCOSTools dcos.Tools        `json:"-"`
 	Transport http.RoundTripper `json:"-"`
 
 	Running               bool          `json:"is_running"`
@@ -111,7 +112,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, err)
 	}
 
-	if role == AgentRole || role == AgentPublicRole {
+	if role == dcos.AgentRole || role == dcos.AgentPublicRole {
 		return prepareCreateResponseWithErr(http.StatusBadRequest, errors.New("running diagnostics job on agent node is not implemented"))
 	}
 
@@ -161,7 +162,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 }
 
 //
-func (j *DiagnosticsJob) runBackgroundJob(nodes []Node) {
+func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	const jobFailedStatus = "Job failed"
 	if len(nodes) == 0 {
 		e := "Nodes length cannot be 0"
@@ -483,7 +484,7 @@ func (d diagnosticsJobCanceledError) Error() string {
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.
-func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string, zipWriter *zip.Writer,
+func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
 	percentPerURL := percentPerNode / float32(len(endpoints))
 
@@ -600,7 +601,7 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 		// Just log the error. We can still try to cancel the job.
 		logrus.Errorf("Could not detect node role: %s", err)
 	}
-	if role == AgentRole || role == AgentPublicRole {
+	if role == dcos.AgentRole || role == dcos.AgentPublicRole {
 		return prepareResponseWithErr(http.StatusServiceUnavailable, errors.New("canceling diagnostics job on agent node is not implemented"))
 	}
 
@@ -649,7 +650,7 @@ func (j *DiagnosticsJob) stop() {
 }
 
 // get a list of all bundles across the cluster.
-func listAllBundles(cfg *config.Config, DCOSTools DCOSHelper) (map[string][]bundle, error) {
+func listAllBundles(cfg *config.Config, DCOSTools dcos.Tools) (map[string][]bundle, error) {
 	collectedBundles := make(map[string][]bundle)
 	masterNodes, err := DCOSTools.GetMasterNodes()
 	if err != nil {
@@ -724,8 +725,8 @@ func (j *DiagnosticsJob) findLocalBundle() (bundles []string, err error) {
 	return bundles, nil
 }
 
-func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []Node) ([]Node, error) {
-	var matchedNodes []Node
+func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos.Node) ([]dcos.Node, error) {
+	var matchedNodes []dcos.Node
 	clusterNodes := append(masterNodes, agentNodes...)
 	if len(requestedNodes) == 0 || len(clusterNodes) == 0 {
 		return matchedNodes, errors.New("Cannot match requested nodes to clusterNodes")
@@ -758,8 +759,8 @@ func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []Node
 	return matchedNodes, fmt.Errorf("Requested nodes: %s not found", requestedNodes)
 }
 
-func findRequestedNodes(requestedNodes []string, dt *Dt) ([]Node, error) {
-	var masterNodes, agentNodes []Node
+func findRequestedNodes(requestedNodes []string, dt *Dt) ([]dcos.Node, error) {
+	var masterNodes, agentNodes []dcos.Node
 	masterNodes, agentNodes, err := dt.MR.GetMasterAgentNodes()
 	if err != nil {
 		// failed to find master and agent nodes in memory. Try to discover
@@ -926,7 +927,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 }
 
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
-func updateSummaryReport(preflix string, node Node, err string, r *bytes.Buffer) {
+func updateSummaryReport(preflix string, node dcos.Node, err string, r *bytes.Buffer) {
 	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), preflix, node.IP, node.Role, err))
 }
 
