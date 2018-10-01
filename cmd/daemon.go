@@ -129,7 +129,7 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not initialize nodeInfo: %s", err)
 	}
 
-	DCOSTools := &dcos.DCOSTools{
+	DCOSTools := &dcos.Tools{
 		ExhibitorURL: defaultConfig.FlagExhibitorClusterStatusURL,
 		ForceTLS:     defaultConfig.FlagForceTLS,
 		Role:         defaultConfig.FlagRole,

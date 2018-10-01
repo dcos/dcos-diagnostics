@@ -15,6 +15,7 @@ const (
 	unitProperty        = "UNIT"
 )
 
+// ReadJournalOutputSince returns logs since given duration from journal
 func ReadJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
 	matches := DefaultSystemdMatches(unit)
 	duration, err := time.ParseDuration(sinceString)
@@ -26,7 +27,7 @@ func ReadJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
 	return reader.NewReader(format, reader.OptionMatchOR(matches), reader.OptionSince(duration))
 }
 
-// returns default reader.JournalEntryMatch for a given systemd unit.
+// DefaultSystemdMatches returns default reader.JournalEntryMatch for a given systemd unit.
 func DefaultSystemdMatches(unit string) []reader.JournalEntryMatch {
 	return []reader.JournalEntryMatch{
 		{

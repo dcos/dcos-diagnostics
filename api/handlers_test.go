@@ -35,7 +35,7 @@ func testCfg() *config.Config {
 	}
 }
 
-// fakeDCOSTools is a Tools interface implementation used for testing.
+// fakeDCOSTools is a Tooler interface implementation used for testing.
 type fakeDCOSTools struct {
 	sync.Mutex
 	units             []string
@@ -399,7 +399,7 @@ func (s *HandlersTestSuit) TearDownTest() {
 	s.dt.MR.UpdateMonitoringResponse(&MonitoringResponse{})
 }
 
-// Tools functions
+// Tooler functions
 func MakeHTTPRequest(t *testing.T, router *mux.Router, url, method string, body io.Reader) (response []byte, statusCode int, err error) {
 	req, err := http.NewRequest(method, url, body)
 	w := httptest.NewRecorder()

@@ -15,7 +15,7 @@ import (
 )
 
 // GetHostname return a localhost hostname.
-func (st *DCOSTools) GetHostname() (string, error) {
+func (st *Tools) GetHostname() (string, error) {
 	if st.hostname != "" {
 		return st.hostname, nil
 	}
@@ -29,7 +29,7 @@ func (st *DCOSTools) GetHostname() (string, error) {
 
 // DetectIP returns a detected IP by running /opt/mesosphere/bin/detect_ip. It will run only once and cache the result.
 // When the function is called again, ip will be taken from cache.
-func (st *DCOSTools) DetectIP() (string, error) {
+func (st *Tools) DetectIP() (string, error) {
 	ip, err := st.NodeInfo.DetectIP()
 	if err != nil {
 		return "", err
@@ -39,7 +39,7 @@ func (st *DCOSTools) DetectIP() (string, error) {
 
 // GetNodeRole returns a nodes role. It will run only once and cache the result.
 // When the function is called again, ip will be taken from cache.
-func (st *DCOSTools) GetNodeRole() (string, error) {
+func (st *Tools) GetNodeRole() (string, error) {
 	if st.Role == "" {
 		return "", errors.New("Could not determine a role, no /etc/mesosphere/roles/{master,slave,slave_public} file found")
 	}
@@ -47,12 +47,12 @@ func (st *DCOSTools) GetNodeRole() (string, error) {
 }
 
 // GetMesosNodeID return a mesos node id.
-func (st *DCOSTools) GetMesosNodeID() (string, error) {
+func (st *Tools) GetMesosNodeID() (string, error) {
 	// TODO(janisz): We need to decide if we need a context
 	return st.NodeInfo.MesosID(context.TODO())
 }
 
-func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body io.Reader) (responseBody []byte, httpResponseCode int, err error) {
+func (st *Tools) doRequest(method, url string, timeout time.Duration, body io.Reader) (responseBody []byte, httpResponseCode int, err error) {
 	if url != st.ExhibitorURL {
 		url, err = util.UseTLSScheme(url, st.ForceTLS)
 		if err != nil {
@@ -78,22 +78,22 @@ func (st *DCOSTools) doRequest(method, url string, timeout time.Duration, body i
 }
 
 // Get HTTP request.
-func (st *DCOSTools) Get(url string, timeout time.Duration) (body []byte, httpResponseCode int, err error) {
+func (st *Tools) Get(url string, timeout time.Duration) (body []byte, httpResponseCode int, err error) {
 	return st.doRequest("GET", url, timeout, nil)
 }
 
 // Post HTTP request.
-func (st *DCOSTools) Post(url string, timeout time.Duration) (body []byte, httpResponseCode int, err error) {
+func (st *Tools) Post(url string, timeout time.Duration) (body []byte, httpResponseCode int, err error) {
 	return st.doRequest("POST", url, timeout, nil)
 }
 
 // GetTimestamp return time.Now()
-func (st *DCOSTools) GetTimestamp() time.Time {
+func (st *Tools) GetTimestamp() time.Time {
 	return time.Now()
 }
 
 // GetMasterNodes finds DC/OS masters.
-func (st *DCOSTools) GetMasterNodes() (nodesResponse []Node, err error) {
+func (st *Tools) GetMasterNodes() (nodesResponse []Node, err error) {
 	finder := &findMastersInExhibitor{
 		url:   st.ExhibitorURL,
 		getFn: st.Get,
@@ -108,7 +108,7 @@ func (st *DCOSTools) GetMasterNodes() (nodesResponse []Node, err error) {
 }
 
 // GetAgentNodes finds DC/OS agents.
-func (st *DCOSTools) GetAgentNodes() (nodes []Node, err error) {
+func (st *Tools) GetAgentNodes() (nodes []Node, err error) {
 	finder := &findNodesInDNS{
 		forceTLS:  st.ForceTLS,
 		dnsRecord: "leader.mesos",

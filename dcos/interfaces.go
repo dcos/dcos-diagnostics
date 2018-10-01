@@ -49,8 +49,8 @@ type Node struct {
 	MesosID string
 }
 
-// Tools DC/OS specific tools interface.
-type Tools interface {
+// Tooler DC/OS specific tools interface.
+type Tooler interface {
 	// open dbus connection
 	InitializeUnitControllerConnection() error
 

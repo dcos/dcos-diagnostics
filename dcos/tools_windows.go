@@ -2,9 +2,7 @@ package dcos
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,7 +11,6 @@ import (
 
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
@@ -23,8 +20,8 @@ const (
 	WindowsServiceListFile = "servicelist.txt"
 )
 
-// DCOSTools is implementation of dcos.Tools interface.
-type DCOSTools struct {
+// Tools is implementation of dcos.Tooler interface.
+type Tools struct {
 	sync.Mutex
 
 	ExhibitorURL string
@@ -33,7 +30,6 @@ type DCOSTools struct {
 	NodeInfo     nodeutil.NodeInfo
 	Transport    http.RoundTripper
 
-	//dcon     *dbus.Conn
 	svcManager *mgr.Mgr
 
 	hostname string
@@ -42,7 +38,7 @@ type DCOSTools struct {
 }
 
 // InitializeUnitControllerConnection opens a connection.
-func (st *DCOSTools) InitializeUnitControllerConnection() (err error) {
+func (st *Tools) InitializeUnitControllerConnection() (err error) {
 	st.Lock()
 	if st.svcManager == nil {
 		st.svcManager, err = mgr.Connect()
@@ -57,7 +53,7 @@ func (st *DCOSTools) InitializeUnitControllerConnection() (err error) {
 }
 
 // CloseUnitControllerConnection closes a dbus connection.
-func (st *DCOSTools) CloseUnitControllerConnection() error {
+func (st *Tools) CloseUnitControllerConnection() error {
 	// unlock the connection no matter what
 	defer st.Unlock()
 	if st.svcManager != nil {
@@ -72,7 +68,7 @@ func (st *DCOSTools) CloseUnitControllerConnection() error {
 }
 
 // GetUnitProperties return a map of Windows service properties
-func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, error) {
+func (st *Tools) GetUnitProperties(pname string) (map[string]interface{}, error) {
 	var serviceHandle *mgr.Service
 
 	if st.svcManager == nil {
@@ -122,13 +118,13 @@ func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, er
 	result["SubState"] = string(status.State)
 	result["Description"] = config.Description
 
-	logrus.WithField("Result", result).WithField("Id", pname).Debug("GetUnitProperties for service")
+	logrus.WithField("Result", result).WithField("ID", pname).Debug("GetUnitProperties for service")
 	return result, nil
 }
 
 // GetUnitNames reads from WindowsServiceListFile for a list of expected Windows services on the agent node
 // In Windows, "units" are equivalent to Windows services
-func (st *DCOSTools) GetUnitNames() (units []string, err error) {
+func (st *Tools) GetUnitNames() (units []string, err error) {
 	// read all the Windows services from WindowsServiceListFile file
 	ex, err := os.Executable()
 	if err != nil {
@@ -152,54 +148,6 @@ func (st *DCOSTools) GetUnitNames() (units []string, err error) {
 }
 
 // GetJournalOutput returns nil, as it's not supported on a Windwos agent node
-func (st *DCOSTools) GetJournalOutput(unit string) (string, error) {
+func (st *Tools) GetJournalOutput(unit string) (string, error) {
 	return "", nil
-}
-
-func normalizeProperty(unitProps map[string]interface{}, tools DCOSHelper) (HealthResponseValues, error) {
-	var (
-		description, prettyName string
-		propsResponse           UnitPropertiesResponse
-	)
-
-	marshaledPropsResponse, err := json.Marshal(unitProps)
-	if err != nil {
-		return HealthResponseValues{}, err
-	}
-
-	if err = json.Unmarshal(marshaledPropsResponse, &propsResponse); err != nil {
-		return HealthResponseValues{}, err
-	}
-
-	unitHealth, unitOutput, err := propsResponse.CheckUnitHealth()
-	if err != nil {
-		return HealthResponseValues{}, err
-	}
-
-	s := strings.Split(propsResponse.Description, ": ")
-	if len(s) != 2 {
-		description = strings.Join(s, " ")
-
-	} else {
-		prettyName, description = s[0], s[1]
-	}
-
-	return HealthResponseValues{
-		UnitID:     propsResponse.ID,
-		UnitHealth: unitHealth,
-		UnitOutput: unitOutput,
-		UnitTitle:  description,
-		Help:       "",
-		PrettyName: prettyName,
-	}, nil
-}
-
-// CheckUnitHealth tells if the Unit is Healthy
-func (u *UnitPropertiesResponse) CheckUnitHealth() (Health, string, error) {
-
-	if u.ActiveState != string(svc.Running) {
-		logrus.Infof("The ActiveState is %s, not in running state(4)", u.ActiveState)
-		return Healthy, fmt.Sprintf("The ActiveState is %s, not in running state(4)", u.ActiveState), nil
-	}
-	return Unhealthy, "", nil
 }

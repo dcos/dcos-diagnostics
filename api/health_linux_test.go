@@ -19,9 +19,9 @@ func TestSystemdUnits_GetUnits(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, []HealthResponseValues{
-		{UnitID: "unit_a", UnitTitle: "My fake description", PrettyName: "PrettyName"},
-		{UnitID: "unit_b", UnitTitle: "My fake description", PrettyName: "PrettyName"},
-		{UnitID: "unit_c", UnitTitle: "My fake description", PrettyName: "PrettyName"},
+		{UnitID: "unit_a", UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_b", UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_c", UnitTitle: title, PrettyName: name},
 	}, units)
 }
 

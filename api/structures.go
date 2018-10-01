@@ -71,7 +71,7 @@ type NodeResponseFieldsWithErrorStruct struct {
 // the one used for testing.
 type Dt struct {
 	Cfg               *config.Config
-	DtDCOSTools       dcos.Tools
+	DtDCOSTools       dcos.Tooler
 	DtDiagnosticsJob  *DiagnosticsJob
 	RunPullerChan     chan bool
 	RunPullerDoneChan chan bool

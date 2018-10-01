@@ -16,8 +16,8 @@ import (
 	"github.com/dcos/dcos-diagnostics/units"
 )
 
-// DCOSTools is implementation of Tools interface.
-type DCOSTools struct {
+// Tools is implementation of Tooler interface.
+type Tools struct {
 	sync.Mutex
 
 	ExhibitorURL string
@@ -31,7 +31,7 @@ type DCOSTools struct {
 }
 
 // InitializeUnitControllerConnection opens a dbus connection. The connection is available via st.dcon
-func (st *DCOSTools) InitializeUnitControllerConnection() (err error) {
+func (st *Tools) InitializeUnitControllerConnection() (err error) {
 	// we need to lock the dbus connection for each request
 	st.Lock()
 	if st.dcon == nil {
@@ -47,7 +47,7 @@ func (st *DCOSTools) InitializeUnitControllerConnection() (err error) {
 }
 
 // CloseUnitControllerConnection closes a dbus connection.
-func (st *DCOSTools) CloseUnitControllerConnection() error {
+func (st *Tools) CloseUnitControllerConnection() error {
 	// unlock the dbus connection no matter what
 	defer st.Unlock()
 	if st.dcon != nil {
@@ -60,7 +60,7 @@ func (st *DCOSTools) CloseUnitControllerConnection() error {
 }
 
 // GetUnitProperties return a map of systemd Unit properties received from dbus.
-func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, error) {
+func (st *Tools) GetUnitProperties(pname string) (map[string]interface{}, error) {
 	result, err := st.dcon.GetUnitProperties(pname)
 	if err != nil {
 		return result, err
@@ -86,7 +86,7 @@ func (st *DCOSTools) GetUnitProperties(pname string) (map[string]interface{}, er
 }
 
 // GetUnitNames read a directory /etc/systemd/system/dcos.target.wants and return a list of found systemd units.
-func (st *DCOSTools) GetUnitNames() (units []string, err error) {
+func (st *Tools) GetUnitNames() (units []string, err error) {
 	files, err := ioutil.ReadDir("/etc/systemd/system/dcos.target.wants")
 	if err != nil {
 		return units, err
@@ -99,7 +99,7 @@ func (st *DCOSTools) GetUnitNames() (units []string, err error) {
 }
 
 // GetJournalOutput returns last 50 lines of journald command output for a specific systemd Unit.
-func (st *DCOSTools) GetJournalOutput(unit string) (string, error) {
+func (st *Tools) GetJournalOutput(unit string) (string, error) {
 	matches := units.DefaultSystemdMatches(unit)
 	format := reader.NewEntryFormatter("text/plain", false)
 	j, err := reader.NewReader(format, reader.OptionMatchOR(matches), reader.OptionSkipPrev(50))
