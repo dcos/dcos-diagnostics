@@ -291,6 +291,14 @@
   version = "v0.3.0"
 
 [[projects]]
+  branch = "v1"
+  digest = "1:23fc86a644517c24115801c487921dbca64199a17b4c4bd057dcd97e59605684"
+  name = "gopkg.in/jarcoal/httpmock.v1"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "8007e27cdb3239fcfc95c1274d7d8cbcc68b7d52"
+
+[[projects]]
   digest = "1:3c30f2d65883ac85b43ffca835de179b24677392b4df001517862e113d0439ff"
   name = "gopkg.in/square/go-jose.v2"
   packages = [
@@ -333,6 +341,7 @@
     "github.com/stretchr/testify/suite",
     "golang.org/x/sys/windows/svc",
     "golang.org/x/sys/windows/svc/mgr",
+    "gopkg.in/jarcoal/httpmock.v1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
