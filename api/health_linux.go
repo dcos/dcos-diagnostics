@@ -16,7 +16,7 @@ type SystemdUnits struct {
 }
 
 // GetUnits returns a list of found unit properties.
-func (s *SystemdUnits) GetUnits(tools dcos.Tools) (allUnits []HealthResponseValues, err error) {
+func (s *SystemdUnits) GetUnits(tools dcos.Tooler) (allUnits []HealthResponseValues, err error) {
 	if err = tools.InitializeUnitControllerConnection(); err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (s *SystemdUnits) GetUnits(tools dcos.Tools) (allUnits []HealthResponseValu
 }
 
 // GetUnitsProperties return a structured units health response of UnitsHealthResponseJsonStruct type.
-func (s *SystemdUnits) GetUnitsProperties(tools dcos.Tools) (healthReport UnitsHealthResponseJSONStruct, err error) {
+func (s *SystemdUnits) GetUnitsProperties(tools dcos.Tooler) (healthReport UnitsHealthResponseJSONStruct, err error) {
 	s.Lock()
 	defer s.Unlock()
 

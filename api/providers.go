@@ -36,7 +36,7 @@ type CommandProvider struct {
 	Role    []string
 }
 
-func loadProviders(cfg *config.Config, DCOSTools dcos.Tools) (*LogProviders, error) {
+func loadProviders(cfg *config.Config, DCOSTools dcos.Tooler) (*LogProviders, error) {
 	// load the internal providers
 	internalProviders, err := loadInternalProviders(cfg, DCOSTools)
 	if err != nil {
@@ -67,7 +67,7 @@ func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, 
 	return externalProviders, nil
 }
 
-func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tools) (internalConfigProviders LogProviders, err error) {
+func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tooler) (internalConfigProviders LogProviders, err error) {
 	units, err := DCOSTools.GetUnitNames()
 	if err != nil {
 		return internalConfigProviders, err

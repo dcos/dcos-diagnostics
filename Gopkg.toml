@@ -23,10 +23,6 @@
   version = "1.6.2"
 
 [[constraint]]
-  name = "github.com/pkg/errors"
-  version = "0.8.0"
-
-[[constraint]]
   name = "github.com/shirou/gopsutil"
   version = "2.18.07"
 

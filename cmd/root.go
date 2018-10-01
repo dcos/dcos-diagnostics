@@ -98,7 +98,7 @@ func initConfig() {
 
 func runDiag() int {
 	sdu := &api.SystemdUnits{}
-	units, err := sdu.GetUnits(&dcos.DCOSTools{})
+	units, err := sdu.GetUnits(&dcos.Tools{})
 	if err != nil {
 		logrus.Errorf("Error getting units properties: %s", err)
 		return 1

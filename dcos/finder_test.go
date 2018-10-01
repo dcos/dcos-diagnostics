@@ -2,15 +2,18 @@ package dcos
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_findMastersInExhibitor_Find(t *testing.T) {
 	called := false
 	getFn := func(url string, duration time.Duration) ([]byte, int, error) {
-		if called { return []byte("[]"), 200, nil }
+		if called {
+			return []byte("[]"), 200, nil
+		}
 		called = true
 		body := `[
 			{"Hostname": "mesos-master-1", "IsLeader": true},

@@ -332,6 +332,7 @@
     "github.com/dcos/dcos-log/dcos-log/journal/reader",
     "github.com/gorilla/handlers",
     "github.com/gorilla/mux",
+    "github.com/mitchellh/mapstructure",
     "github.com/shirou/gopsutil/disk",
     "github.com/sirupsen/logrus",
     "github.com/spf13/cobra",

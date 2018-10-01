@@ -8,6 +8,7 @@ import (
 	"unicode"
 )
 
+// UseTLSScheme returns url with https scheme if use is true
 func UseTLSScheme(url string, use bool) (string, error) {
 	if use {
 		urlObject, err := netUrl.Parse(url)
@@ -44,7 +45,7 @@ func NewHTTPClient(timeout time.Duration, transport http.RoundTripper) *http.Cli
 	return client
 }
 
-// Help functions
+// IsInList returns true if item is in list
 func IsInList(item string, l []string) bool {
 	for _, listItem := range l {
 		if item == listItem {

@@ -1,13 +1,14 @@
 package dcos
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/jarcoal/httpmock.v1"
-	"testing"
 )
 
 func TestDCOSTools_GetHostname(t *testing.T) {
-	tools := &DCOSTools{
+	tools := &Tools{
 		hostname: "some hostname",
 	}
 
@@ -25,7 +26,7 @@ func TestDCOSTools_Get(t *testing.T) {
 	httpmock.RegisterResponder("GET", "https://some.url:8080",
 		httpmock.NewStringResponder(200, `OK`))
 
-	tools := &DCOSTools{
+	tools := &Tools{
 		Transport: httpmock.DefaultTransport,
 	}
 
@@ -44,7 +45,7 @@ func TestDCOSTools_Post(t *testing.T) {
 	httpmock.RegisterResponder("POST", "https://some.url:8080",
 		httpmock.NewStringResponder(200, `OK`))
 
-	tools := &DCOSTools{
+	tools := &Tools{
 		Transport: httpmock.DefaultTransport,
 	}
 
@@ -58,7 +59,7 @@ func TestDCOSTools_Post(t *testing.T) {
 func TestDCOSTools_GetAgentNodes(t *testing.T) {
 	dcosHistoryPath = "testdata/valid"
 
-	tools := &DCOSTools{
+	tools := &Tools{
 		Transport: httpmock.DefaultTransport,
 	}
 
@@ -73,7 +74,7 @@ func TestDCOSTools_GetAgentNodes(t *testing.T) {
 func TestDCOSTools_GetAgentNodes_WithInvalidData(t *testing.T) {
 	dcosHistoryPath = "testdata/invalid"
 
-	tools := &DCOSTools{
+	tools := &Tools{
 		Transport: httpmock.DefaultTransport,
 	}
 
@@ -86,13 +87,12 @@ func TestDCOSTools_GetAgentNodes_WithInvalidData(t *testing.T) {
 func TestDCOSTools_GetAgentNodes_WithoutHistoryDirectory(t *testing.T) {
 	dcosHistoryPath = "not/existing/dir"
 
-	tools := &DCOSTools{
+	tools := &Tools{
 		Transport: httpmock.DefaultTransport,
 	}
 
 	nodes, err := tools.GetAgentNodes()
 
-	assert.EqualError(t, err, "open not/existing/dir/hour/: no such file or directory")
+	assert.Error(t, err)
 	assert.Empty(t, nodes)
 }
-

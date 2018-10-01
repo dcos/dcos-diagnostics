@@ -42,7 +42,7 @@ type DiagnosticsJob struct {
 	logProviders logProviders
 
 	Cfg       *config.Config    `json:"-"`
-	DCOSTools dcos.Tools        `json:"-"`
+	DCOSTools dcos.Tooler       `json:"-"`
 	Transport http.RoundTripper `json:"-"`
 
 	Running               bool          `json:"is_running"`
@@ -651,7 +651,7 @@ func (j *DiagnosticsJob) stop() {
 }
 
 // get a list of all bundles across the cluster.
-func listAllBundles(cfg *config.Config, DCOSTools dcos.Tools) (map[string][]bundle, error) {
+func listAllBundles(cfg *config.Config, DCOSTools dcos.Tooler) (map[string][]bundle, error) {
 	collectedBundles := make(map[string][]bundle)
 	masterNodes, err := DCOSTools.GetMasterNodes()
 	if err != nil {

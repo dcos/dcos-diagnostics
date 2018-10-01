@@ -15,37 +15,37 @@
 package cmd
 
 import (
-	"github.com/dcos/dcos-diagnostics/config"
-	"github.com/stretchr/testify/assert"
 	"path/filepath"
 	"testing"
+
+	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_initConfig(t *testing.T) {
-	cfgFile =  filepath.Join("testdata", "dcos-diagnostics-config.json")
-	defer func() { cfgFile = ""}()
+	cfgFile = filepath.Join("testdata", "dcos-diagnostics-config.json")
+	defer func() { cfgFile = "" }()
 
 	initConfig()
 
 	expected := &config.Config{
-		FlagRole: "master",
-		FlagPort:1050,
-		FlagPull: true,
-		FlagMasterPort:1050,
-		FlagAgentPort:61001,
-		FlagPullInterval:60,
-		FlagPullTimeoutSec:3,
-		FlagUpdateHealthReportInterval:60,
-		FlagExhibitorClusterStatusURL:"http://127.0.0.1:8181/exhibitor/v1/cluster/status",
-		FlagDisableUnixSocket: true,
-		FlagDiagnosticsBundleDir:"diag-bundles",
-		FlagDiagnosticsBundleEndpointsConfigFile:"dcos-diagnostics-endpoint-config.json",
-		FlagDiagnosticsBundleUnitsLogsSinceString:"24h",
-		FlagDiagnosticsJobTimeoutMinutes:720,
-		FlagDiagnosticsJobGetSingleURLTimeoutMinutes:2,
-		FlagCommandExecTimeoutSec:120,
+		FlagRole:                                     "master",
+		FlagPort:                                     1050,
+		FlagPull:                                     true,
+		FlagMasterPort:                               1050,
+		FlagAgentPort:                                61001,
+		FlagPullInterval:                             60,
+		FlagPullTimeoutSec:                           3,
+		FlagUpdateHealthReportInterval:               60,
+		FlagExhibitorClusterStatusURL:                "http://127.0.0.1:8181/exhibitor/v1/cluster/status",
+		FlagDisableUnixSocket:                        true,
+		FlagDiagnosticsBundleDir:                     "diag-bundles",
+		FlagDiagnosticsBundleEndpointsConfigFile:     "dcos-diagnostics-endpoint-config.json",
+		FlagDiagnosticsBundleUnitsLogsSinceString:    "24h",
+		FlagDiagnosticsJobTimeoutMinutes:             720,
+		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,
+		FlagCommandExecTimeoutSec:                    120,
 	}
-
 
 	assert.Equal(t, expected, defaultConfig)
 

@@ -16,7 +16,7 @@ import (
 	"github.com/dcos/dcos-diagnostics/util"
 )
 
-// with the nodeFinder interface we can chain finding methods
+// nodeFinder interface allows chain finding methods
 type nodeFinder interface {
 	Find() ([]Node, error)
 }
@@ -74,6 +74,7 @@ func (f *FindAgentsInHistoryService) getMesosAgents() (nodes []Node, err error) 
 	return nodes, nil
 }
 
+// Find returns list of nodes or error if nodes could not be detected
 func (f *FindAgentsInHistoryService) Find() (nodes []Node, err error) {
 	nodes, err = f.getMesosAgents()
 	if err == nil {
@@ -158,7 +159,7 @@ func (n NodesNotFoundError) Error() string {
 	return n.msg
 }
 
-// Find agents in history service
+// FindAgentsInHistoryService returns agents from dcos-history service files
 type FindAgentsInHistoryService struct {
 	PastTime string
 	next     nodeFinder
