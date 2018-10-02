@@ -1,16 +1,16 @@
 package api
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 )
 
 // UnitPropertiesResponse is a structure to unmarshal dbus.GetunitProperties response
 type UnitPropertiesResponse struct {
-	ID             string `json:"Id"`
+	ID             string `mapstructure:"Id"`
 	LoadState      string
 	ActiveState    string
 	SubState       string
@@ -29,12 +29,7 @@ func normalizeProperty(unitProps map[string]interface{}, tools dcos.Tooler) (Hea
 		propsResponse           UnitPropertiesResponse
 	)
 
-	marshaledPropsResponse, err := json.Marshal(unitProps)
-	if err != nil {
-		return HealthResponseValues{}, err
-	}
-
-	if err = json.Unmarshal(marshaledPropsResponse, &propsResponse); err != nil {
+	if err := mapstructure.Decode(unitProps, &propsResponse); err != nil {
 		return HealthResponseValues{}, err
 	}
 
