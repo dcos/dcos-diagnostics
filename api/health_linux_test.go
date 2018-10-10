@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
+
 	"github.com/stretchr/testify/assert"
 )
 

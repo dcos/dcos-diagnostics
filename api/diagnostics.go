@@ -19,6 +19,7 @@ import (
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/units"
 	"github.com/dcos/dcos-diagnostics/util"
+
 	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/sirupsen/logrus"

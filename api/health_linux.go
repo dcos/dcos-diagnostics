@@ -7,6 +7,7 @@ import (
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/util"
+
 	"github.com/sirupsen/logrus"
 )
 
