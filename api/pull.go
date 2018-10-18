@@ -106,13 +106,18 @@ func updateHealthStatus(responses <-chan *httpResponse, dt *Dt) {
 func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var response httpResponse
-	port, err := getPullPortByRole(dt.Cfg, host.Role)
-	if err != nil {
-		logrus.Errorf("Could not get a port by role %s: %s", host.Role, err)
-		response.Status = http.StatusServiceUnavailable
-		host.Health = 3
+
+	markNodeHealthAsUnknown := func(statusCode int) {
+		response.Status = statusCode
+		host.Health = dcos.Unknown
 		response.Node = host
 		respChan <- &response
+	}
+
+	port, err := getPullPortByRole(dt.Cfg, host.Role)
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not get a port by role %s", host.Role)
+		markNodeHealthAsUnknown(http.StatusServiceUnavailable)
 		return
 	}
 
@@ -121,11 +126,8 @@ func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *s
 	// UnitsRoute available in router.go
 	url, err := util.UseTLSScheme(baseURL, dt.Cfg.FlagForceTLS)
 	if err != nil {
-		logrus.Errorf("Could not read UseTLSScheme: %s", err)
-		response.Status = http.StatusServiceUnavailable
-		host.Health = 3
-		response.Node = host
-		respChan <- &response
+		logrus.WithError(err).Error("Could not read useTLSScheme")
+		markNodeHealthAsUnknown(http.StatusServiceUnavailable)
 		return
 	}
 
@@ -134,30 +136,21 @@ func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *s
 	timeout := time.Duration(dt.Cfg.FlagPullTimeoutSec) * time.Second
 	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout)
 	if statusCode != http.StatusOK {
-		logrus.Errorf("Bad response code %d. URL %s", statusCode, url)
-		response.Status = statusCode
-		host.Health = 3
-		response.Node = host
-		respChan <- &response
+		logrus.WithField("URL", url).WithField("Body", string(body)).Errorf("Bad response code %d", statusCode)
+		markNodeHealthAsUnknown(statusCode)
 		return
 	}
 	if err != nil {
-		logrus.Errorf("Could not HTTP GET %s: %s", url, err)
-		response.Status = statusCode
-		host.Health = 3 // 3 stands for unknown
-		respChan <- &response
-		response.Node = host
+		logrus.WithError(err).WithField("URL", url).Error("Could not HTTP GET")
+		markNodeHealthAsUnknown(statusCode)
 		return
 	}
 
 	// Response should be strictly mapped to jsonBodyStruct, otherwise skip it
 	var jsonBody UnitsHealthResponseJSONStruct
 	if err := json.Unmarshal(body, &jsonBody); err != nil {
-		logrus.Errorf("Could not deserialize json response from %s, url %s: %s", host.IP, url, err)
-		response.Status = statusCode
-		host.Health = 3 // 3 stands for unknown
-		respChan <- &response
-		response.Node = host
+		logrus.WithError(err).WithField("URL", url).Errorf("Could not deserialize json response from %s", host.IP)
+		markNodeHealthAsUnknown(statusCode)
 		return
 	}
 	response.Status = statusCode

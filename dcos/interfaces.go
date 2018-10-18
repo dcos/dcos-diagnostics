@@ -24,6 +24,8 @@ const (
 	Unhealthy = 0
 	// Healthy indicates Unit is healthy
 	Healthy = 1
+	// Unknown indicates Unit health could not be determined
+	Unknown = 3
 )
 
 const (
