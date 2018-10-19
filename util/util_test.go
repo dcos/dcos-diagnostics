@@ -46,7 +46,7 @@ func TestUseTLSScheme(t *testing.T) {
 
 	url, err = UseTLSScheme("", true)
 	assert.NoError(t, err)
-	assert.Equal(t, "https:", url)
+	assert.Equal(t, "https://", url)
 
 	url, err = UseTLSScheme("/http://", false)
 	assert.NoError(t, err)
