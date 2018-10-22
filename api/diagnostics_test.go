@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -286,116 +287,73 @@ func mockServer(handle func(w http.ResponseWriter, r *http.Request)) (*httptest.
 }
 
 func TestFindRequestedNodes(t *testing.T) {
-	tools := &fakeDCOSTools{}
-	dt := &Dt{
-		Cfg:              testCfg(),
-		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
-		MR:               &MonitoringResponse{},
+	tools := new(MockedTools)
+
+	tools.On("GetMasterNodes").Return(
+		[]dcos.Node{
+			{IP: "10.10.0.1", Role: "master"},
+			{IP: "10.10.0.2", Host: "my-host.com", Role: "master"},
+			{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"},
+		}, nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{{IP: "127.0.0.1", Role: "agent"}}, nil)
+
+	var tests = []struct {
+		requestedNodes []string
+		expectedNodes  []dcos.Node
+	}{
+		{[]string{"all"}, []dcos.Node{
+			{IP: "10.10.0.1", Role: "master"},
+			{IP: "10.10.0.2", Role: "master", Host: "my-host.com"},
+			{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"},
+			{IP: "127.0.0.1", Role: "agent"},
+		}},
+		{[]string{"masters"}, []dcos.Node{
+			{IP: "10.10.0.1", Role: "master"},
+			{IP: "10.10.0.2", Role: "master", Host: "my-host.com"},
+			{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"},
+		}},
+		{[]string{"agents"}, []dcos.Node{
+			{IP: "127.0.0.1", Role: "agent"},
+		}},
+		{[]string{"10.10.0.1"}, []dcos.Node{
+			{IP: "10.10.0.1", Role: "master"},
+		}},
+		{[]string{"my-host.com"}, []dcos.Node{
+			{IP: "10.10.0.2", Role: "master", Host: "my-host.com"},
+		}},
+		{[]string{"12345-12345"}, []dcos.Node{
+			{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"},
+		}},
+		{[]string{"agents", "10.10.0.1"}, []dcos.Node{
+			{IP: "127.0.0.1", Role: "agent"},
+			{IP: "10.10.0.1", Role: "master"},
+		}},
 	}
 
-	mockedGlobalMonitoringResponse := &MonitoringResponse{
-		Nodes: map[string]dcos.Node{
-			"10.10.0.1": {
-				IP:   "10.10.0.1",
-				Role: "master",
-			},
-			"10.10.0.2": {
-				IP:   "10.10.0.2",
-				Host: "my-host.com",
-				Role: "master",
-			},
-			"10.10.0.3": {
-				IP:      "10.10.0.3",
-				MesosID: "12345-12345",
-				Role:    "master",
-			},
-			"127.0.0.1": {
-				IP:   "127.0.0.1",
-				Role: "agent",
-			},
-		},
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.requestedNodes, "_"), func(t *testing.T) {
+			actualNodes, err := findRequestedNodes(tt.requestedNodes, tools)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedNodes, actualNodes)
+		})
 	}
-	dt.MR.UpdateMonitoringResponse(mockedGlobalMonitoringResponse)
 
-	// should return masters + agents
-	requestedNodes := []string{"all"}
-	nodes, err := findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 4)
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
-	assert.Contains(t, nodes, dcos.Node{IP: "127.0.0.1", Role: "agent"})
-
-	// should return only masters
-	requestedNodes = []string{"masters"}
-	nodes, err = findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 3)
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
-
-	// should return only agents
-	requestedNodes = []string{"agents"}
-	nodes, err = findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, dcos.Node{IP: "127.0.0.1", Role: "agent"})
-
-	// should return host with ip
-	requestedNodes = []string{"10.10.0.1"}
-	nodes, err = findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
-
-	// should return host with hostname
-	requestedNodes = []string{"my-host.com"}
-	nodes, err = findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.2", Role: "master", Host: "my-host.com"})
-
-	// should return host with mesos-id
-	requestedNodes = []string{"12345-12345"}
-	nodes, err = findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 1)
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.3", Role: "master", MesosID: "12345-12345"})
-
-	// should return agents and node with ip
-	requestedNodes = []string{"agents", "10.10.0.1"}
-	nodes, err = findRequestedNodes(requestedNodes, dt)
-	require.NoError(t, err)
-	assert.Len(t, nodes, 2)
-	assert.Contains(t, nodes, dcos.Node{IP: "10.10.0.1", Role: "master"})
-	assert.Contains(t, nodes, dcos.Node{IP: "127.0.0.1", Role: "agent"})
+	tools.AssertExpectations(t)
 }
 
 func TestGetStatus(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	config := testCfg()
-	dt := &Dt{
-		Cfg:              config,
-		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: config, DCOSTools: tools},
-		MR:               &MonitoringResponse{},
-	}
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
 
-	status := dt.DtDiagnosticsJob.getStatus()
+	status := job.getStatus()
 	assert.Equal(t, status.DiagnosticBundlesBaseDir, config.FlagDiagnosticsBundleDir)
 }
 
 func TestGetAllStatus(t *testing.T) {
 	tools := &fakeDCOSTools{}
-	dt := &Dt{
-		Cfg:              testCfg(),
-		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
-		MR:               &MonitoringResponse{},
-	}
+	config := testCfg()
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
 
 	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", baseRoute)
 	mockedResponse := `
@@ -417,7 +375,7 @@ func TestGetAllStatus(t *testing.T) {
 	`
 	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
 
-	status, err := dt.DtDiagnosticsJob.getStatusAll()
+	status, err := job.getStatusAll()
 	require.NoError(t, err)
 	assert.Contains(t, status, "127.0.0.1")
 	assert.Equal(t, status["127.0.0.1"], bundleReportStatus{
@@ -440,12 +398,7 @@ func TestIsSnapshotAvailable(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	cfg := testCfg()
 	defer os.RemoveAll(cfg.FlagDiagnosticsBundleDir)
-	dt := &Dt{
-		Cfg:              cfg,
-		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools},
-		MR:               &MonitoringResponse{},
-	}
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools}
 
 	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/list", baseRoute)
 	mockedResponse := `[{"file_name": "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip", "file_size": 123}]`
@@ -459,25 +412,25 @@ func TestIsSnapshotAvailable(t *testing.T) {
 	_, err = os.Create(invalidFilePath)
 	require.NoError(t, err)
 
-	host, remoteSnapshot, ok, err := dt.DtDiagnosticsJob.isBundleAvailable("bundle-2016-05-13T22:11:36.zip")
+	host, remoteSnapshot, ok, err := job.isBundleAvailable("bundle-2016-05-13T22:11:36.zip")
 	require.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, host, "127.0.0.1")
 	assert.Equal(t, remoteSnapshot, "/system/health/v1/report/diagnostics/serve/bundle-2016-05-13T22:11:36.zip")
 
-	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("bundle-local.zip")
+	host, remoteSnapshot, ok, err = job.isBundleAvailable("bundle-local.zip")
 	require.NoError(t, err)
 	assert.True(t, ok)
 	assert.Empty(t, host)
 	assert.Empty(t, remoteSnapshot)
 
-	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("local-bundle.zip")
+	host, remoteSnapshot, ok, err = job.isBundleAvailable("local-bundle.zip")
 	require.NoError(t, err)
 	assert.False(t, ok, "bundles must mach bundle-*.zip pattern")
 	assert.Empty(t, host)
 	assert.Empty(t, remoteSnapshot)
 
-	host, remoteSnapshot, ok, err = dt.DtDiagnosticsJob.isBundleAvailable("bundle-123.zip")
+	host, remoteSnapshot, ok, err = job.isBundleAvailable("bundle-123.zip")
 	assert.False(t, ok)
 	assert.Empty(t, host)
 	assert.Empty(t, remoteSnapshot)
@@ -720,7 +673,7 @@ func TestRunSnapshot(t *testing.T) {
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -776,7 +729,7 @@ func waitForBundle(t *testing.T, bundlePath string) bool {
 		default:
 			stat, err := os.Stat(bundlePath)
 			if err != nil {
-				t.Logf("Error: %d", err)
+				t.Logf("Error: %s", err)
 				time.Sleep(time.Millisecond)
 				continue
 			}
