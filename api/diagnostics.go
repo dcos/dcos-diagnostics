@@ -107,9 +107,9 @@ type bundleCreateRequest struct {
 }
 
 // start a diagnostics job
-func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, error) {
+func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 
-	role, err := dt.DtDCOSTools.GetNodeRole()
+	role, err := j.DCOSTools.GetNodeRole()
 	if err != nil {
 		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, err)
 	}
@@ -126,18 +126,18 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 		return prepareCreateResponseWithErr(http.StatusConflict, errors.New("Job is already running"))
 	}
 
-	foundNodes, err := findRequestedNodes(req.Nodes, dt)
+	foundNodes, err := findRequestedNodes(req.Nodes, j.DCOSTools)
 	if err != nil {
 		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, err)
 	}
 	logrus.Debugf("Found requested nodes: %x", foundNodes)
 
 	// try to create directory for diagnostic bundles
-	_, err = os.Stat(dt.Cfg.FlagDiagnosticsBundleDir)
+	_, err = os.Stat(j.Cfg.FlagDiagnosticsBundleDir)
 	if os.IsNotExist(err) {
-		logrus.Infof("Directory: %s not found, attempting to create one", dt.Cfg.FlagDiagnosticsBundleDir)
-		if err := os.MkdirAll(dt.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
-			j.Status = "Could not create directory: " + dt.Cfg.FlagDiagnosticsBundleDir
+		logrus.Infof("Directory: %s not found, attempting to create one", j.Cfg.FlagDiagnosticsBundleDir)
+		if err := os.MkdirAll(j.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
+			j.Status = "Could not create directory: " + j.Cfg.FlagDiagnosticsBundleDir
 			return prepareCreateResponseWithErr(http.StatusServiceUnavailable, errors.New(j.Status))
 		}
 	}
@@ -148,11 +148,10 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest, dt *Dt) (createResponse, e
 	t := time.Now()
 	bundleName := fmt.Sprintf("bundle-%d-%02d-%02d-%d.zip", t.Year(), t.Month(), t.Day(), t.Unix())
 
-	j.LastBundlePath = filepath.Join(dt.Cfg.FlagDiagnosticsBundleDir, bundleName)
+	j.LastBundlePath = filepath.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
 	j.Status = "Diagnostics job started, archive will be available at: " + j.LastBundlePath
 
 	j.cancelChan = make(chan bool)
-	j.Cfg, j.DCOSTools = dt.Cfg, dt.DtDCOSTools
 	go j.runBackgroundJob(foundNodes)
 
 	var r createResponse
@@ -761,21 +760,15 @@ func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos
 	return matchedNodes, fmt.Errorf("Requested nodes: %s not found", requestedNodes)
 }
 
-func findRequestedNodes(requestedNodes []string, dt *Dt) ([]dcos.Node, error) {
-	var masterNodes, agentNodes []dcos.Node
-	masterNodes, agentNodes, err := dt.MR.GetMasterAgentNodes()
+func findRequestedNodes(requestedNodes []string, tools dcos.Tooler) ([]dcos.Node, error) {
+	masterNodes, err := tools.GetMasterNodes()
 	if err != nil {
-		// failed to find master and agent nodes in memory. Try to discover
-		logrus.Errorf("Could not find masters or agents in memory: %s", err)
-		masterNodes, err = dt.DtDCOSTools.GetMasterNodes()
-		if err != nil {
-			logrus.Errorf("Could not get master nodes: %s", err)
-		}
+		logrus.WithError(err).Errorf("Could not get master nodes")
+	}
 
-		agentNodes, err = dt.DtDCOSTools.GetAgentNodes()
-		if err != nil {
-			logrus.Errorf("Could not get agent nodes: %s", err)
-		}
+	agentNodes, err := tools.GetAgentNodes()
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not get agent nodes")
 	}
 	return matchRequestedNodes(requestedNodes, masterNodes, agentNodes)
 }
@@ -929,8 +922,8 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 }
 
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
-func updateSummaryReport(preflix string, node dcos.Node, err string, r *bytes.Buffer) {
-	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), preflix, node.IP, node.Role, err))
+func updateSummaryReport(prefix string, node dcos.Node, err string, r *bytes.Buffer) {
+	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), prefix, node.IP, node.Role, err))
 }
 
 // implement a io.ReadCloser wrapper over dcos/exec

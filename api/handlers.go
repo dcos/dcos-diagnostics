@@ -390,7 +390,7 @@ func createBundleHandler(w http.ResponseWriter, r *http.Request) {
 		writeResponse(w, response)
 		return
 	}
-	response, err := dt.DtDiagnosticsJob.run(req, dt)
+	response, err := dt.DtDiagnosticsJob.run(req)
 	if err != nil {
 		log.Errorf("Could not run a diagnostics job: %s", err)
 	}
