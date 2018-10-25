@@ -41,12 +41,12 @@ func TestIsInList(t *testing.T) {
 
 func TestUseTLSScheme(t *testing.T) {
 	url, err := UseTLSScheme("", false)
-	assert.NoError(t, err)
-	assert.Equal(t, "", url)
+	assert.EqualError(t, err, "empty URL")
+	assert.Empty(t, "", url)
 
 	url, err = UseTLSScheme("", true)
-	assert.NoError(t, err)
-	assert.Equal(t, "https:", url)
+	assert.EqualError(t, err, "empty URL")
+	assert.Empty(t, "", url)
 
 	url, err = UseTLSScheme("/http://", false)
 	assert.NoError(t, err)

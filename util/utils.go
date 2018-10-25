@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"net/http"
 	netUrl "net/url"
 	"strings"
@@ -10,6 +11,9 @@ import (
 
 // UseTLSScheme returns url with https scheme if use is true
 func UseTLSScheme(url string, use bool) (string, error) {
+	if url == "" {
+		return "", fmt.Errorf("empty URL")
+	}
 	if use {
 		urlObject, err := netUrl.Parse(url)
 		if err != nil {
