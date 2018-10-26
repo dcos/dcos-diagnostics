@@ -13,33 +13,48 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type pull struct {
+	cfg                *config.Config
+	tools              dcos.Tooler
+	runPullerChan      <-chan bool
+	runPullerDoneChan  chan<- bool
+	monitoringResponse *MonitoringResponse
+}
+
 // StartPullWithInterval will start to pull a DC/OS cluster health status
 func StartPullWithInterval(dt *Dt) {
 	// Start infinite loop
+	p := pull{
+		cfg:                dt.Cfg,
+		tools:              dt.DtDCOSTools,
+		runPullerChan:      dt.RunPullerChan,
+		runPullerDoneChan:  dt.RunPullerDoneChan,
+		monitoringResponse: dt.MR,
+	}
 	for {
-		runPull(dt)
+		p.runPull()
 	inner:
 		select {
-		case <-dt.RunPullerChan:
+		case <-p.runPullerChan:
 			logrus.Debug("Update cluster health request recevied")
-			runPull(dt)
-			dt.RunPullerDoneChan <- true
+			p.runPull()
+			p.runPullerDoneChan <- true
 			goto inner
 
 		case <-time.After(time.Duration(dt.Cfg.FlagPullInterval) * time.Second):
-			logrus.Debugf("Update cluster health after %d interval", dt.Cfg.FlagPullInterval)
+			logrus.Debugf("Update cluster health after %d interval", p.cfg.FlagPullInterval)
 		}
 
 	}
 }
 
-func runPull(dt *Dt) {
-	clusterNodes, err := dt.DtDCOSTools.GetMasterNodes()
+func (p *pull) runPull() {
+	clusterNodes, err := p.tools.GetMasterNodes()
 	if err != nil {
 		logrus.Errorf("Could not get master nodes: %s", err)
 	}
 
-	agentNodes, err := dt.DtDCOSTools.GetAgentNodes()
+	agentNodes, err := p.tools.GetAgentNodes()
 	if err != nil {
 		logrus.Errorf("Could not get agent nodes: %s", err)
 	}
@@ -58,16 +73,16 @@ func runPull(dt *Dt) {
 	var wg sync.WaitGroup
 	for _, node := range clusterNodes {
 		wg.Add(1)
-		go pullHostStatus(node, respChan, dt, &wg)
+		go p.pullHostStatus(node, respChan, &wg)
 	}
 	wg.Wait()
 
 	// update collected units/nodes health statuses
-	updateHealthStatus(respChan, dt)
+	p.updateHealthStatus(respChan)
 }
 
 // function builds a map of all unique units with status
-func updateHealthStatus(responses <-chan *httpResponse, dt *Dt) {
+func (p *pull) updateHealthStatus(responses <-chan *httpResponse) {
 	var (
 		units = make(map[string]dcos.Unit)
 		nodes = make(map[string]dcos.Node)
@@ -93,7 +108,7 @@ func updateHealthStatus(responses <-chan *httpResponse, dt *Dt) {
 				}
 			}
 		default:
-			dt.MR.UpdateMonitoringResponse(&MonitoringResponse{
+			p.monitoringResponse.UpdateMonitoringResponse(&MonitoringResponse{
 				Nodes:       nodes,
 				Units:       units,
 				UpdatedTime: time.Now(),
@@ -103,7 +118,7 @@ func updateHealthStatus(responses <-chan *httpResponse, dt *Dt) {
 	}
 }
 
-func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.WaitGroup) {
+func (p *pull) pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var response httpResponse
 
@@ -114,7 +129,7 @@ func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *s
 		respChan <- &response
 	}
 
-	port, err := getPullPortByRole(dt.Cfg, host.Role)
+	port, err := getPullPortByRole(p.cfg, host.Role)
 	if err != nil {
 		logrus.WithError(err).Errorf("Could not get a port by role %s", host.Role)
 		markNodeHealthAsUnknown(http.StatusServiceUnavailable)
@@ -124,7 +139,7 @@ func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *s
 	baseURL := fmt.Sprintf("http://%s:%d%s", host.IP, port, baseRoute)
 
 	// UnitsRoute available in router.go
-	url, err := util.UseTLSScheme(baseURL, dt.Cfg.FlagForceTLS)
+	url, err := util.UseTLSScheme(baseURL, p.cfg.FlagForceTLS)
 	if err != nil {
 		logrus.WithError(err).Error("Could not read useTLSScheme")
 		markNodeHealthAsUnknown(http.StatusServiceUnavailable)
@@ -133,8 +148,8 @@ func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *s
 
 	// Make a request to get node units status
 	// use fake interface implementation for tests
-	timeout := time.Duration(dt.Cfg.FlagPullTimeoutSec) * time.Second
-	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout)
+	timeout := time.Duration(p.cfg.FlagPullTimeoutSec) * time.Second
+	body, statusCode, err := p.tools.Get(url, timeout)
 	if statusCode != http.StatusOK {
 		logrus.WithField("URL", url).WithField("Body", string(body)).Errorf("Bad response code %d", statusCode)
 		markNodeHealthAsUnknown(statusCode)
@@ -179,7 +194,7 @@ func pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, dt *Dt, wg *s
 			Nodes:      []dcos.Node{host},
 			Health:     propertiesMap.UnitHealth,
 			Title:      propertiesMap.UnitTitle,
-			Timestamp:  dt.DtDCOSTools.GetTimestamp(),
+			Timestamp:  p.tools.GetTimestamp(),
 			PrettyName: propertiesMap.PrettyName,
 		})
 	}
