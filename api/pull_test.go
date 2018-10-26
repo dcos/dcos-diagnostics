@@ -21,7 +21,16 @@ func (s *PullerTestSuit) SetupTest() {
 		Cfg:         testCfg(),
 		MR:          &MonitoringResponse{},
 	}
-	runPull(s.dt)
+
+	p := pull{
+		cfg:                s.dt.Cfg,
+		tools:              s.dt.DtDCOSTools,
+		runPullerChan:      s.dt.RunPullerChan,
+		runPullerDoneChan:  s.dt.RunPullerDoneChan,
+		monitoringResponse: s.dt.MR,
+	}
+
+	p.runPull()
 }
 
 func (s *PullerTestSuit) TearDownTest() {
