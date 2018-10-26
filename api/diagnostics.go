@@ -778,7 +778,7 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 
 	currentRole, err := j.DCOSTools.GetNodeRole()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get a current role for a Cfg: %s", err)
+		return nil, fmt.Errorf("failed to get a current role for a cfg: %s", err)
 	}
 
 	port, err := getPullPortByRole(j.Cfg, currentRole)
@@ -788,9 +788,9 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 
 	// http endpoints
 	for fileName, httpEndpoint := range j.logProviders.HTTPEndpoints {
-		// if a role wasn't detected, consider to load all endpoints from a Cfg file.
-		// if the role could not be detected or it is not set in a Cfg file use the log endpoint.
-		// do not use the role only if it is set, detected and does not match the role form a Cfg.
+		// if a role wasn't detected, consider to load all endpoints from a cfg file.
+		// if the role could not be detected or it is not set in a cfg file use the log endpoint.
+		// do not use the role only if it is set, detected and does not match the role form a cfg.
 		if !roleMatched(currentRole, httpEndpoint.Role) {
 			continue
 		}
