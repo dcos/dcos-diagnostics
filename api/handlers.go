@@ -13,18 +13,25 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dcos/dcos-diagnostics/config"
+	"github.com/dcos/dcos-diagnostics/dcos"
+
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
 type handler struct {
-	dt *Dt
+	Cfg              *config.Config
+	DtDCOSTools      dcos.Tooler
+	DtDiagnosticsJob *DiagnosticsJob
+	SystemdUnits     *SystemdUnits
+	MR               *MonitoringResponse
 }
 
 // Route handlers
 // /api/v1/system/health, get a units status, used by dcos-diagnostics puller
 func (h *handler) unitsHealthStatus(w http.ResponseWriter, _ *http.Request) {
-	health, err := h.dt.SystemdUnits.GetUnitsProperties(h.dt.DtDCOSTools)
+	health, err := h.SystemdUnits.GetUnitsProperties(h.DtDCOSTools)
 	if err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -37,7 +44,7 @@ func (h *handler) unitsHealthStatus(w http.ResponseWriter, _ *http.Request) {
 
 // /api/v1/system/health/units, get an array of all units collected from all hosts in a cluster
 func (h *handler) getAllUnitsHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := json.NewEncoder(w).Encode(h.dt.MR.GetAllUnits()); err != nil {
+	if err := json.NewEncoder(w).Encode(h.MR.GetAllUnits()); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
@@ -45,7 +52,7 @@ func (h *handler) getAllUnitsHandler(w http.ResponseWriter, _ *http.Request) {
 // /api/v1/system/health/units/:unit_id:
 func (h *handler) getUnitByIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	unitResponse, err := h.dt.MR.GetUnit(vars["unitid"])
+	unitResponse, err := h.MR.GetUnit(vars["unitid"])
 	if err != nil {
 		httpError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -58,7 +65,7 @@ func (h *handler) getUnitByIDHandler(w http.ResponseWriter, r *http.Request) {
 // /api/v1/system/health/units/:unit_id:/nodes
 func (h *handler) getNodesByUnitIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	nodesForUnitResponse, err := h.dt.MR.GetNodesForUnit(vars["unitid"])
+	nodesForUnitResponse, err := h.MR.GetNodesForUnit(vars["unitid"])
 	if err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -71,7 +78,7 @@ func (h *handler) getNodesByUnitIDHandler(w http.ResponseWriter, r *http.Request
 // /api/v1/system/health/units/:unit_id:/nodes/:node_id:
 func (h *handler) getNodeByUnitIDNodeIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	nodePerUnit, err := h.dt.MR.GetSpecificNodeForUnit(vars["unitid"], vars["nodeid"])
+	nodePerUnit, err := h.MR.GetSpecificNodeForUnit(vars["unitid"], vars["nodeid"])
 
 	if err != nil {
 		httpError(w, err.Error(), http.StatusBadRequest)
@@ -84,14 +91,14 @@ func (h *handler) getNodeByUnitIDNodeIDHandler(w http.ResponseWriter, r *http.Re
 
 // list the entire tree
 func (h *handler) reportHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := json.NewEncoder(w).Encode(h.dt.MR); err != nil {
+	if err := json.NewEncoder(w).Encode(h.MR); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
 
 // /api/v1/system/health/nodes
 func (h *handler) getNodesHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := json.NewEncoder(w).Encode(h.dt.MR.GetNodes()); err != nil {
+	if err := json.NewEncoder(w).Encode(h.MR.GetNodes()); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
@@ -99,7 +106,7 @@ func (h *handler) getNodesHandler(w http.ResponseWriter, _ *http.Request) {
 // /api/v1/system/health/nodes/:node_id:
 func (h *handler) getNodeByIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	nodes, err := h.dt.MR.GetNodeByID(vars["nodeid"])
+	nodes, err := h.MR.GetNodeByID(vars["nodeid"])
 	if err != nil {
 		httpError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -113,7 +120,7 @@ func (h *handler) getNodeByIDHandler(w http.ResponseWriter, r *http.Request) {
 // /api/v1/system/health/nodes/:node_id:/units
 func (h *handler) getNodeUnitsByNodeIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	units, err := h.dt.MR.GetNodeUnitsID(vars["nodeid"])
+	units, err := h.MR.GetNodeUnitsID(vars["nodeid"])
 	if err != nil {
 		httpError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -126,7 +133,7 @@ func (h *handler) getNodeUnitsByNodeIDHandler(w http.ResponseWriter, r *http.Req
 
 func (h *handler) getNodeUnitByNodeIDUnitIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	unit, err := h.dt.MR.GetNodeUnitByNodeIDUnitID(vars["nodeid"], vars["unitid"])
+	unit, err := h.MR.GetNodeUnitByNodeIDUnitID(vars["nodeid"], vars["unitid"])
 	if err != nil {
 		httpError(w, err.Error(), http.StatusBadRequest)
 		return
@@ -142,7 +149,7 @@ func (h *handler) getNodeUnitByNodeIDUnitIDHandler(w http.ResponseWriter, r *htt
 // If a bundle was found on a remote host the local node will send a POST request to remove the bundle.
 func (h *handler) deleteBundleHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	response, err := h.dt.DtDiagnosticsJob.delete(vars["file"])
+	response, err := h.DtDiagnosticsJob.delete(vars["file"])
 	if err != nil {
 		log.Errorf("Could not delete a file %s: %s", vars["file"], err)
 	}
@@ -151,14 +158,14 @@ func (h *handler) deleteBundleHandler(w http.ResponseWriter, r *http.Request) {
 
 // A handler function return a diagnostics job status
 func (h *handler) diagnosticsJobStatusHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := json.NewEncoder(w).Encode(h.dt.DtDiagnosticsJob.getStatus()); err != nil {
+	if err := json.NewEncoder(w).Encode(h.DtDiagnosticsJob.getStatus()); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
 
 // A handler function returns a map of master node ip address as a key and bundleReportStatus as a value.
 func (h *handler) diagnosticsJobStatusAllHandler(w http.ResponseWriter, _ *http.Request) {
-	status, err := h.dt.DtDiagnosticsJob.getStatusAll()
+	status, err := h.DtDiagnosticsJob.getStatusAll()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -172,7 +179,7 @@ func (h *handler) diagnosticsJobStatusAllHandler(w http.ResponseWriter, _ *http.
 // A handler function cancels a job running on a local node first. If a job is running on a remote node
 // it will try to send a POST request to cancel it.
 func (h *handler) cancelBundleReportHandler(w http.ResponseWriter, _ *http.Request) {
-	response, err := h.dt.DtDiagnosticsJob.cancel()
+	response, err := h.DtDiagnosticsJob.cancel()
 	if err != nil {
 		log.Errorf("Could not cancel a job: %s", err)
 	}
@@ -181,7 +188,7 @@ func (h *handler) cancelBundleReportHandler(w http.ResponseWriter, _ *http.Reque
 
 // A handler function returns a map of master ip as a key and a list of bundles as a value.
 func (h *handler) listAvailableGLobalBundlesFilesHandler(w http.ResponseWriter, _ *http.Request) {
-	allBundles, err := listAllBundles(h.dt.Cfg, h.dt.DtDCOSTools)
+	allBundles, err := listAllBundles(h.Cfg, h.DtDCOSTools)
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -194,7 +201,7 @@ func (h *handler) listAvailableGLobalBundlesFilesHandler(w http.ResponseWriter, 
 
 // A handler function returns a list of URLs to download bundles
 func (h *handler) listAvailableLocalBundlesFilesHandler(w http.ResponseWriter, _ *http.Request) {
-	matches, err := h.dt.DtDiagnosticsJob.findLocalBundle()
+	matches, err := h.DtDiagnosticsJob.findLocalBundle()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -224,14 +231,14 @@ func (h *handler) listAvailableLocalBundlesFilesHandler(w http.ResponseWriter, _
 // available on a different node, it will do a reverse proxy.
 func (h *handler) downloadBundleHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	node, location, ok, err := h.dt.DtDiagnosticsJob.isBundleAvailable(vars["file"])
+	node, location, ok, err := h.DtDiagnosticsJob.isBundleAvailable(vars["file"])
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	if ok {
 		// check if the file is available on localhost.
-		serveFile := h.dt.Cfg.FlagDiagnosticsBundleDir + "/" + vars["file"]
+		serveFile := h.Cfg.FlagDiagnosticsBundleDir + "/" + vars["file"]
 		_, err := os.Stat(serveFile)
 		if err == nil {
 			w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s", vars["file"]))
@@ -241,18 +248,18 @@ func (h *handler) downloadBundleHandler(w http.ResponseWriter, r *http.Request) 
 
 		// proxy to appropriate host with a file.
 		scheme := "http"
-		if h.dt.Cfg.FlagForceTLS {
+		if h.Cfg.FlagForceTLS {
 			scheme = "https"
 		}
 
 		director := func(req *http.Request) {
 			req.URL.Scheme = scheme
-			req.URL.Host = net.JoinHostPort(node, strconv.Itoa(h.dt.Cfg.FlagMasterPort))
+			req.URL.Host = net.JoinHostPort(node, strconv.Itoa(h.Cfg.FlagMasterPort))
 			req.URL.Path = location
 		}
 		proxy := &httputil.ReverseProxy{
 			Director:  director,
-			Transport: h.dt.DtDiagnosticsJob.Transport,
+			Transport: h.DtDiagnosticsJob.Transport,
 		}
 		proxy.ServeHTTP(w, r)
 		return
@@ -269,7 +276,7 @@ func (h *handler) createBundleHandler(w http.ResponseWriter, r *http.Request) {
 		writeResponse(w, response)
 		return
 	}
-	response, err := h.dt.DtDiagnosticsJob.run(req)
+	response, err := h.DtDiagnosticsJob.run(req)
 	if err != nil {
 		log.Errorf("Could not run a diagnostics job: %s", err)
 	}
@@ -278,7 +285,7 @@ func (h *handler) createBundleHandler(w http.ResponseWriter, r *http.Request) {
 
 // A handler function to to get a list of available logs on a node.
 func (h *handler) logsListHandler(w http.ResponseWriter, _ *http.Request) {
-	endpoints, err := h.dt.DtDiagnosticsJob.getLogsEndpoints()
+	endpoints, err := h.DtDiagnosticsJob.getLogsEndpoints()
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
@@ -292,11 +299,11 @@ func (h *handler) logsListHandler(w http.ResponseWriter, _ *http.Request) {
 // return a log for past N hours for a specific systemd Unit
 func (h *handler) getUnitLogHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	timeout := time.Duration(h.dt.Cfg.FlagCommandExecTimeoutSec) * time.Second
+	timeout := time.Duration(h.Cfg.FlagCommandExecTimeoutSec) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	unitLogOut, err := h.dt.DtDiagnosticsJob.dispatchLogs(ctx, vars["provider"], vars["entity"])
+	unitLogOut, err := h.DtDiagnosticsJob.dispatchLogs(ctx, vars["provider"], vars["entity"])
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
