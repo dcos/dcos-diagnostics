@@ -12,7 +12,7 @@ import (
 
 const dcosVersionEnvName = "DCOS_VERSION"
 
-// systemdUnits used to make GetUnitsProperties thread safe.
+// SystemdUnits used to make GetUnitsProperties thread safe.
 type SystemdUnits struct {
 	sync.Mutex
 }

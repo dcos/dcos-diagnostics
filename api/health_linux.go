@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// systemdUnits used to make GetUnitsProperties thread safe.
+// SystemdUnits used to make GetUnitsProperties thread safe.
 type SystemdUnits struct {
 	sync.Mutex
 }
