@@ -78,7 +78,13 @@ func noCacheMiddleware(next http.Handler, dt *Dt) http.Handler {
 }
 
 func getRoutes(dt *Dt) []routeHandler {
-	h := handler{dt}
+	h := handler{
+		cfg:                dt.Cfg,
+		tools:              dt.DtDCOSTools,
+		job:                dt.DtDiagnosticsJob,
+		systemdUnits:       dt.SystemdUnits,
+		monitoringResponse: dt.MR,
+	}
 	routes := []routeHandler{
 		{
 			// /system/health/v1

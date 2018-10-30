@@ -42,7 +42,7 @@ func loadProviders(cfg *config.Config, DCOSTools dcos.Tooler) (*LogProviders, er
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
 	}
-	// load the external providers from a Cfg file
+	// load the external providers from a cfg file
 	externalProviders, err := loadExternalProviders(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize external log providers: %s", err)
