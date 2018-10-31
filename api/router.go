@@ -316,7 +316,7 @@ func wrapHandler(handler http.Handler, route routeHandler, dt *Dt) http.Handler 
 		h = noCacheMiddleware(h, dt)
 	}
 
-	return h
+	return handlers.LoggingHandler(logrus.StandardLogger().Out, h)
 }
 
 func loadRoutes(router *mux.Router, dt *Dt) *mux.Router {
