@@ -12,6 +12,7 @@ import (
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/sirupsen/logrus"
 )
+
 // pull represents process that fetches a complete health status response
 type pull struct {
 	cfg                *config.Config
