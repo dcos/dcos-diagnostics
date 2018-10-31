@@ -6,7 +6,16 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/sirupsen/logrus"
 )
+
+type notFoundError struct {
+	what string
+}
+
+func (e notFoundError) Error() string {
+	return fmt.Sprintf("%s not found", e.what)
+}
 
 // MonitoringResponse top level global variable to store the entire units/nodes status tree.
 type MonitoringResponse struct {
@@ -52,7 +61,7 @@ func (mr *MonitoringResponse) GetUnit(unitName string) (UnitResponseFieldsStruct
 	defer mr.Unlock()
 	fmt.Printf("Trying to look for %s\n", unitName)
 	if _, ok := mr.Units[unitName]; !ok {
-		return UnitResponseFieldsStruct{}, fmt.Errorf("Unit %s not found", unitName)
+		return UnitResponseFieldsStruct{}, notFoundError{unitName}
 	}
 
 	return UnitResponseFieldsStruct{
@@ -69,7 +78,7 @@ func (mr *MonitoringResponse) GetNodesForUnit(unitName string) (NodesResponseJSO
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Units[unitName]; !ok {
-		return NodesResponseJSONStruct{}, fmt.Errorf("Unit %s not found", unitName)
+		return NodesResponseJSONStruct{}, notFoundError{unitName}
 	}
 	return NodesResponseJSONStruct{
 		Array: func() []*NodeResponseFieldsStruct {
@@ -86,12 +95,12 @@ func (mr *MonitoringResponse) GetNodesForUnit(unitName string) (NodesResponseJSO
 	}, nil
 }
 
-// GetSpecificNodeForUnit gets a specific node for a given Unit from a status tree.
+// GetSpecificNodeForUnit gets a specific notFoundError{nodeIP}e.
 func (mr *MonitoringResponse) GetSpecificNodeForUnit(unitName, nodeIP string) (NodeResponseFieldsWithErrorStruct, error) {
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Units[unitName]; !ok {
-		return NodeResponseFieldsWithErrorStruct{}, fmt.Errorf("Unit %s not found", unitName)
+		return NodeResponseFieldsWithErrorStruct{}, notFoundError{unitName}
 	}
 
 	for _, node := range mr.Units[unitName].Nodes {
@@ -106,7 +115,7 @@ func (mr *MonitoringResponse) GetSpecificNodeForUnit(unitName, nodeIP string) (N
 			}, nil
 		}
 	}
-	return NodeResponseFieldsWithErrorStruct{}, fmt.Errorf("Node %s not found", nodeIP)
+	return NodeResponseFieldsWithErrorStruct{}, notFoundError{nodeIP}
 }
 
 // GetNodes gets all available nodes in status tree.
@@ -146,7 +155,8 @@ func (mr *MonitoringResponse) GetMasterAgentNodes() ([]dcos.Node, []dcos.Node, e
 	}
 
 	if len(masterNodes) == 0 && len(agentNodes) == 0 {
-		return masterNodes, agentNodes, fmt.Errorf("no nodes found in memory, perhaps dcos-diagnostics was started without -pull flag")
+		logrus.Warn("no nodes found in memory, perhaps dcos-diagnostics was started without -pull flag")
+		return masterNodes, agentNodes, notFoundError{"any nodes"}
 	}
 
 	return masterNodes, agentNodes, nil
@@ -157,7 +167,7 @@ func (mr *MonitoringResponse) GetNodeByID(nodeIP string) (NodeResponseFieldsStru
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Nodes[nodeIP]; !ok {
-		return NodeResponseFieldsStruct{}, fmt.Errorf("Node %s not found", nodeIP)
+		return NodeResponseFieldsStruct{}, notFoundError{nodeIP}
 	}
 	return NodeResponseFieldsStruct{
 		mr.Nodes[nodeIP].IP,
@@ -171,7 +181,7 @@ func (mr *MonitoringResponse) GetNodeUnitsID(nodeIP string) (UnitsResponseJSONSt
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Nodes[nodeIP]; !ok {
-		return UnitsResponseJSONStruct{}, fmt.Errorf("Node %s not found", nodeIP)
+		return UnitsResponseJSONStruct{}, notFoundError{nodeIP}
 	}
 	return UnitsResponseJSONStruct{
 		Array: func(nodeIp string) []UnitResponseFieldsStruct {
@@ -194,7 +204,7 @@ func (mr *MonitoringResponse) GetNodeUnitByNodeIDUnitID(nodeIP, unitID string) (
 	mr.Lock()
 	defer mr.Unlock()
 	if _, ok := mr.Nodes[nodeIP]; !ok {
-		return HealthResponseValues{}, fmt.Errorf("Node %s not found", nodeIP)
+		return HealthResponseValues{}, notFoundError{nodeIP}
 	}
 	for _, unit := range mr.Nodes[nodeIP].Units {
 		if unit.UnitName == unitID {
@@ -209,7 +219,7 @@ func (mr *MonitoringResponse) GetNodeUnitByNodeIDUnitID(nodeIP, unitID string) (
 			}, nil
 		}
 	}
-	return HealthResponseValues{}, fmt.Errorf("Unit %s not found", unitID)
+	return HealthResponseValues{}, notFoundError{unitID}
 }
 
 // GetLastUpdatedTime returns timestamp of latest updated monitoring response.

@@ -54,7 +54,11 @@ func (h *handler) getUnitByIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	unitResponse, err := h.monitoringResponse.GetUnit(vars["unitid"])
 	if err != nil {
-		httpError(w, err.Error(), http.StatusBadRequest)
+		if _, ok := err.(notFoundError); ok {
+			httpError(w, err.Error(), http.StatusNotFound)
+		} else {
+			httpError(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 	if err := json.NewEncoder(w).Encode(unitResponse); err != nil {
@@ -67,7 +71,11 @@ func (h *handler) getNodesByUnitIDHandler(w http.ResponseWriter, r *http.Request
 	vars := mux.Vars(r)
 	nodesForUnitResponse, err := h.monitoringResponse.GetNodesForUnit(vars["unitid"])
 	if err != nil {
-		httpError(w, err.Error(), http.StatusInternalServerError)
+		if _, ok := err.(notFoundError); ok {
+			httpError(w, err.Error(), http.StatusNotFound)
+		} else {
+			httpError(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 	if err := json.NewEncoder(w).Encode(nodesForUnitResponse); err != nil {
@@ -81,7 +89,11 @@ func (h *handler) getNodeByUnitIDNodeIDHandler(w http.ResponseWriter, r *http.Re
 	nodePerUnit, err := h.monitoringResponse.GetSpecificNodeForUnit(vars["unitid"], vars["nodeid"])
 
 	if err != nil {
-		httpError(w, err.Error(), http.StatusBadRequest)
+		if _, ok := err.(notFoundError); ok {
+			httpError(w, err.Error(), http.StatusNotFound)
+		} else {
+			httpError(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 	if err := json.NewEncoder(w).Encode(nodePerUnit); err != nil {
@@ -108,7 +120,11 @@ func (h *handler) getNodeByIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	nodes, err := h.monitoringResponse.GetNodeByID(vars["nodeid"])
 	if err != nil {
-		httpError(w, err.Error(), http.StatusBadRequest)
+		if _, ok := err.(notFoundError); ok {
+			httpError(w, err.Error(), http.StatusNotFound)
+		} else {
+			httpError(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -122,12 +138,17 @@ func (h *handler) getNodeUnitsByNodeIDHandler(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	units, err := h.monitoringResponse.GetNodeUnitsID(vars["nodeid"])
 	if err != nil {
-		httpError(w, err.Error(), http.StatusBadRequest)
+		if _, ok := err.(notFoundError); ok {
+			httpError(w, err.Error(), http.StatusNotFound)
+		} else {
+			httpError(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
 	if err := json.NewEncoder(w).Encode(units); err != nil {
-		log.Errorf("Failed to encode responses to json: %s", err)
+		log.WithError(err).Error("Failed to encode responses to JSON")
+		httpError(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -135,7 +156,11 @@ func (h *handler) getNodeUnitByNodeIDUnitIDHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	unit, err := h.monitoringResponse.GetNodeUnitByNodeIDUnitID(vars["nodeid"], vars["unitid"])
 	if err != nil {
-		httpError(w, err.Error(), http.StatusBadRequest)
+		if _, ok := err.(notFoundError); ok {
+			httpError(w, err.Error(), http.StatusNotFound)
+		} else {
+			httpError(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 	if err := json.NewEncoder(w).Encode(unit); err != nil {
@@ -233,38 +258,38 @@ func (h *handler) downloadBundleHandler(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	node, location, ok, err := h.job.isBundleAvailable(vars["file"])
 	if err != nil {
+		httpError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	if ok {
-		// check if the file is available on localhost.
-		serveFile := h.cfg.FlagDiagnosticsBundleDir + "/" + vars["file"]
-		_, err := os.Stat(serveFile)
-		if err == nil {
-			w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s", vars["file"]))
-			http.ServeFile(w, r, serveFile)
-			return
-		}
-
-		// proxy to appropriate host with a file.
-		scheme := "http"
-		if h.cfg.FlagForceTLS {
-			scheme = "https"
-		}
-
-		director := func(req *http.Request) {
-			req.URL.Scheme = scheme
-			req.URL.Host = net.JoinHostPort(node, strconv.Itoa(h.cfg.FlagMasterPort))
-			req.URL.Path = location
-		}
-		proxy := &httputil.ReverseProxy{
-			Director:  director,
-			Transport: h.job.Transport,
-		}
-		proxy.ServeHTTP(w, r)
+	// check if the file is available on localhost.
+	serveFile := h.cfg.FlagDiagnosticsBundleDir + "/" + vars["file"]
+	_, err = os.Stat(serveFile)
+	if err == nil {
+		w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s", vars["file"]))
+		http.ServeFile(w, r, serveFile)
 		return
 	}
-	http.NotFound(w, r)
+
+	// proxy to appropriate host with a file.
+	scheme := "http"
+	if h.cfg.FlagForceTLS {
+		scheme = "https"
+	}
+
+	director := func(req *http.Request) {
+		req.URL.Scheme = scheme
+		req.URL.Host = net.JoinHostPort(node, strconv.Itoa(h.cfg.FlagMasterPort))
+		req.URL.Path = location
+	}
+	proxy := &httputil.ReverseProxy{
+		Director:  director,
+		Transport: h.job.Transport,
+	}
+	proxy.ServeHTTP(w, r)
 }
 
 // A handler function to start a diagnostics job.
