@@ -455,7 +455,7 @@ func (s *HandlersTestSuit) TestgetUnitByIdHandlerFunc() {
 
 	// Unit should not be found
 	resp = s.get("/system/health/v1/units/dcos-notfound.service")
-	s.assert.Equal(string(resp), "Unit dcos-notfound.service not found\n")
+	s.assert.Equal("dcos-notfound.service not found\n", string(resp))
 }
 
 func (s *HandlersTestSuit) TestgetNodesByUnitIdHandlerFunc() {
@@ -480,7 +480,7 @@ func (s *HandlersTestSuit) TestgetNodesByUnitIdHandlerFunc() {
 
 	// Unit should not be found and no nodes should be returned
 	resp = s.get("/system/health/v1/units/dcos-notfound.service/nodes")
-	s.assert.Equal(string(resp), "Unit dcos-notfound.service not found\n")
+	s.assert.Equal("dcos-notfound.service not found\n", string(resp))
 }
 
 func (s *HandlersTestSuit) TestgetNodeByUnitIdNodeIdHandlerFunc() {
@@ -502,11 +502,11 @@ func (s *HandlersTestSuit) TestgetNodeByUnitIdNodeIdHandlerFunc() {
 
 	// use wrong Unit
 	resp = s.get("/system/health/v1/units/dcos-notfound.service/nodes/10.0.7.192")
-	s.assert.Equal(string(resp), "Unit dcos-notfound.service not found\n")
+	s.assert.Equal("dcos-notfound.service not found\n", string(resp))
 
 	// use wrong node
 	resp = s.get("/system/health/v1/units/dcos-cosmos.service/nodes/127.0.0.1")
-	s.assert.Equal(string(resp), "Node 127.0.0.1 not found\n")
+	s.assert.Equal("127.0.0.1 not found\n", string(resp))
 }
 
 func (s *HandlersTestSuit) TestgetNodesHandlerFunc() {
@@ -540,7 +540,7 @@ func (s *HandlersTestSuit) TestgetNodeByIdHandlerFunc() {
 
 	// use wrong host
 	resp = s.get("/system/health/v1/nodes/127.0.0.1")
-	s.assert.Equal(string(resp), "Node 127.0.0.1 not found\n")
+	s.assert.Equal("127.0.0.1 not found\n", string(resp))
 }
 
 func (s *HandlersTestSuit) TestgetNodeUnitsByNodeIdHandlerFunc() {
@@ -560,7 +560,7 @@ func (s *HandlersTestSuit) TestgetNodeUnitsByNodeIdHandlerFunc() {
 
 	// use wrong host
 	resp = s.get("/system/health/v1/nodes/127.0.0.1/units")
-	s.assert.Equal(string(resp), "Node 127.0.0.1 not found\n")
+	s.assert.Equal("127.0.0.1 not found\n", string(resp))
 }
 
 func (s *HandlersTestSuit) TestgetNodeUnitByNodeIdUnitIdHandlerFunc() {
@@ -578,11 +578,11 @@ func (s *HandlersTestSuit) TestgetNodeUnitByNodeIdUnitIdHandlerFunc() {
 
 	// use wrong host
 	resp = s.get("/system/health/v1/nodes/127.0.0.1/units/dcos-adminrouter-reload.service")
-	s.assert.Equal(string(resp), "Node 127.0.0.1 not found\n")
+	s.assert.Equal("127.0.0.1 not found\n", string(resp))
 
 	// use wrong service
 	resp = s.get("/system/health/v1/nodes/10.0.7.190/units/dcos-bad.service")
-	s.assert.Equal(string(resp), "Unit dcos-bad.service not found\n")
+	s.assert.Equal("dcos-bad.service not found\n", string(resp))
 }
 
 func (s *HandlersTestSuit) TestreportHandlerFunc() {
