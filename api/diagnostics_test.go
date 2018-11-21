@@ -21,6 +21,7 @@ import (
 	"github.com/dcos/dcos-diagnostics/dcos"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -350,12 +351,11 @@ func TestGetStatus(t *testing.T) {
 	assert.Equal(t, status.DiagnosticBundlesBaseDir, config.FlagDiagnosticsBundleDir)
 }
 
-func TestGetAllStatus(t *testing.T) {
-	tools := &fakeDCOSTools{}
+func TestGetAllStatusWithRemoteCall(t *testing.T) {
 	config := testCfg()
-	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
 
-	url := fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", baseRoute)
+	tools := new(MockedTools)
+
 	mockedResponse := `
 			{
 			  "is_running":true,
@@ -371,9 +371,18 @@ func TestGetAllStatus(t *testing.T) {
 			  "journald_logs_since_hours": "24",
 			  "diagnostics_job_get_since_url_timeout_min": 5,
 			  "command_exec_timeout_sec": 10
-			}
-	`
-	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
+			}`
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.1:1050%s/report/diagnostics/status", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte(mockedResponse), http.StatusOK, nil)
+	tools.On("DetectIP").Return("", fmt.Errorf("some error"))
+	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
+
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
 
 	status, err := job.getStatusAll()
 	require.NoError(t, err)
@@ -392,6 +401,66 @@ func TestGetAllStatus(t *testing.T) {
 		DiagnosticsJobGetSingleURLTimeoutMinutes: 5,
 		CommandExecTimeoutSec:                    10,
 	})
+
+	tools.AssertExpectations(t)
+}
+
+func TestGetAllStatusWithLocalAndRemoteCall(t *testing.T) {
+	config := testCfg()
+
+	tools := new(MockedTools)
+
+	mockedResponse := `
+			{
+			  "is_running":true,
+			  "status":"MyStatus",
+			  "errors":null,
+			  "last_bundle_dir":"/path/to/snapshot",
+			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
+			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
+			  "job_duration":"2s",
+			  "diagnostics_bundle_dir":"/home/core/1",
+			  "diagnostics_job_timeout_min":720,
+			  "diagnostics_partition_disk_usage_percent":28.0,
+			  "journald_logs_since_hours": "24",
+			  "diagnostics_job_get_since_url_timeout_min": 5,
+			  "command_exec_timeout_sec": 10
+			}`
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.2:1050%s/report/diagnostics/status", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte(mockedResponse), http.StatusOK, nil)
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{Leader: false, IP: "127.0.0.1", Role: "master"},
+		{Leader: true, IP: "127.0.0.2", Role: "master"}}, nil)
+
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
+
+	status, err := job.getStatusAll()
+	require.NoError(t, err)
+	assert.Len(t, status, 2)
+	assert.Contains(t, status, "127.0.0.1")
+	assert.Contains(t, status, "127.0.0.2")
+	assert.Equal(t, status["127.0.0.2"], bundleReportStatus{
+		Running:                                  true,
+		Status:                                   "MyStatus",
+		LastBundlePath:                           "/path/to/snapshot",
+		JobStarted:                               "0001-01-01 00:00:00 +0000 UTC",
+		JobEnded:                                 "0001-01-01 00:00:00 +0000 UTC",
+		JobDuration:                              "2s",
+		DiagnosticBundlesBaseDir:                 "/home/core/1",
+		DiagnosticsJobTimeoutMin:                 720,
+		DiskUsedPercent:                          28.0,
+		DiagnosticsUnitsLogsSinceHours:           "24",
+		DiagnosticsJobGetSingleURLTimeoutMinutes: 5,
+		CommandExecTimeoutSec:                    10,
+	})
+
+	tools.AssertExpectations(t)
 }
 
 func TestIsSnapshotAvailable(t *testing.T) {

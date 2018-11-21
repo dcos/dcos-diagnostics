@@ -1,12 +1,13 @@
 package api
 
 import (
+	"time"
+
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/stretchr/testify/mock"
-	"time"
 )
 
-type MockedTools struct{
+type MockedTools struct {
 	mock.Mock
 }
 
