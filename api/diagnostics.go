@@ -413,14 +413,24 @@ func (j *DiagnosticsJob) isRunning() (bool, string, error) {
 // Collect all status reports from master nodes and return a map[master_ip] bundleReportStatus
 // The function is used to get a job status on other nodes
 func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
-	statuses := make(map[string]bundleReportStatus)
-
 	masterNodes, err := j.DCOSTools.GetMasterNodes()
 	if err != nil {
-		return statuses, err
+		return nil, err
+	}
+
+	statuses := make(map[string]bundleReportStatus, len(masterNodes))
+
+	localIP, err := j.DCOSTools.DetectIP()
+	if err != nil {
+		logrus.WithError(err).Warn("Could not detect IP")
+	} else {
+		statuses[localIP] = j.getStatus()
 	}
 
 	for _, master := range masterNodes {
+		if master.IP == localIP {
+			continue
+		}
 		var status bundleReportStatus
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/status", master.IP, j.Cfg.FlagMasterPort, baseRoute)
 		body, _, err := j.DCOSTools.Get(url, time.Second*3)
