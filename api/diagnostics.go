@@ -150,8 +150,9 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 
 	j.LastBundlePath = filepath.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
 	j.Status = "Diagnostics job started, archive will be available at: " + j.LastBundlePath
-
 	j.cancelChan = make(chan bool)
+	j.JobStarted = time.Now()
+	j.Running = true
 	go j.runBackgroundJob(foundNodes)
 
 	var r createResponse
@@ -164,27 +165,26 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 
 //
 func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
+	defer j.stop()
+
 	const jobFailedStatus = "Job failed"
 	if len(nodes) == 0 {
+		j.Lock()
 		e := "Nodes length cannot be 0"
 		j.Status = jobFailedStatus
 		j.Errors = append(j.Errors, e)
+		j.Unlock()
 		return
 	}
 	logrus.Info("Started background job")
 
-	// log a start time
-	j.JobStarted = time.Now()
-
-	// log end time
-	defer func(j *DiagnosticsJob) {
-		j.JobEnded = time.Now()
-		j.JobDuration = time.Since(j.JobStarted)
-		logrus.Info("Job finished")
-	}(j)
-
 	// lets start a goroutine which will timeout background report job after a certain time.
 	jobIsDone := make(chan bool)
+	// make sure we always cancel a timeout goroutine when the report is finished.
+	defer func() {
+		jobIsDone <- true
+	}()
+
 	go func(jobIsDone chan bool, j *DiagnosticsJob) {
 		select {
 		case <-jobIsDone:
@@ -200,15 +200,6 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 			return
 		}
 	}(jobIsDone, j)
-
-	// make sure we always cancel a timeout goroutine when the report is finished.
-	defer func(jobIsDone chan bool) {
-		jobIsDone <- true
-	}(jobIsDone)
-
-	// Update job running field.
-	j.start()
-	defer j.stop()
 
 	// create a zip file
 	zipfile, err := os.Create(j.LastBundlePath)
@@ -648,16 +639,13 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 	return prepareResponseOk(http.StatusOK, "Attempting to cancel a job, please check job status.")
 }
 
-func (j *DiagnosticsJob) start() {
-	j.Lock()
-	j.Running = true
-	j.Unlock()
-}
-
 func (j *DiagnosticsJob) stop() {
 	j.Lock()
 	j.Running = false
+	j.JobEnded = time.Now()
+	j.JobDuration = time.Since(j.JobStarted)
 	j.Unlock()
+	logrus.Info("Job finished")
 }
 
 // get a list of all bundles across the cluster.
