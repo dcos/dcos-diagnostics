@@ -79,15 +79,15 @@ func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
 	}, job.logProviders.LocalFiles)
 
 	assert.Equal(t, map[string]CommandProvider{
-		"binsh_-c_cat etc*-release-3.output": {Command: []string{"/bin/sh", "-c", "cat /etc/*-release"}},
-		"dmesg_-T-0.output":                  {Command: []string{"dmesg", "-T"}},
-		"echo_OK-5.output":                   {Command: []string{"echo", "OK"}},
-		"optmesospherebincurl_-s_-S_http:localhost:62080v1vips-2.output": {
+		"binsh_-c_cat etc*-release.output": {Command: []string{"/bin/sh", "-c", "cat /etc/*-release"}},
+		"dmesg_-T.output":                  {Command: []string{"dmesg", "-T"}},
+		"echo_OK.output":                   {Command: []string{"echo", "OK"}},
+		"optmesospherebincurl_-s_-S_http:localhost:62080v1vips.output": {
 			Command: []string{"/opt/mesosphere/bin/curl", "-s", "-S", "http://localhost:62080/v1/vips"},
 			Role:    []string{"agent", "agent_public"},
 		},
-		"ps_aux_ww_Z-1.output":                {Command: []string{"ps", "aux", "ww", "Z"}},
-		"systemctl_list-units_dcos*-4.output": {Command: []string{"systemctl", "list-units", "dcos*"}},
+		"ps_aux_ww_Z.output":                {Command: []string{"ps", "aux", "ww", "Z"}},
+		"systemctl_list-units_dcos*.output": {Command: []string{"systemctl", "list-units", "dcos*"}},
 	}, job.logProviders.LocalCommands)
 
 }
@@ -112,15 +112,15 @@ func TestGetLogsEndpoints(t *testing.T) {
 		"5050-master_state-summary.json":                  ":5050/master/state-summary",
 		"5050-registrar_1__registry.json":                 ":5050/registrar(1)/registry",
 		"5050-system_stats_json.json":                     ":5050/system/stats.json",
-		"binsh_-c_cat etc*-release-3.output":              logPath + "cmds/binsh_-c_cat etc*-release-3.output",
+		"binsh_-c_cat etc*-release.output":              logPath + "cmds/binsh_-c_cat etc*-release.output",
 		"dcos-diagnostics-health.json":                    ":1050/system/health/v1",
 		"dcos-download.service":                           logPath + "units/dcos-download.service",
 		"dcos-link-env.service":                           logPath + "units/dcos-link-env.service",
 		"dcos-setup.service":                              logPath + "units/dcos-setup.service",
-		"dmesg_-T-0.output":                               logPath + "cmds/dmesg_-T-0.output",
-		"echo_OK-5.output":                                logPath + "cmds/echo_OK-5.output",
-		"ps_aux_ww_Z-1.output":                            logPath + "cmds/ps_aux_ww_Z-1.output",
-		"systemctl_list-units_dcos*-4.output":             logPath + "cmds/systemctl_list-units_dcos*-4.output",
+		"dmesg_-T.output":                               logPath + "cmds/dmesg_-T.output",
+		"echo_OK.output":                                logPath + "cmds/echo_OK.output",
+		"ps_aux_ww_Z.output":                            logPath + "cmds/ps_aux_ww_Z.output",
+		"systemctl_list-units_dcos*.output":             logPath + "cmds/systemctl_list-units_dcos*.output",
 		"unit_a":                                          logPath + "units/unit_a",
 		"unit_b":                                          logPath + "units/unit_b",
 		"unit_c":                                          logPath + "units/unit_c",
@@ -135,7 +135,7 @@ func TestDispatchLogsForCommand(t *testing.T) {
 	err := job.Init()
 	require.NoError(t, err)
 
-	r, err := job.dispatchLogs(context.TODO(), "cmds", "echo_OK-5.output")
+	r, err := job.dispatchLogs(context.TODO(), "cmds", "echo_OK.output")
 	assert.NoError(t, err)
 
 	data, err := ioutil.ReadAll(r)
@@ -201,7 +201,7 @@ func TestDispatchLogsForUnit_Windows(t *testing.T) {
 func TestDispatchLogsWithUnknownProvider(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
 
-	r, err := job.dispatchLogs(context.TODO(), "unknown", "echo_OK-5.output")
+	r, err := job.dispatchLogs(context.TODO(), "unknown", "echo_OK.output")
 	assert.EqualError(t, err, "Unknown provider unknown")
 	assert.Nil(t, r)
 }

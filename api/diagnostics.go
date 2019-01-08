@@ -804,12 +804,12 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 	}
 
 	// command endpoints
-	for indexedCommand, c := range j.logProviders.LocalCommands {
+	for cmdKey, c := range j.logProviders.LocalCommands {
 		if !roleMatched(currentRole, c.Role) {
 			continue
 		}
-		if indexedCommand != "" {
-			endpoints[indexedCommand] = fmt.Sprintf(":%d%s/logs/cmds/%s", port, baseRoute, indexedCommand)
+		if cmdKey != "" {
+			endpoints[cmdKey] = fmt.Sprintf(":%d%s/logs/cmds/%s", port, baseRoute, cmdKey)
 		}
 	}
 	return endpoints, nil
@@ -843,12 +843,12 @@ func (j *DiagnosticsJob) Init() error {
 		j.logProviders.LocalFiles[key] = fileProvider
 	}
 
-	// update command with index.
-	for index, commandProvider := range providers.LocalCommands {
+	// sanitize command to use as filename
+	for _, commandProvider := range providers.LocalCommands {
 		if len(commandProvider.Command) > 0 {
 			cmdWithArgs := strings.Join(commandProvider.Command, "_")
 			trimmedCmdWithArgs := strings.Replace(cmdWithArgs, "/", "", -1)
-			key := fmt.Sprintf("%s-%d.output", trimmedCmdWithArgs, index)
+			key := fmt.Sprintf("%s.output", trimmedCmdWithArgs)
 			j.logProviders.LocalCommands[key] = commandProvider
 		}
 	}
