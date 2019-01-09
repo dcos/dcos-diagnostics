@@ -141,11 +141,11 @@ func TestDispatchLogsForCommand(t *testing.T) {
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
         var expected_result string
-        expected_result = "OK\n"
+        expectedResult = "OK\n"
         if runtime.GOOS == "windows" {
-           expected_result = "OK\r\n"
+           expectedResult = "OK\r\n"
         }
-	assert.Equal(t, expected_result, string(data))
+	assert.Equal(t, expectedResult, string(data))
 }
 
 func TestDispatchLogsForFiles(t *testing.T) {
