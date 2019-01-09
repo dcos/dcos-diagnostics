@@ -140,7 +140,7 @@ func TestDispatchLogsForCommand(t *testing.T) {
 
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
-        var expected_result string
+        var expectedResult string
         expectedResult = "OK\n"
         if runtime.GOOS == "windows" {
            expectedResult = "OK\r\n"
