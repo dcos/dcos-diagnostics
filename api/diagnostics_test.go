@@ -164,7 +164,7 @@ func TestDispatchLogsForFiles(t *testing.T) {
 }
 
 func TestDispatchLogsForUnit(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		t.Skip()
 	}
 
