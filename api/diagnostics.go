@@ -494,15 +494,6 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 	client := util.NewHTTPClient(timeout, j.Transport)
 
 	for fileName, httpEndpoint := range endpoints {
-		fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
-		if err != nil {
-			j.Errors = append(j.Errors, err.Error())
-			logrus.Errorf("Could not read force-tls flag: %s", err)
-			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
-			j.JobProgressPercentage += percentPerURL
-			continue
-		}
-
 		select {
 		case _, ok := <-j.cancelChan:
 			if ok {
@@ -514,7 +505,16 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 			}
 
 		default:
-			logrus.Debugf("GET %s", fullURL)
+			logrus.Debugf("GET %s%s", node.IP, httpEndpoint)
+		}
+
+		fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
+		if err != nil {
+			j.Errors = append(j.Errors, err.Error())
+			logrus.Errorf("Could not read force-tls flag: %s", err)
+			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
+			j.JobProgressPercentage += percentPerURL
+			continue
 		}
 
 		j.Status = "GET " + fullURL
