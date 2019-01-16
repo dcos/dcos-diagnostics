@@ -508,47 +508,47 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 			logrus.Debugf("GET %s%s", node.IP, httpEndpoint)
 		}
 
-		fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
-		if err != nil {
-			e := fmt.Errorf("could not read force-tls flag: %s", err)
-			j.logError(e, node, summaryErrorsReport, percentPerURL)
-			continue
-		}
-
-		j.Status = "GET " + fullURL
+		j.Status = "GET " + node.IP + httpEndpoint
 		updateSummaryReport("START "+j.Status, node, "", summaryReport)
-		resp, err := get(client, fullURL)
-		if err != nil {
-			e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
-			j.logError(e, node, summaryErrorsReport, percentPerURL)
-			continue
-		}
-
-		if resp.Header.Get("Content-Encoding") == "gzip" {
-			fileName += ".gz"
-		}
-
-		// put all logs in a `ip_role` folder
-		zipFile, err := zipWriter.Create(filepath.Join(node.IP+"_"+node.Role, fileName))
-		if err != nil {
-			resp.Body.Close()
-			e := fmt.Errorf("could not add %s to a zip archive: %s", fileName, err)
-			j.logError(e, node, summaryErrorsReport, percentPerURL)
-			continue
-		}
-		io.Copy(zipFile, resp.Body)
-		resp.Body.Close()
+		e := j.getDataToZip(node, httpEndpoint, client, fileName, zipWriter)
 		updateSummaryReport("STOP "+j.Status, node, "", summaryReport)
+		if e != nil {
+			j.logError(e, node, summaryErrorsReport)
+		}
 		j.JobProgressPercentage += percentPerURL
 	}
 	return nil
 }
 
-func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer, percentPerURL float32) {
+func (j *DiagnosticsJob) getDataToZip(node dcos.Node, httpEndpoint string, client *http.Client, fileName string, zipWriter *zip.Writer) error {
+	fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
+	if err != nil {
+		e := fmt.Errorf("could not read force-tls flag: %s", err)
+		return e
+	}
+	resp, err := get(client, fullURL)
+	if err != nil {
+		e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
+		return e
+	}
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		fileName += ".gz"
+	}
+	// put all logs in a `ip_role` folder
+	zipFile, err := zipWriter.Create(filepath.Join(node.IP+"_"+node.Role, fileName))
+	defer resp.Body.Close()
+	if err != nil {
+		e := fmt.Errorf("could not add %s to a zip archive: %s", fileName, err)
+		return e
+	}
+	io.Copy(zipFile, resp.Body)
+	return nil
+}
+
+func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer) {
 	j.Errors = append(j.Errors, e.Error())
 	logrus.Error(e)
 	updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
-	j.JobProgressPercentage += percentPerURL
 }
 
 func get(client *http.Client, url string) (*http.Response, error) {
