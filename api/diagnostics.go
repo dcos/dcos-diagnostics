@@ -511,10 +511,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
 		if err != nil {
 			e := fmt.Errorf("could not read force-tls flag: %s", err)
-			j.Errors = append(j.Errors, e.Error())
-			logrus.Error(e)
-			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
-			j.JobProgressPercentage += percentPerURL
+			j.logError(e, node, summaryErrorsReport, percentPerURL)
 			continue
 		}
 
@@ -523,10 +520,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		resp, err := get(client, fullURL)
 		if err != nil {
 			e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
-			j.Errors = append(j.Errors, e.Error())
-			logrus.Error(e)
-			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
-			j.JobProgressPercentage += percentPerURL
+			j.logError(e, node, summaryErrorsReport, percentPerURL)
 			continue
 		}
 
@@ -538,11 +532,8 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		zipFile, err := zipWriter.Create(filepath.Join(node.IP+"_"+node.Role, fileName))
 		if err != nil {
 			resp.Body.Close()
-			j.Errors = append(j.Errors, err.Error())
 			e := fmt.Errorf("could not add %s to a zip archive: %s", fileName, err)
-			logrus.Error(e)
-			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
-			j.JobProgressPercentage += percentPerURL
+			j.logError(e, node, summaryErrorsReport, percentPerURL)
 			continue
 		}
 		io.Copy(zipFile, resp.Body)
@@ -551,6 +542,13 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		j.JobProgressPercentage += percentPerURL
 	}
 	return nil
+}
+
+func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer, percentPerURL float32) {
+	j.Errors = append(j.Errors, e.Error())
+	logrus.Error(e)
+	updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
+	j.JobProgressPercentage += percentPerURL
 }
 
 func get(client *http.Client, url string) (*http.Response, error) {
