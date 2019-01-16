@@ -510,9 +510,10 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 
 		fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
 		if err != nil {
-			j.Errors = append(j.Errors, err.Error())
-			logrus.Errorf("Could not read force-tls flag: %s", err)
-			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
+			e := fmt.Errorf("could not read force-tls flag: %s", err)
+			j.Errors = append(j.Errors, e.Error())
+			logrus.Error(e)
+			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
 			j.JobProgressPercentage += percentPerURL
 			continue
 		}
@@ -521,9 +522,10 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		updateSummaryReport("START "+j.Status, node, "", summaryReport)
 		resp, err := get(client, fullURL)
 		if err != nil {
-			j.Errors = append(j.Errors, err.Error())
-			logrus.WithError(err).WithField("URL", fullURL).Error("Could not get from url")
-			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
+			e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
+			j.Errors = append(j.Errors, e.Error())
+			logrus.Error(e)
+			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
 			j.JobProgressPercentage += percentPerURL
 			continue
 		}
@@ -537,8 +539,9 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		if err != nil {
 			resp.Body.Close()
 			j.Errors = append(j.Errors, err.Error())
-			logrus.Errorf("Could not add %s to a zip archive: %s", fileName, err)
-			updateSummaryReport(fmt.Sprintf("could not add a file %s to a zip", fileName), node, err.Error(), summaryErrorsReport)
+			e := fmt.Errorf("could not add %s to a zip archive: %s", fileName, err)
+			logrus.Error(e)
+			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
 			j.JobProgressPercentage += percentPerURL
 			continue
 		}
