@@ -233,7 +233,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
 	node := dcos.Node{IP: server.URL[7:]} // strip http://
 
-	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
+	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3, http.DefaultClient)
 	assert.NoError(t, err)
 
 	assert.Equal(t, float32(3.0), job.JobProgressPercentage)
