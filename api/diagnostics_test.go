@@ -237,7 +237,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, float32(3.0), job.JobProgressPercentage)
-	assert.Len(t, job.Errors, 1, "one URL could not be fetched")
+	assert.Len(t, job.getErrors(), 1, "one URL could not be fetched")
 
 	assert.Contains(t, summaryReport.String(), "ping")
 	assert.Contains(t, summaryReport.String(), "404")
