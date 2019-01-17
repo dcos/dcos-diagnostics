@@ -217,7 +217,7 @@ func TestDispatchLogsWithUnknownEntity(t *testing.T) {
 }
 
 func TestGetHTTPAddToZip(t *testing.T) {
-	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient}
 	server, _ := stubServer("/ping", "pong")
 	defer server.Close()
 
@@ -233,7 +233,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
 	node := dcos.Node{IP: server.URL[7:]} // strip http://
 
-	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3, http.DefaultClient)
+	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
 
 	assert.Equal(t, float32(3.0), job.JobProgressPercentage)

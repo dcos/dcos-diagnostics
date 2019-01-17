@@ -41,6 +41,7 @@ type DiagnosticsJob struct {
 	sync.RWMutex
 	cancelChan   chan bool
 	logProviders logProviders
+	client       *http.Client
 
 	Cfg       *config.Config    `json:"-"`
 	DCOSTools dcos.Tooler       `json:"-"`
@@ -251,7 +252,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		}
 	}()
 
-	// lock out reportJob staructure
+	// lock out reportJob structure
 	j.Lock()
 	defer j.Unlock()
 
@@ -269,12 +270,8 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 			j.JobProgressPercentage += percentPerNode
 		}
 
-		timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
-		client := util.NewHTTPClient(timeout, j.Transport)
-
 		// add http endpoints
-		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport,
-			summaryReport, percentPerNode, client)
+		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 
@@ -481,7 +478,7 @@ func (d diagnosticsJobCanceledError) Error() string {
 
 // fetch an HTTP endpoint and append the output to a zip file.
 func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
-	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32, client *http.Client) error {
+	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
 	percentPerURL := percentPerNode / float32(len(endpoints))
 
 	for fileName, httpEndpoint := range endpoints {
@@ -501,7 +498,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 
 		j.Status = "GET " + node.IP + httpEndpoint
 		updateSummaryReport("START "+j.Status, node, "", summaryReport)
-		e := j.getDataToZip(node, httpEndpoint, client, fileName, zipWriter)
+		e := j.getDataToZip(node, httpEndpoint, j.client, fileName, zipWriter)
 		updateSummaryReport("STOP "+j.Status, node, "", summaryReport)
 		if e != nil {
 			j.logError(e, node, summaryErrorsReport)
@@ -844,6 +841,10 @@ func (j *DiagnosticsJob) Init() error {
 			j.logProviders.LocalCommands[key] = commandProvider
 		}
 	}
+
+	timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
+	j.client = util.NewHTTPClient(timeout, j.Transport)
+
 	return nil
 }
 
