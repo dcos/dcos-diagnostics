@@ -51,7 +51,7 @@ func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
 	err := job.Init()
 	assert.NoError(t, err)
 
-	assert.Equal(t, float32(-1), job.JobProgressPercentage)
+	assert.Equal(t, float32(-1), job.getJobProgressPercentage())
 	httpProviders := map[string]HTTPProvider{
 		"5050-__processes__.json":         {Port: 5050, URI: "/__processes__", Role: []string{"master"}},
 		"5050-master_state-summary.json":  {Port: 5050, URI: "/master/state-summary", Role: []string{"master"}},
@@ -236,7 +236,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
 
-	assert.Equal(t, float32(3.0), job.JobProgressPercentage)
+	assert.Equal(t, float32(3.0), job.getJobProgressPercentage())
 	assert.Len(t, job.getErrors(), 1, "one URL could not be fetched")
 
 	assert.Contains(t, summaryReport.String(), "ping")

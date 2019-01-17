@@ -207,7 +207,7 @@ func (p *pull) pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, wg 
 func getPullPortByRole(cfg *config.Config, role string) (int, error) {
 	var port int
 	if role != dcos.MasterRole && role != dcos.AgentRole && role != dcos.AgentPublicRole {
-		return port, fmt.Errorf("Incorrect role %s, must be: %s, %s or %s", role, dcos.MasterRole, dcos.AgentRole, dcos.AgentPublicRole)
+		return port, fmt.Errorf("incorrect role %s, must be: %s, %s or %s", role, dcos.MasterRole, dcos.AgentRole, dcos.AgentPublicRole)
 	}
 	port = cfg.FlagAgentPort
 	if role == dcos.MasterRole {
