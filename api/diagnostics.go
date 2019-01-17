@@ -178,10 +178,8 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	const jobFailedStatus = "Job failed"
 	if len(nodes) == 0 {
 		e := fmt.Errorf("nodes length must NOT be 0")
-		j.Lock()
 		j.setStatus(jobFailedStatus)
 		j.appendError(e)
-		j.Unlock()
 		return
 	}
 	logrus.Info("Started background job")
@@ -198,12 +196,10 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		case <-jobIsDone:
 			return
 		case <-time.After(time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes)):
-			err := fmt.Errorf("diagnostics job timedout after %s", time.Since(j.JobStarted))
-			j.Lock()
+			e := fmt.Errorf("diagnostics job timedout after %s", time.Since(j.JobStarted))
 			j.setStatus(jobFailedStatus)
-			j.appendError(err)
-			j.Unlock()
-			logrus.Error(err)
+			j.appendError(e)
+			logrus.Error(e)
 			j.cancelChan <- true
 			return
 		}
@@ -228,46 +224,32 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 
 	// place a summaryErrorsReport.txt in a zip archive which should provide info what failed during the logs collection.
 	summaryErrorsReport := new(bytes.Buffer)
-	defer func() {
-		// add a summaryErrorsReport.txt file to a diagnostics bundle, if it's not empty
-		if summaryErrorsReport.Len() > 0 {
-			zipFile, err := zipWriter.Create("summaryErrorsReport.txt")
-			if err != nil {
-				e := fmt.Errorf("could not append a summaryErrorsReport.txt to a zip file: %s", err)
-				logrus.Error(e)
-				j.appendError(e)
-				j.setStatus(e.Error())
-				return
-			}
 
-			_, err = io.Copy(zipFile, summaryErrorsReport)
-			if err != nil {
-				logrus.Errorf("Error writing the summaryErrorsReport: %s", err)
-			}
-		}
+	j.collectDataFromNodes(nodes, summaryReport, summaryErrorsReport, zipWriter)
 
-		// flush the summary report
-		zipFile, err := zipWriter.Create("summaryReport.txt")
-		if err != nil {
-			e := fmt.Errorf("could not append a summaryReport.txt to a zip file: %s", err)
-			logrus.Error(e)
-			j.appendError(e)
-			j.setStatus(e.Error())
-			return
-		}
-		_, err = io.Copy(zipFile, summaryReport)
-		if err != nil {
-			logrus.Errorf("Error writing summaryReport: %s", err)
-		}
-	}()
+	j.flushReport(zipWriter, "summaryReport.txt", summaryReport)
+	if summaryErrorsReport.Len() > 0 {
+		j.flushReport(zipWriter, "summaryErrorsReport.txt", summaryErrorsReport)
+	}
+}
 
-	// lock out reportJob structure
-	j.Lock()
-	defer j.Unlock()
+func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, report *bytes.Buffer) {
+	zipFile, err := zipWriter.Create(fileName)
+	if err != nil {
+		e := fmt.Errorf("could not append a report.txt to a zip file: %s", err)
+		logrus.Error(e)
+		j.appendError(e)
+		j.setStatus(e.Error())
+		return
+	}
+	_, err = io.Copy(zipFile, report)
+	if err != nil {
+		logrus.Errorf("Error writing %s: %s", fileName, err)
+	}
+}
 
-	// reset counters
+func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *bytes.Buffer, summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) {
 	j.setJobProgressPercentage(0)
-
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
 	for _, node := range nodes {
