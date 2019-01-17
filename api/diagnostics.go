@@ -40,8 +40,8 @@ const (
 type DiagnosticsJob struct {
 	sync.RWMutex
 
-	errors sync.RWMutex
-	statusMutex sync.RWMutex
+	errors        sync.RWMutex
+	statusMutex   sync.RWMutex
 	progressMutex sync.RWMutex
 
 	cancelChan   chan bool
@@ -248,7 +248,8 @@ func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, rep
 	}
 }
 
-func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *bytes.Buffer, summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) {
+func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *bytes.Buffer,
+	summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) {
 	j.setJobProgressPercentage(0)
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
