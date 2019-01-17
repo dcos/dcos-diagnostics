@@ -262,37 +262,11 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
 	for _, node := range nodes {
-		port, err := getPullPortByRole(j.Cfg, node.Role)
-		if err != nil {
-			e := fmt.Errorf("used incorrect role: %s", err)
-			j.logError(e, node, summaryErrorsReport)
-			j.JobProgressPercentage += percentPerNode
-			continue
-		}
-
 		updateSummaryReport("START collecting logs", node, "", summaryReport)
-		url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, baseRoute)
-		endpoints := make(map[string]string)
-		body, statusCode, err := j.DCOSTools.Get(url, time.Second*3)
+		endpoints, err := j.getNodeEndpoints(node)
 		if err != nil {
-			e := fmt.Errorf("could not get a list of logs, url: %s, status code %d: %s", url, statusCode, err)
-			j.logError(e, node, summaryErrorsReport)
+			j.logError(err, node, summaryErrorsReport)
 			j.JobProgressPercentage += percentPerNode
-			continue
-		}
-
-		if err = json.Unmarshal(body, &endpoints); err != nil {
-			e := fmt.Errorf("could not unmarshal a list of logs from %s: %s", url, err)
-			j.logError(e, node, summaryErrorsReport)
-			j.JobProgressPercentage += percentPerNode
-			continue
-		}
-
-		if len(endpoints) == 0 {
-			e := fmt.Errorf("no endpoints found, url %s", url)
-			j.logError(e, node, summaryErrorsReport)
-			j.JobProgressPercentage += percentPerNode
-			continue
 		}
 
 		timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
@@ -326,6 +300,29 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	} else {
 		j.Status = "Diagnostics job failed"
 	}
+}
+
+func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]string, e error) {
+	port, err := getPullPortByRole(j.Cfg, node.Role)
+	if err != nil {
+		e = fmt.Errorf("used incorrect role: %s", err)
+		return nil, e
+	}
+	url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, baseRoute)
+	body, statusCode, err := j.DCOSTools.Get(url, time.Second*3)
+	if err != nil {
+		e := fmt.Errorf("could not get a list of logs, url: %s, status code %d: %s", url, statusCode, err)
+		return nil, e
+	}
+	if err = json.Unmarshal(body, &endpoints); err != nil {
+		e := fmt.Errorf("could not unmarshal a list of logs from %s: %s", url, err)
+		return nil, e
+	}
+	if len(endpoints) == 0 {
+		e := fmt.Errorf("no endpoints found, url %s", url)
+		return nil, e
+	}
+	return endpoints, nil
 }
 
 // delete a bundle
