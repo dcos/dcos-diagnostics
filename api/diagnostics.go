@@ -46,18 +46,18 @@ type DiagnosticsJob struct {
 	logProviders logProviders
 	client       *http.Client
 
-	Cfg       *config.Config    `json:"-"`
-	DCOSTools dcos.Tooler       `json:"-"`
-	Transport http.RoundTripper `json:"-"`
+	Cfg       *config.Config
+	DCOSTools dcos.Tooler
+	Transport http.RoundTripper
 
-	Running               bool          `json:"is_running"`
-	Status                string        `json:"status"`
-	Errors                []string      `json:"errors"`
-	LastBundlePath        string        `json:"last_bundle_dir"`
-	JobStarted            time.Time     `json:"job_started"`
-	JobEnded              time.Time     `json:"job_ended"`
-	JobDuration           time.Duration `json:"job_duration"`
-	JobProgressPercentage float32       `json:"job_progress_percentage"`
+	Running               bool
+	Status                string
+	Errors                []string
+	LastBundlePath        string
+	JobStarted            time.Time
+	JobEnded              time.Time
+	JobDuration           time.Duration
+	JobProgressPercentage float32
 }
 
 type logProviders struct {
