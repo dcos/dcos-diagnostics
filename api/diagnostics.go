@@ -170,10 +170,10 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 
 	const jobFailedStatus = "Job failed"
 	if len(nodes) == 0 {
+		e := fmt.Errorf("nodes length must NOT be 0")
 		j.Lock()
-		e := "Nodes length cannot be 0"
 		j.Status = jobFailedStatus
-		j.Errors = append(j.Errors, e)
+		j.appendError(e)
 		j.Unlock()
 		return
 	}
@@ -191,12 +191,12 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		case <-jobIsDone:
 			return
 		case <-time.After(time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes)):
-			errMsg := fmt.Sprintf("diagnostics job timedout after: %s", time.Since(j.JobStarted))
+			err := fmt.Errorf("diagnostics job timedout after %s", time.Since(j.JobStarted))
 			j.Lock()
 			j.Status = jobFailedStatus
-			j.Errors = append(j.Errors, errMsg)
+			j.appendError(err)
 			j.Unlock()
-			logrus.Error(errMsg)
+			logrus.Error(err)
 			j.cancelChan <- true
 			return
 		}
@@ -206,9 +206,9 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	zipfile, err := os.Create(j.LastBundlePath)
 	if err != nil {
 		j.Status = jobFailedStatus
-		errMsg := fmt.Sprintf("Could not create zip file: %s", j.LastBundlePath)
-		j.Errors = append(j.Errors, errMsg)
-		logrus.Error(errMsg)
+		e := fmt.Errorf("could not create zip file %s: %s", j.LastBundlePath, err)
+		j.appendError(e)
+		logrus.Error(e)
 		return
 	}
 	defer zipfile.Close()
@@ -228,7 +228,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 			if err != nil {
 				j.Status = "Could not append a summaryErrorsReport.txt to a zip file"
 				logrus.Errorf("%s: %s", j.Status, err)
-				j.Errors = append(j.Errors, err.Error())
+				j.appendError(err)
 				return
 			}
 
@@ -243,7 +243,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		if err != nil {
 			j.Status = "Could not append a summaryReport.txt to a zip file"
 			logrus.Errorf("%s: %s", j.Status, err)
-			j.Errors = append(j.Errors, err.Error())
+			j.appendError(err)
 			return
 		}
 		_, err = io.Copy(zipFile, summaryReport)
@@ -273,7 +273,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		// add http endpoints
 		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
 		if err != nil {
-			j.Errors = append(j.Errors, err.Error())
+			j.appendError(err)
 
 			// handle job cancel error
 			if serr, ok := err.(diagnosticsJobCanceledError); ok {
@@ -281,7 +281,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 				j.LastBundlePath = ""
 				if removeErr := os.Remove(zipfile.Name()); removeErr != nil {
 					logrus.Errorf("Could not remove a bundle: %s", removeErr)
-					j.Errors = append(j.Errors, removeErr.Error())
+					j.appendError(removeErr)
 				}
 				return
 			}
@@ -297,6 +297,10 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	} else {
 		j.Status = "Diagnostics job failed"
 	}
+}
+
+func (j *DiagnosticsJob) appendError(e error) {
+	j.Errors = append(j.Errors, e.Error())
 }
 
 func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]string, e error) {
@@ -534,7 +538,7 @@ func (j *DiagnosticsJob) getDataToZip(node dcos.Node, httpEndpoint string, clien
 }
 
 func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer) {
-	j.Errors = append(j.Errors, e.Error())
+	j.appendError(e)
 	logrus.Error(e)
 	updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
 }
