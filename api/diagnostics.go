@@ -42,6 +42,7 @@ type DiagnosticsJob struct {
 
 	errors sync.RWMutex
 	statusMutex sync.RWMutex
+	progressMutex sync.RWMutex
 
 	cancelChan   chan bool
 	logProviders logProviders
@@ -159,6 +160,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.cancelChan = make(chan bool)
 	j.JobStarted = time.Now()
 	j.Running = true
+	j.JobDuration = 0
 	go j.runBackgroundJob(foundNodes)
 
 	var r createResponse
@@ -264,8 +266,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	defer j.Unlock()
 
 	// reset counters
-	j.JobDuration = 0
-	j.JobProgressPercentage = 0
+	j.setJobProgressPercentage(0)
 
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
@@ -274,7 +275,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		endpoints, err := j.getNodeEndpoints(node)
 		if err != nil {
 			j.logError(err, node, summaryErrorsReport)
-			j.JobProgressPercentage += percentPerNode
+			j.incJobProgressPercentage(percentPerNode)
 		}
 
 		// add http endpoints
@@ -298,12 +299,30 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		}
 		updateSummaryReport("STOP collecting logs", node, "", summaryReport)
 	}
-	j.JobProgressPercentage = 100
+	j.setJobProgressPercentage(100)
 	if len(j.getErrors()) == 0 {
 		j.setStatus("Diagnostics job successfully finished")
 	} else {
 		j.setStatus("Diagnostics job failed")
 	}
+}
+
+func (j *DiagnosticsJob) setJobProgressPercentage(v float32) {
+	j.progressMutex.Lock()
+	j.JobProgressPercentage = v
+	j.progressMutex.Unlock()
+}
+
+func (j *DiagnosticsJob) incJobProgressPercentage(inc float32) {
+	j.progressMutex.Lock()
+	j.JobProgressPercentage += inc
+	j.progressMutex.Unlock()
+}
+
+func (j *DiagnosticsJob) getJobProgressPercentage() float32 {
+	j.progressMutex.RLock()
+	defer j.progressMutex.RUnlock()
+	return j.JobProgressPercentage
 }
 
 func (j *DiagnosticsJob) setStatus(status string) {
@@ -487,7 +506,7 @@ func (j *DiagnosticsJob) getBundelReportStatus() bundleReportStatus {
 		JobStarted:            j.JobStarted.String(),
 		JobEnded:              j.JobEnded.String(),
 		JobDuration:           j.JobDuration.String(),
-		JobProgressPercentage: j.JobProgressPercentage,
+		JobProgressPercentage: j.getJobProgressPercentage(),
 
 		DiagnosticBundlesBaseDir:                 cfg.FlagDiagnosticsBundleDir,
 		DiagnosticsJobTimeoutMin:                 cfg.FlagDiagnosticsJobTimeoutMinutes,
@@ -537,7 +556,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 		if e != nil {
 			j.logError(e, node, summaryErrorsReport)
 		}
-		j.JobProgressPercentage += percentPerURL
+		j.incJobProgressPercentage(percentPerURL)
 	}
 	return nil
 }
@@ -846,7 +865,7 @@ func (j *DiagnosticsJob) Init() error {
 		return fmt.Errorf("could not init diagnostic job: %s", err)
 	}
 	// set JobProgressPercentage -1 means the job has never been executed
-	j.JobProgressPercentage = -1
+	j.setJobProgressPercentage(-1)
 	j.logProviders = logProviders{
 		HTTPEndpoints: make(map[string]HTTPProvider),
 		LocalFiles:    make(map[string]FileProvider),
