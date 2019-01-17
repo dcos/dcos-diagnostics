@@ -39,6 +39,9 @@ const (
 // DiagnosticsJob is the main structure for a logs collection job.
 type DiagnosticsJob struct {
 	sync.RWMutex
+
+	errors sync.RWMutex
+
 	cancelChan   chan bool
 	logProviders logProviders
 	client       *http.Client
@@ -292,7 +295,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		updateSummaryReport("STOP collecting logs", node, "", summaryReport)
 	}
 	j.JobProgressPercentage = 100
-	if len(j.Errors) == 0 {
+	if len(j.getErrors()) == 0 {
 		j.Status = "Diagnostics job successfully finished"
 	} else {
 		j.Status = "Diagnostics job failed"
@@ -300,7 +303,15 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 }
 
 func (j *DiagnosticsJob) appendError(e error) {
+	j.errors.Lock()
 	j.Errors = append(j.Errors, e.Error())
+	j.errors.Unlock()
+}
+
+func (j *DiagnosticsJob) getErrors() []string {
+	j.errors.RLock()
+	defer j.errors.RUnlock()
+	return append([]string{}, j.Errors...)
 }
 
 func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]string, e error) {
@@ -453,7 +464,7 @@ func (j *DiagnosticsJob) getStatus() bundleReportStatus {
 	status := bundleReportStatus{
 		Running:               j.Running,
 		Status:                j.Status,
-		Errors:                append([]string{}, j.Errors...),
+		Errors:                j.getErrors(),
 		LastBundlePath:        j.LastBundlePath,
 		JobStarted:            j.JobStarted.String(),
 		JobEnded:              j.JobEnded.String(),
