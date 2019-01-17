@@ -41,6 +41,7 @@ type DiagnosticsJob struct {
 	sync.RWMutex
 
 	errors sync.RWMutex
+	statusMutex sync.RWMutex
 
 	cancelChan   chan bool
 	logProviders logProviders
@@ -141,8 +142,9 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	if os.IsNotExist(err) {
 		logrus.Infof("Directory: %s not found, attempting to create one", j.Cfg.FlagDiagnosticsBundleDir)
 		if err := os.MkdirAll(j.Cfg.FlagDiagnosticsBundleDir, os.ModePerm); err != nil {
-			j.Status = "Could not create directory: " + j.Cfg.FlagDiagnosticsBundleDir
-			return prepareCreateResponseWithErr(http.StatusServiceUnavailable, errors.New(j.Status))
+			e := fmt.Errorf("could not create directory: %s", j.Cfg.FlagDiagnosticsBundleDir)
+			j.setStatus(e.Error())
+			return prepareCreateResponseWithErr(http.StatusServiceUnavailable, e)
 		}
 	}
 
@@ -153,7 +155,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	bundleName := fmt.Sprintf("bundle-%d-%02d-%02d-%d.zip", t.Year(), t.Month(), t.Day(), t.Unix())
 
 	j.LastBundlePath = filepath.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
-	j.Status = "Diagnostics job started, archive will be available at: " + j.LastBundlePath
+	j.setStatus("Diagnostics job started, archive will be available at: " + j.LastBundlePath)
 	j.cancelChan = make(chan bool)
 	j.JobStarted = time.Now()
 	j.Running = true
@@ -175,7 +177,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	if len(nodes) == 0 {
 		e := fmt.Errorf("nodes length must NOT be 0")
 		j.Lock()
-		j.Status = jobFailedStatus
+		j.setStatus(jobFailedStatus)
 		j.appendError(e)
 		j.Unlock()
 		return
@@ -196,7 +198,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		case <-time.After(time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes)):
 			err := fmt.Errorf("diagnostics job timedout after %s", time.Since(j.JobStarted))
 			j.Lock()
-			j.Status = jobFailedStatus
+			j.setStatus(jobFailedStatus)
 			j.appendError(err)
 			j.Unlock()
 			logrus.Error(err)
@@ -208,7 +210,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	// create a zip file
 	zipfile, err := os.Create(j.LastBundlePath)
 	if err != nil {
-		j.Status = jobFailedStatus
+		j.setStatus(jobFailedStatus)
 		e := fmt.Errorf("could not create zip file %s: %s", j.LastBundlePath, err)
 		j.appendError(e)
 		logrus.Error(e)
@@ -229,9 +231,10 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		if summaryErrorsReport.Len() > 0 {
 			zipFile, err := zipWriter.Create("summaryErrorsReport.txt")
 			if err != nil {
-				j.Status = "Could not append a summaryErrorsReport.txt to a zip file"
-				logrus.Errorf("%s: %s", j.Status, err)
-				j.appendError(err)
+				e := fmt.Errorf("could not append a summaryErrorsReport.txt to a zip file: %s", err)
+				logrus.Error(e)
+				j.appendError(e)
+				j.setStatus(e.Error())
 				return
 			}
 
@@ -244,9 +247,10 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		// flush the summary report
 		zipFile, err := zipWriter.Create("summaryReport.txt")
 		if err != nil {
-			j.Status = "Could not append a summaryReport.txt to a zip file"
-			logrus.Errorf("%s: %s", j.Status, err)
-			j.appendError(err)
+			e := fmt.Errorf("could not append a summaryReport.txt to a zip file: %s", err)
+			logrus.Error(e)
+			j.appendError(e)
+			j.setStatus(e.Error())
 			return
 		}
 		_, err = io.Copy(zipFile, summaryReport)
@@ -296,10 +300,22 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	}
 	j.JobProgressPercentage = 100
 	if len(j.getErrors()) == 0 {
-		j.Status = "Diagnostics job successfully finished"
+		j.setStatus("Diagnostics job successfully finished")
 	} else {
-		j.Status = "Diagnostics job failed"
+		j.setStatus("Diagnostics job failed")
 	}
+}
+
+func (j *DiagnosticsJob) setStatus(status string) {
+	j.statusMutex.Lock()
+	j.Status = status
+	j.statusMutex.Unlock()
+}
+
+func (j *DiagnosticsJob) getStatus() string {
+	j.statusMutex.RLock()
+	defer j.statusMutex.RUnlock()
+	return j.Status
 }
 
 func (j *DiagnosticsJob) appendError(e error) {
@@ -365,8 +381,9 @@ func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportRe
 	}
 	if ok {
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/delete/%s", node, j.Cfg.FlagMasterPort, baseRoute, bundleName)
-		j.Status = "Attempting to delete a bundle on a remote host. POST " + url
-		logrus.Debug(j.Status)
+		status := "Attempting to delete a bundle on a remote host. POST " + url
+		logrus.Debug(status)
+		j.setStatus(status)
 		timeout := time.Second * 5
 		response, _, err := j.DCOSTools.Post(url, timeout)
 		if err != nil {
@@ -377,11 +394,12 @@ func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportRe
 		if err = json.Unmarshal(response, &remoteResponse); err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		}
-		j.Status = remoteResponse.Status
+		j.setStatus(remoteResponse.Status)
 		return remoteResponse, nil
 	}
-	j.Status = "Bundle not found " + bundleName
-	return prepareResponseOk(http.StatusNotFound, j.Status)
+	status := "Bundle not found " + bundleName
+	j.setStatus(status)
+	return prepareResponseOk(http.StatusNotFound, status)
 }
 
 // isRunning returns if the diagnostics job is running, node the job is running on and error. If the node is empty
@@ -421,7 +439,7 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 	if err != nil {
 		logrus.WithError(err).Warn("Could not detect IP")
 	} else {
-		statuses[localIP] = j.getStatus()
+		statuses[localIP] = j.getBundelReportStatus()
 	}
 
 	for _, master := range masterNodes {
@@ -449,7 +467,7 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 }
 
 // get a status report for a localhost
-func (j *DiagnosticsJob) getStatus() bundleReportStatus {
+func (j *DiagnosticsJob) getBundelReportStatus() bundleReportStatus {
 	// use a temp var `used`, since disk.Usage panics if partition does not exist.
 	var used float64
 	cfg := j.Cfg
@@ -463,7 +481,7 @@ func (j *DiagnosticsJob) getStatus() bundleReportStatus {
 	j.RLock()
 	status := bundleReportStatus{
 		Running:               j.Running,
-		Status:                j.Status,
+		Status:                j.getStatus(),
 		Errors:                j.getErrors(),
 		LastBundlePath:        j.LastBundlePath,
 		JobStarted:            j.JobStarted.String(),
@@ -511,10 +529,11 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 			logrus.Debugf("GET %s%s", node.IP, httpEndpoint)
 		}
 
-		j.Status = "GET " + node.IP + httpEndpoint
-		updateSummaryReport("START "+j.Status, node, "", summaryReport)
+		status := "GET " + node.IP + httpEndpoint
+		updateSummaryReport("START "+status, node, "", summaryReport)
 		e := j.getDataToZip(node, httpEndpoint, j.client, fileName, zipWriter)
-		updateSummaryReport("STOP "+j.Status, node, "", summaryReport)
+		updateSummaryReport("STOP "+status, node, "", summaryReport)
+		j.setStatus(status)
 		if e != nil {
 			j.logError(e, node, summaryErrorsReport)
 		}
@@ -626,8 +645,9 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 		logrus.Debug("Cancelling a local job")
 	} else {
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/cancel", node, j.Cfg.FlagMasterPort, baseRoute)
-		j.Status = "Attempting to cancel a job on a remote host. POST " + url
-		logrus.Debug(j.Status)
+		status := "Attempting to cancel a job on a remote host. POST " + url
+		logrus.Debug(status)
+		j.setStatus(status)
 		response, _, err := j.DCOSTools.Post(url, time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)*time.Minute)
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
