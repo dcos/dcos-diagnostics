@@ -284,17 +284,12 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 			j.appendError(err)
 
 			// handle job cancel error
-			if serr, ok := err.(diagnosticsJobCanceledError); ok {
-				logrus.Errorf("Could not add diagnostics to zip file: %s", serr)
-				j.LastBundlePath = ""
-				if removeErr := os.Remove(zipfile.Name()); removeErr != nil {
-					logrus.Errorf("Could not remove a bundle: %s", removeErr)
-					j.appendError(removeErr)
-				}
+			if _, ok := err.(diagnosticsJobCanceledError); ok {
+				logrus.WithError(err).Errorf("Could not add diagnostics to zip file")
 				return
 			}
 
-			logrus.Errorf("Could not add a log to a bundle: %s", err)
+			logrus.WithError(err).Errorf("Could not add a log to a bundle: %s", err)
 			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
 		}
 		updateSummaryReport("STOP collecting logs", node, "", summaryReport)
