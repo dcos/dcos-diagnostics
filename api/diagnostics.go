@@ -301,9 +301,13 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
+
+		timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
+		client := util.NewHTTPClient(timeout, j.Transport)
+
 		// add http endpoints
 		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport,
-			summaryReport, percentPerNode)
+			summaryReport, percentPerNode, client)
 		if err != nil {
 			j.Errors = append(j.Errors, err.Error())
 
@@ -487,11 +491,8 @@ func (d diagnosticsJobCanceledError) Error() string {
 
 // fetch an HTTP endpoint and append the output to a zip file.
 func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
-	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
+	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32, client *http.Client) error {
 	percentPerURL := percentPerNode / float32(len(endpoints))
-
-	timeout := time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
-	client := util.NewHTTPClient(timeout, j.Transport)
 
 	for fileName, httpEndpoint := range endpoints {
 		select {
