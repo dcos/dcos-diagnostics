@@ -265,9 +265,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		port, err := getPullPortByRole(j.Cfg, node.Role)
 		if err != nil {
 			e := fmt.Errorf("used incorrect role: %s", err)
-			logrus.Error(e)
-			j.Errors = append(j.Errors, e.Error())
-			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
+			j.logError(e, node, summaryErrorsReport)
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
@@ -278,27 +276,21 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		body, statusCode, err := j.DCOSTools.Get(url, time.Second*3)
 		if err != nil {
 			e := fmt.Errorf("could not get a list of logs, url: %s, status code %d: %s", url, statusCode, err)
-			j.Errors = append(j.Errors, e.Error())
-			logrus.Error(e)
-			updateSummaryReport(e.Error(), node, err.Error(), summaryErrorsReport)
+			j.logError(e, node, summaryErrorsReport)
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
 
 		if err = json.Unmarshal(body, &endpoints); err != nil {
 			e := fmt.Errorf("could not unmarshal a list of logs from %s: %s", url, err)
-			j.Errors = append(j.Errors, e.Error())
-			logrus.Error(e)
-			updateSummaryReport(e.Error(), node, err.Error(), summaryErrorsReport)
+			j.logError(e, node, summaryErrorsReport)
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
 
 		if len(endpoints) == 0 {
 			e := fmt.Errorf("no endpoints found, url %s", url)
-			j.Errors = append(j.Errors, e.Error())
-			logrus.Error(e)
-			updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
+			j.logError(e, node, summaryErrorsReport)
 			j.JobProgressPercentage += percentPerNode
 			continue
 		}
