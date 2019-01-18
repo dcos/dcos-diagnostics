@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/dcos/dcos-diagnostics/dcos"
 
 	"github.com/stretchr/testify/assert"
@@ -784,11 +786,10 @@ func TestRunSnapshot(t *testing.T) {
 	assert.Equal(t, "Job has been successfully started", responseJSON.Status)
 	assert.NotEmpty(t, responseJSON.Extra.LastBundleFile)
 
-	bundle := filepath.Join(dt.Cfg.FlagDiagnosticsBundleDir, responseJSON.Extra.LastBundleFile)
-	assert.True(t, waitForBundle(t, bundle))
+	assert.True(t, waitForBundle(t, router))
 }
 
-func waitForBundle(t *testing.T, bundlePath string) bool {
+func waitForBundle(t *testing.T, router *mux.Router) bool {
 	timeout := time.After(2 * time.Second)
 	for {
 		select {
@@ -796,14 +797,14 @@ func waitForBundle(t *testing.T, bundlePath string) bool {
 			t.Log("Timeout!")
 			return false
 		default:
-			stat, err := os.Stat(bundlePath)
-			if err != nil {
-				t.Logf("Error: %s", err)
-				time.Sleep(time.Millisecond)
-				continue
+			response, code, _ := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status", "GET", nil)
+			assert.Equal(t, http.StatusOK, code)
+			var status bundleReportStatus
+			err := json.Unmarshal(response, &status)
+			assert.NoError(t, err)
+			if !status.Running {
+				return true
 			}
-			assert.False(t, stat.IsDir())
-			return true
 		}
 	}
 }
