@@ -183,7 +183,7 @@ func (h *handler) deleteBundleHandler(w http.ResponseWriter, r *http.Request) {
 
 // A handler function return a diagnostics job status
 func (h *handler) diagnosticsJobStatusHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := json.NewEncoder(w).Encode(h.job.getBundelReportStatus()); err != nil {
+	if err := json.NewEncoder(w).Encode(h.job.getBundleReportStatus()); err != nil {
 		log.Errorf("Failed to encode responses to json: %s", err)
 	}
 }
