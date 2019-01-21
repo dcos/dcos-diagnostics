@@ -15,7 +15,6 @@
     "vetshadow",
     "varcheck",
     "structcheck",
-    "megacheck",
     "ineffassign",
     "interfacer",
     "unconvert",
@@ -23,7 +22,6 @@
     "lll",
     "misspell",
     "unparam",
-    "unused",
     "vet"
   ],
   "Exclude": [
