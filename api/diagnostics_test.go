@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -351,6 +352,60 @@ func TestGetStatus(t *testing.T) {
 
 	status := job.getBundleReportStatus()
 	assert.Equal(t, status.DiagnosticBundlesBaseDir, config.FlagDiagnosticsBundleDir)
+}
+
+func TestGetStatusWhenJobIsRunning(t *testing.T) {
+	tools := new(MockedTools)
+
+	called := make(chan bool)
+	wait := make(chan bool)
+
+	stubServer := func() (*httptest.Server, *http.Transport) {
+		return mockServer(func(w http.ResponseWriter, r *http.Request) {
+			called <- true
+			t.Logf("Called %s", r.URL.RequestURI())
+			<-wait
+			w.WriteHeader(200)
+		})
+	}
+
+	server, _ := stubServer()
+	defer server.Close()
+	_, port, _ := net.SplitHostPort(server.URL[7:])
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte(`{"slow_server": ":`+port+`"}`), http.StatusOK, nil)
+	tools.On("GetNodeRole").Return("master", nil)
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{{IP: "127.0.0.1", Role: "master"}}, nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
+
+	cfg := testCfg()
+	dt := &Dt{
+		Cfg:              cfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient},
+		MR:               &MonitoringResponse{},
+	}
+
+	dt.DtDiagnosticsJob.run(bundleCreateRequest{Nodes: []string{"all"}})
+
+	<-called
+	for {
+		t.Logf("Get status")
+		status := dt.DtDiagnosticsJob.getBundleReportStatus()
+		if status.Running {
+			t.Logf("Job is running")
+			break
+		}
+	}
+	wait <- false
+
+	tools.AssertExpectations(t)
 }
 
 func TestGetAllStatusWithRemoteCall(t *testing.T) {

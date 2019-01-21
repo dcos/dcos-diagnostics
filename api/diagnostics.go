@@ -475,16 +475,20 @@ func (j *DiagnosticsJob) getBundleReportStatus() bundleReportStatus {
 		logrus.Errorf("Could not get a disk usage %s: %s", cfg.FlagDiagnosticsBundleDir, err)
 	}
 
+	stat := j.getStatus()
+	errors := j.getErrors()
+	jobProgressPercentage := j.getJobProgressPercentage()
+
 	j.RLock()
 	status := bundleReportStatus{
 		Running:               j.Running,
-		Status:                j.getStatus(),
-		Errors:                j.getErrors(),
+		Status:                stat,
+		Errors:                errors,
 		LastBundlePath:        j.LastBundlePath,
 		JobStarted:            j.JobStarted.String(),
 		JobEnded:              j.JobEnded.String(),
 		JobDuration:           j.JobDuration.String(),
-		JobProgressPercentage: j.getJobProgressPercentage(),
+		JobProgressPercentage: jobProgressPercentage,
 
 		DiagnosticBundlesBaseDir:                 cfg.FlagDiagnosticsBundleDir,
 		DiagnosticsJobTimeoutMin:                 cfg.FlagDiagnosticsJobTimeoutMinutes,
