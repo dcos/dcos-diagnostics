@@ -349,7 +349,7 @@ func TestGetStatus(t *testing.T) {
 	config := testCfg()
 	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
 
-	status := job.getBundelReportStatus()
+	status := job.getBundleReportStatus()
 	assert.Equal(t, status.DiagnosticBundlesBaseDir, config.FlagDiagnosticsBundleDir)
 }
 

@@ -436,7 +436,7 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 	if err != nil {
 		logrus.WithError(err).Warn("Could not detect IP")
 	} else {
-		statuses[localIP] = j.getBundelReportStatus()
+		statuses[localIP] = j.getBundleReportStatus()
 	}
 
 	for _, master := range masterNodes {
@@ -458,13 +458,13 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 		statuses[master.IP] = status
 	}
 	if len(statuses) == 0 {
-		return statuses, errors.New("could not determine wheather the diagnostics job is running or not")
+		return statuses, errors.New("could not determine whether the diagnostics job is running or not")
 	}
 	return statuses, nil
 }
 
 // get a status report for a localhost
-func (j *DiagnosticsJob) getBundelReportStatus() bundleReportStatus {
+func (j *DiagnosticsJob) getBundleReportStatus() bundleReportStatus {
 	// use a temp var `used`, since disk.Usage panics if partition does not exist.
 	var used float64
 	cfg := j.Cfg
@@ -528,7 +528,7 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 
 		status := "GET " + node.IP + httpEndpoint
 		updateSummaryReport("START "+status, node, "", summaryReport)
-		e := j.getDataToZip(node, httpEndpoint, j.client, fileName, zipWriter)
+		e := j.getDataToZip(node, httpEndpoint, fileName, zipWriter)
 		updateSummaryReport("STOP "+status, node, "", summaryReport)
 		j.setStatus(status)
 		if e != nil {
@@ -539,13 +539,13 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 	return nil
 }
 
-func (j *DiagnosticsJob) getDataToZip(node dcos.Node, httpEndpoint string, client *http.Client, fileName string, zipWriter *zip.Writer) error {
+func (j *DiagnosticsJob) getDataToZip(node dcos.Node, httpEndpoint string, fileName string, zipWriter *zip.Writer) error {
 	fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
 	if err != nil {
 		e := fmt.Errorf("could not read force-tls flag: %s", err)
 		return e
 	}
-	resp, err := get(client, fullURL)
+	resp, err := get(j.client, fullURL)
 	if err != nil {
 		e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
 		return e
