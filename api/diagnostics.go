@@ -430,7 +430,12 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 		return nil, err
 	}
 
+	if len(masterNodes) == 0 {
+		return nil, fmt.Errorf("could not find any master")
+	}
+
 	statuses := make(map[string]bundleReportStatus, len(masterNodes))
+	var errs []error
 
 	localIP, err := j.DCOSTools.DetectIP()
 	if err != nil {
@@ -445,21 +450,29 @@ func (j *DiagnosticsJob) getStatusAll() (map[string]bundleReportStatus, error) {
 		}
 		var status bundleReportStatus
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/status", master.IP, j.Cfg.FlagMasterPort, baseRoute)
-		body, _, err := j.DCOSTools.Get(url, time.Second*3)
+		body, code, err := j.DCOSTools.Get(url, time.Second*3)
+		if code != 200 {
+			logrus.WithField("StatusCode", code).WithField("URL", url).Error("Could not get data")
+			errs = append(errs, fmt.Errorf("could not get data from %s got %d status", url, code))
+			continue
+		}
 		if err != nil {
 			logrus.WithError(err).WithField("URL", url).Error("Could not get data")
+			errs = append(errs, fmt.Errorf("could not get data from %s: %s", url, err))
 			continue
 		}
 		err = json.Unmarshal(body, &status)
 		if err != nil {
 			logrus.WithError(err).WithField("IP", master.IP).Errorf("Could not determine job status for master")
+			errs = append(errs, fmt.Errorf("could not determine job status for master %s: %s", master.IP, err))
 			continue
 		}
 		statuses[master.IP] = status
 	}
-	if len(statuses) == 0 {
-		return statuses, errors.New("could not determine whether the diagnostics job is running or not")
+	if len(statuses) == 0 || len(errs) != 0 {
+		return statuses, fmt.Errorf("could not determine whether the diagnostics job is running or not: %v", errs)
 	}
+
 	return statuses, nil
 }
 

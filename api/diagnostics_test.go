@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -458,6 +459,100 @@ func TestGetAllStatusWithRemoteCall(t *testing.T) {
 		DiagnosticsJobGetSingleURLTimeoutMinutes: 5,
 		CommandExecTimeoutSec:                    10,
 	})
+
+	tools.AssertExpectations(t)
+}
+
+func TestGetAllStatusWhenNoMaterFoundShouldReturnError(t *testing.T) {
+	config := testCfg()
+
+	tools := new(MockedTools)
+
+	tools.On("GetMasterNodes").Return([]dcos.Node{}, nil)
+
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
+
+	status, err := job.getStatusAll()
+
+	assert.EqualError(t, err, "could not find any master")
+	assert.Nil(t, status)
+	tools.AssertExpectations(t)
+}
+
+func TestGetAllStatusWithLocalAnd503RemoteCall(t *testing.T) {
+	config := testCfg()
+
+	tools := new(MockedTools)
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.2:1050%s/report/diagnostics/status", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte{}, http.StatusServiceUnavailable, nil)
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{Leader: false, IP: "127.0.0.1", Role: "master"},
+		{Leader: true, IP: "127.0.0.2", Role: "master"}}, nil)
+
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
+
+	status, err := job.getStatusAll()
+	assert.EqualError(t, err, "could not determine whether the diagnostics job is running or not: [could not get data from http://127.0.0.2:1050/system/health/v1/report/diagnostics/status got 503 status]")
+	assert.Len(t, status, 1)
+	assert.Contains(t, status, "127.0.0.1")
+
+	tools.AssertExpectations(t)
+}
+
+func TestGetAllStatusWithLocalAndRemoteCallReturnsInvalidJson(t *testing.T) {
+	config := testCfg()
+
+	tools := new(MockedTools)
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.2:1050%s/report/diagnostics/status", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte("not a json"), http.StatusOK, nil)
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{Leader: false, IP: "127.0.0.1", Role: "master"},
+		{Leader: true, IP: "127.0.0.2", Role: "master"}}, nil)
+
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
+
+	status, err := job.getStatusAll()
+	assert.EqualError(t, err, "could not determine whether the diagnostics job is running or not: [could not determine job status for master 127.0.0.2: invalid character 'o' in literal null (expecting 'u')]")
+	assert.Len(t, status, 1)
+	assert.Contains(t, status, "127.0.0.1")
+
+	tools.AssertExpectations(t)
+}
+
+func TestGetAllStatusWithLocalAndFailingRemoteCall(t *testing.T) {
+	config := testCfg()
+
+	tools := new(MockedTools)
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.2:1050%s/report/diagnostics/status", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte{}, http.StatusOK, errors.New("some error"))
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{Leader: false, IP: "127.0.0.1", Role: "master"},
+		{Leader: true, IP: "127.0.0.2", Role: "master"}}, nil)
+
+	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
+
+	status, err := job.getStatusAll()
+	assert.EqualError(t, err, "could not determine whether the diagnostics job is running or not: [could not get data from http://127.0.0.2:1050/system/health/v1/report/diagnostics/status: some error]")
+	assert.Len(t, status, 1)
+	assert.Contains(t, status, "127.0.0.1")
 
 	tools.AssertExpectations(t)
 }
