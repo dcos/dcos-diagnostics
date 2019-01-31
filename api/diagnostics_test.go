@@ -144,7 +144,7 @@ func TestDispatchLogsForCommand(t *testing.T) {
 
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
-	assert.Equal(t, "OK\n", string(data))
+	assert.Contains(t, string(data), "OK")
 }
 
 func TestDispatchLogsForFiles(t *testing.T) {
