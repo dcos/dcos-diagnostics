@@ -225,7 +225,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 		return nodes, err
 	}
 
-	timeout := time.Second
+	timeout := 30 * time.Second
 	body, statusCode, err := f.getFn(url, timeout)
 	if err != nil {
 		return nodes, err
