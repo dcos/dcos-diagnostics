@@ -18,7 +18,7 @@ import (
 
 // As per comments in https://jira.mesosphere.com/browse/COPS-4413
 // calls to Mesos should be given relatively long timeouts to work reliably
-const mesosHttpTimeout = 10 * time.Second
+const mesosHTTPTimeout = 10 * time.Second
 
 // nodeFinder interface allows chain finding methods
 type nodeFinder interface {
