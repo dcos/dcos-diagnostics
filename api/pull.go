@@ -47,7 +47,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 		return nodes, err
 	}
 	if statusCode != http.StatusOK {
-		return nodes, fmt.Errorf("GET %s failed, status code: %d", f.url, statusCode)
+		return nodes, fmt.Errorf("GET %s failed, status code: %d, body: %s", f.url, statusCode, string(body))
 	}
 
 	var exhibitorNodesResponse []exhibitorNodeResponse
@@ -218,7 +218,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 		return nodes, err
 	}
 	if statusCode != http.StatusOK {
-		return nodes, fmt.Errorf("GET %s failed, status code %d", url, statusCode)
+		return nodes, fmt.Errorf("GET %s failed, status code: %d, body: %s", url, statusCode, string(body))
 	}
 
 	var sr agentsResponse
@@ -590,7 +590,7 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 	timeout := time.Duration(dt.Cfg.FlagPullTimeoutSec) * time.Second
 	body, statusCode, err := dt.DtDCOSTools.Get(url, timeout)
 	if statusCode != http.StatusOK {
-		logrus.Errorf("Bad response code %d. URL %s", statusCode, url)
+		logrus.WithField("body", string(body)).Errorf("Bad response code %d. URL %s", statusCode, url)
 		response.Status = statusCode
 		host.Health = 3
 		response.Node = host
@@ -598,7 +598,7 @@ func pullHostStatus(host Node, respChan chan<- *httpResponse, dt *Dt, wg *sync.W
 		return
 	}
 	if err != nil {
-		logrus.Errorf("Could not HTTP GET %s: %s", url, err)
+		logrus.WithError(err).Errorf("Could not HTTP GET %s: %s", url)
 		response.Status = statusCode
 		host.Health = 3 // 3 stands for unknown
 		respChan <- &response
