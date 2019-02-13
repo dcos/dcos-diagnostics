@@ -519,11 +519,14 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			var errMsg string
 			body, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
-				logrus.WithError(err).Warn("Unable to read response body")
+				errMsg = fmt.Sprintf("unable to fetch %s. Return code %d. Could not read body: %s", fullURL, resp.StatusCode, err)
+			} else {
+				errMsg = fmt.Sprintf("unable to fetch %s. Return code %d. Body: %s", fullURL, resp.StatusCode, string(body))
 			}
-			errMsg := fmt.Sprintf("unable to fetch %s. Return code %d. Body: %s", fullURL, resp.StatusCode, string(body))
 			logrus.Error(errMsg)
 			j.Errors = append(j.Errors, errMsg)
 			updateSummaryReport("wrong status code returned", node, errMsg, summaryErrorsReport)
@@ -546,7 +549,10 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node Node, endpoints map[string]string,
 			continue
 		}
 		io.Copy(zipFile, resp.Body)
-		resp.Body.Close()
+		e := resp.Body.Close()
+		if e != nil {
+			logrus.WithError(e).Warn("Unable to close response body")
+		}
 		updateSummaryReport("STOP "+j.Status, node, "", summaryReport)
 		j.JobProgressPercentage += percentPerURL
 	}
