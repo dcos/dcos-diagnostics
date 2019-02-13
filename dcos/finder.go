@@ -114,7 +114,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 		return nodes, errors.New("could not initialize HTTP GET function. Make sure you set getFn in the constructor")
 	}
 
-	body, statusCode, err := f.getFn(f.url, mesosHttpTimeout)
+	body, statusCode, err := f.getFn(f.url, mesosHTTPTimeout)
 	if err != nil {
 		return nodes, err
 	}
@@ -229,7 +229,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 		return nodes, err
 	}
 
-	body, statusCode, err := f.getFn(url, mesosHttpTimeout)
+	body, statusCode, err := f.getFn(url, mesosHTTPTimeout)
 	if err != nil {
 		return nodes, err
 	}
