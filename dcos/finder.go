@@ -16,6 +16,10 @@ import (
 	"github.com/dcos/dcos-diagnostics/util"
 )
 
+// As per comments in https://jira.mesosphere.com/browse/COPS-4413
+// calls to Mesos should be given relatively long timeouts to work reliably
+const mesosHTTPTimeout = 10 * time.Second
+
 // nodeFinder interface allows chain finding methods
 type nodeFinder interface {
 	Find() ([]Node, error)
@@ -109,8 +113,8 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 	if f.getFn == nil {
 		return nodes, errors.New("could not initialize HTTP GET function. Make sure you set getFn in the constructor")
 	}
-	timeout := time.Second * 11
-	body, statusCode, err := f.getFn(f.url, timeout)
+
+	body, statusCode, err := f.getFn(f.url, mesosHTTPTimeout)
 	if err != nil {
 		return nodes, err
 	}
@@ -225,8 +229,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 		return nodes, err
 	}
 
-	timeout := time.Second
-	body, statusCode, err := f.getFn(url, timeout)
+	body, statusCode, err := f.getFn(url, mesosHTTPTimeout)
 	if err != nil {
 		return nodes, err
 	}
