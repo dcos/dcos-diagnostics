@@ -115,7 +115,7 @@ func (f *findMastersInExhibitor) findMesosMasters() (nodes []Node, err error) {
 		return nodes, err
 	}
 	if statusCode != http.StatusOK {
-		return nodes, fmt.Errorf("GET %s failed, status code: %d", f.url, statusCode)
+		return nodes, fmt.Errorf("GET %s failed, status code: %d, body: %s", f.url, statusCode, body)
 	}
 
 	var exhibitorNodesResponse []exhibitorNodeResponse
@@ -231,7 +231,7 @@ func (f *findNodesInDNS) getMesosAgents() (nodes []Node, err error) {
 		return nodes, err
 	}
 	if statusCode != http.StatusOK {
-		return nodes, fmt.Errorf("GET %s failed, status code %d", url, statusCode)
+		return nodes, fmt.Errorf("GET %s failed, status code %d, body: %s", url, statusCode, body)
 	}
 
 	var sr agentsResponse

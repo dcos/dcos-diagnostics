@@ -53,14 +53,14 @@ func Test_findMastersInExhibitor_FindWithError(t *testing.T) {
 
 func Test_findMastersInExhibitor_FindWithEmptyBodyAndErrorCode(t *testing.T) {
 	getFn := func(url string, duration time.Duration) ([]byte, int, error) {
-		return nil, 518, nil
+		return []byte("message"), 518, nil
 	}
 
 	finder := findMastersInExhibitor{getFn: getFn}
 
 	nodes, err := finder.Find()
 
-	assert.EqualError(t, err, "GET  failed, status code: 518")
+	assert.EqualError(t, err, "GET  failed, status code: 518, body: message")
 	assert.Empty(t, nodes)
 }
 

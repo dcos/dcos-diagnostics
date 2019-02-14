@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -601,8 +602,13 @@ func get(client *http.Client, url string) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		body, e := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, fmt.Errorf("unable to fetch %s. Return code %d", url, resp.StatusCode)
+		errMsg := fmt.Sprintf("unable to fetch %s. Return code %d.", url, resp.StatusCode)
+		if e != nil {
+			return nil, fmt.Errorf("%s Could not read body: %s", errMsg, e)
+		}
+		return nil, fmt.Errorf("%s Body: %s", errMsg, string(body))
 	}
 
 	return resp, err
@@ -698,11 +704,11 @@ func listAllBundles(cfg *config.Config, DCOSTools dcos.Tooler) (map[string][]bun
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/list", master.IP, cfg.FlagMasterPort, baseRoute)
 		body, _, err := DCOSTools.Get(url, time.Second*3)
 		if err != nil {
-			logrus.Errorf("Could not HTTP GET %s: %s", url, err)
+			logrus.WithError(err).WithFields(logrus.Fields{"body": body, "URL": url}).Errorf("Could not HTTP GET")
 			continue
 		}
 		if err = json.Unmarshal(body, &bundleUrls); err != nil {
-			logrus.Errorf("Could not unmarshal response from %s: %s", url, err)
+			logrus.WithError(err).WithFields(logrus.Fields{"body": body, "URL": url}).Errorf("Could not unmarshal response")
 			continue
 		}
 		collectedBundles[fmt.Sprintf("%s:%d", master.IP, cfg.FlagMasterPort)] = bundleUrls
