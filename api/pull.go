@@ -157,7 +157,7 @@ func (p *pull) pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, wg 
 		return
 	}
 	if err != nil {
-		logrus.WithError(err).WithField("URL", url).Error("Could not HTTP GET")
+		logrus.WithError(err).WithField("URL", url).WithField("body", body).Error("Could not HTTP GET")
 		markNodeHealthAsUnknown(statusCode)
 		return
 	}
