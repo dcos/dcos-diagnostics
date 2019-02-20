@@ -48,6 +48,8 @@ type DiagnosticsJob struct {
 	logProviders logProviders
 	client       *http.Client
 
+	statusUpdateChan chan statusUpdate
+
 	Cfg       *config.Config
 	DCOSTools dcos.Tooler
 	Transport http.RoundTripper
@@ -157,14 +159,18 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 
 	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes))
 
+	statusUpdateChan := make(chan statusUpdate)
+
 	j.LastBundlePath = filepath.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
 	j.setStatus("Diagnostics job started, archive will be available at: " + j.LastBundlePath)
 	j.cancelFunc = cancelFunc
 	j.JobStarted = time.Now()
 	j.Running = true
 	j.JobDuration = 0
+	j.statusUpdateChan = statusUpdateChan
 
 	go j.runBackgroundJob(ctx, foundNodes)
+	go j.statusUpdater()
 
 	var r createResponse
 	r.Extra.LastBundleFile = bundleName
@@ -228,7 +234,9 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	summaryErrorsReport := new(bytes.Buffer)
 	j.setJobProgressPercentage(0)
 	defer j.setJobProgressPercentage(100)
-	err = j.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport, zipWriter)
+
+	fetcher := Fetcher{Cfg: j.Cfg, Client: j.client, StatusChan: j.statusUpdateChan}
+	err = fetcher.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport, zipWriter)
 	if err != nil {
 		logrus.WithError(err).Warn("Diagnostics job failed")
 		j.setStatus("Diagnostics job failed")
@@ -238,6 +246,20 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	j.flushReport(zipWriter, "summaryReport.txt", summaryReport)
 	if summaryErrorsReport.Len() > 0 {
 		j.flushReport(zipWriter, "summaryErrorsReport.txt", summaryErrorsReport)
+	}
+}
+
+func (j *DiagnosticsJob) statusUpdater() {
+	for s := range j.statusUpdateChan {
+		if s.incPercentage != 0 {
+			j.incJobProgressPercentage(s.incPercentage)
+		}
+		if s.error != nil {
+			j.appendError(s.error)
+		}
+		if s.msg != "" {
+			j.setStatus(s.msg)
+		}
 	}
 }
 
@@ -296,29 +318,6 @@ func (j *DiagnosticsJob) getErrors() []string {
 	j.errors.RLock()
 	defer j.errors.RUnlock()
 	return append([]string{}, j.Errors...)
-}
-
-func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]string, e error) {
-	port, err := getPullPortByRole(j.Cfg, node.Role)
-	if err != nil {
-		e = fmt.Errorf("used incorrect role: %s", err)
-		return nil, e
-	}
-	url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, baseRoute)
-	body, statusCode, err := j.DCOSTools.Get(url, time.Second*3)
-	if err != nil {
-		e := fmt.Errorf("could not get a list of logs, url: %s, status code %d: %s", url, statusCode, err)
-		return nil, e
-	}
-	if err = json.Unmarshal(body, &endpoints); err != nil {
-		e := fmt.Errorf("could not unmarshal a list of logs from %s: %s", url, err)
-		return nil, e
-	}
-	if len(endpoints) == 0 {
-		e := fmt.Errorf("no endpoints found, url %s", url)
-		return nil, e
-	}
-	return endpoints, nil
 }
 
 // delete a bundle

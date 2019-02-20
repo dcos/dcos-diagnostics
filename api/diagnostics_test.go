@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -220,8 +221,13 @@ func TestDispatchLogsWithUnknownEntity(t *testing.T) {
 	}
 }
 
-func TestGetHTTPAddToZip(t *testing.T) {
-	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient}
+func TestFetcherGetHTTPAddToZip(t *testing.T) {
+
+	statusUpdateChan := make(chan statusUpdate)
+	fetcher := Fetcher{Client: http.DefaultClient, Cfg: testCfg(), StatusChan: statusUpdateChan}
+
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient, statusUpdateChan: statusUpdateChan}
+	go job.statusUpdater()
 	server, _ := stubServer("/ping", "pong")
 	defer server.Close()
 
@@ -237,7 +243,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
 	node := dcos.Node{IP: server.URL[7:]} // strip http://
 
-	err = job.getHTTPAddToZip(context.TODO(), node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
+	err = fetcher.getHTTPAddToZip(context.TODO(), node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
 
 	assert.Equal(t, float32(3.0), job.getJobProgressPercentage())
@@ -363,6 +369,10 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 
 	stubServer := func() (*httptest.Server, *http.Transport) {
 		return mockServer(func(w http.ResponseWriter, r *http.Request) {
+			if r.RequestURI == "/system/health/v1/logs" {
+				_, port, _ := net.SplitHostPort(r.Host[7:])
+				w.Write([]byte(`{"slow_server": ":`+port+`"}`))
+			}
 			called <- true
 			t.Logf("Called %s", r.URL.RequestURI())
 			<-wait
@@ -374,18 +384,15 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 	defer server.Close()
 	_, port, _ := net.SplitHostPort(server.URL[7:])
 
-	tools.On("Get",
-		mock.MatchedBy(func(url string) bool {
-			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
-		}),
-		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
-	).Return([]byte(`{"slow_server": ":`+port+`"}`), http.StatusOK, nil)
 	tools.On("GetNodeRole").Return("master", nil)
 	tools.On("DetectIP").Return("127.0.0.1", nil)
 	tools.On("GetAgentNodes").Return([]dcos.Node{{IP: "127.0.0.1", Role: "master"}}, nil)
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
+	p, err := strconv.Atoi(port)
+	require.NoError(t, err)
+	cfg.FlagMasterPort = p
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
@@ -889,36 +896,15 @@ func TestDeleteBundleWhenBundleExistOnLocalNode(t *testing.T) {
 func TestRunSnapshot(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	cfg := testCfg()
+	//statusUpdateChan := make(chan statusUpdate)
 	defer os.RemoveAll(cfg.FlagDiagnosticsBundleDir)
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
-
-	url := "http://127.0.0.1:1050/system/health/v1/report/diagnostics/status"
-	mockedResponse := `
-			{
-			  "is_running":false,
-			  "status":"MyStatus",
-			  "errors":null,
-			  "last_bundle_dir":"/path/to/snapshot",
-			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_duration":"2s",
-			  "diagnostics_bundle_dir":"/home/core/1",
-			  "diagnostics_job_timeout_min":720,
-			  "diagnostics_partition_disk_usage_percent":28.0,
-			  "journald_logs_since_hours": "24",
-			  "diagnostics_job_get_since_url_timeout_min": 5,
-			  "command_exec_timeout_sec": 10
-			}
-	`
-	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
-	// return empty list of endpoints
-	tools.makeMockedResponse("http://127.0.0.1:1050/system/health/v1/logs", []byte("{}"), http.StatusOK, nil)
 
 	body := bytes.NewBuffer([]byte(`{"nodes": ["all"]}`))
 	response, code, _ := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/create", "POST", body)

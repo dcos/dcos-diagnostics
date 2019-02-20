@@ -74,7 +74,7 @@ func (st *Tools) doRequest(method, url string, timeout time.Duration, body io.Re
 
 	defer resp.Body.Close()
 	responseBody, err = ioutil.ReadAll(resp.Body)
-	return responseBody, resp.StatusCode, nil
+	return responseBody, resp.StatusCode, err
 }
 
 // Get HTTP request.
