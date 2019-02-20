@@ -237,7 +237,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
 	node := dcos.Node{IP: server.URL[7:]} // strip http://
 
-	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
+	err = job.getHTTPAddToZip(context.TODO(), node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
 
 	assert.Equal(t, float32(3.0), job.getJobProgressPercentage())
@@ -765,16 +765,16 @@ func TestCancelGlobalJob(t *testing.T) {
 // try cancel a local job
 func TestCancelLocalJob(t *testing.T) {
 	tools := &fakeDCOSTools{}
+	ctx, cancelFunc := context.WithCancel(context.TODO())
 	dt := &Dt{
 		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools, cancelFunc: cancelFunc},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
 
 	dt.DtDiagnosticsJob.Running = true
-	dt.DtDiagnosticsJob.cancelChan = make(chan bool, 1)
 	response, code, err := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, code, http.StatusOK)
@@ -787,8 +787,7 @@ func TestCancelLocalJob(t *testing.T) {
 		Status:       "Attempting to cancel a job, please check job status.",
 		ResponseCode: http.StatusOK,
 	})
-	r := <-dt.DtDiagnosticsJob.cancelChan
-	assert.True(t, r)
+	assert.Error(t, ctx.Err(), "context canceled")
 }
 
 func TestFailRunSnapshotJob(t *testing.T) {

@@ -3,6 +3,7 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,7 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *bytes.Buffer,
+func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, summaryReport *bytes.Buffer,
 	summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) error {
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
@@ -27,7 +28,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *
 		}
 
 		// add http endpoints
-		err = j.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
+		err = j.getHTTPAddToZip(ctx, node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
 		if err != nil {
 			j.appendError(err)
 
@@ -50,28 +51,25 @@ func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.
-func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
+func (j *DiagnosticsJob) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
 	percentPerURL := percentPerNode / float32(len(endpoints))
 
 	for fileName, httpEndpoint := range endpoints {
 		select {
-		case _, ok := <-j.cancelChan:
-			if ok {
+		case <-ctx.Done():
 				updateSummaryReport("Job canceled", node, "", summaryErrorsReport)
 				updateSummaryReport("Job canceled", node, "", summaryReport)
 				return diagnosticsJobCanceledError{
 					msg: "Job canceled",
 				}
-			}
-
 		default:
 			logrus.Debugf("GET %s%s", node.IP, httpEndpoint)
 		}
 
 		status := "GET " + node.IP + httpEndpoint
 		updateSummaryReport("START "+status, node, "", summaryReport)
-		e := j.getDataToZip(node, httpEndpoint, fileName, zipWriter)
+		e := j.getDataToZip(ctx, node, httpEndpoint, fileName, zipWriter)
 		updateSummaryReport("STOP "+status, node, "", summaryReport)
 		j.setStatus(status)
 		if e != nil {
@@ -82,13 +80,13 @@ func (j *DiagnosticsJob) getHTTPAddToZip(node dcos.Node, endpoints map[string]st
 	return nil
 }
 
-func (j *DiagnosticsJob) getDataToZip(node dcos.Node, httpEndpoint string, fileName string, zipWriter *zip.Writer) error {
+func (j *DiagnosticsJob) getDataToZip(ctx context.Context, node dcos.Node, httpEndpoint string, fileName string, zipWriter *zip.Writer) error {
 	fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
 	if err != nil {
 		e := fmt.Errorf("could not read force-tls flag: %s", err)
 		return e
 	}
-	resp, err := get(j.client, fullURL)
+	resp, err := get(ctx, j.client, fullURL)
 	if err != nil {
 		e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
 		return e
@@ -113,12 +111,13 @@ func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *
 	updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
 }
 
-func get(client *http.Client, url string) (*http.Response, error) {
+func get(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
 	logrus.Debugf("Using URL %s to collect a log", url)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a new HTTP request: %s", err)
 	}
+	request = request.WithContext(ctx)
 	request.Header.Add("Accept-Encoding", "gzip")
 
 	resp, err := client.Do(request)

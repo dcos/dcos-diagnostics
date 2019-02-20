@@ -44,7 +44,7 @@ type DiagnosticsJob struct {
 	statusMutex   sync.RWMutex
 	progressMutex sync.RWMutex
 
-	cancelChan   chan bool
+	cancelFunc   context.CancelFunc
 	logProviders logProviders
 	client       *http.Client
 
@@ -155,13 +155,16 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	t := time.Now()
 	bundleName := fmt.Sprintf("bundle-%d-%02d-%02d-%d.zip", t.Year(), t.Month(), t.Day(), t.Unix())
 
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes))
+
 	j.LastBundlePath = filepath.Join(j.Cfg.FlagDiagnosticsBundleDir, bundleName)
 	j.setStatus("Diagnostics job started, archive will be available at: " + j.LastBundlePath)
-	j.cancelChan = make(chan bool)
+	j.cancelFunc = cancelFunc
 	j.JobStarted = time.Now()
 	j.Running = true
 	j.JobDuration = 0
-	go j.runBackgroundJob(foundNodes)
+
+	go j.runBackgroundJob(ctx, foundNodes)
 
 	var r createResponse
 	r.Extra.LastBundleFile = bundleName
@@ -172,7 +175,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 }
 
 //
-func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
+func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node) {
 	defer j.stop()
 
 	const jobFailedStatus = "Job failed"
@@ -195,12 +198,11 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 		select {
 		case <-jobIsDone:
 			return
-		case <-time.After(time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes)):
+		case <-ctx.Done():
 			e := fmt.Errorf("diagnostics job timedout after %s", time.Since(j.JobStarted))
 			j.setStatus(jobFailedStatus)
 			j.appendError(e)
 			logrus.Error(e)
-			j.cancelChan <- true
 			return
 		}
 	}(jobIsDone, j)
@@ -226,7 +228,7 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 	summaryErrorsReport := new(bytes.Buffer)
 	j.setJobProgressPercentage(0)
 	defer j.setJobProgressPercentage(100)
-	err = j.collectDataFromNodes(nodes, summaryReport, summaryErrorsReport, zipWriter)
+	err = j.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport, zipWriter)
 	if err != nil {
 		logrus.WithError(err).Warn("Diagnostics job failed")
 		j.setStatus("Diagnostics job failed")
@@ -539,8 +541,8 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 	}
 	// if node is empty, try to cancel a job on a localhost
 	if node == "" {
-		j.cancelChan <- true
-		logrus.Debug("Cancelling a local job")
+		j.cancelFunc()
+		logrus.Info("Cancelling a local job")
 	} else {
 		url := fmt.Sprintf("http://%s:%d%s/report/diagnostics/cancel", node, j.Cfg.FlagMasterPort, baseRoute)
 		status := "Attempting to cancel a job on a remote host. POST " + url
