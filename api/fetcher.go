@@ -15,8 +15,7 @@ import (
 )
 
 func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *bytes.Buffer,
-	summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) {
-	j.setJobProgressPercentage(0)
+	summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) error {
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
 	for _, node := range nodes {
@@ -34,8 +33,8 @@ func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *
 
 			// handle job cancel error
 			if _, ok := err.(diagnosticsJobCanceledError); ok {
-				logrus.WithError(err).Errorf("Could not add diagnostics to zip file")
-				return
+				err := fmt.Errorf("could not add diagnostics to zip file: %s", err)
+				return err
 			}
 
 			logrus.WithError(err).Errorf("Could not add a log to a bundle: %s", err)
@@ -43,12 +42,11 @@ func (j *DiagnosticsJob) collectDataFromNodes(nodes []dcos.Node, summaryReport *
 		}
 		updateSummaryReport("STOP collecting logs", node, "", summaryReport)
 	}
-	j.setJobProgressPercentage(100)
-	if len(j.getErrors()) == 0 {
-		j.setStatus("Diagnostics job successfully finished")
-	} else {
-		j.setStatus("Diagnostics job failed")
+	errors := j.getErrors()
+	if len(errors) != 0 {
+		return fmt.Errorf("diagnostics job failed: %v", j.errors)
 	}
+	return nil
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.

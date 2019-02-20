@@ -224,9 +224,15 @@ func (j *DiagnosticsJob) runBackgroundJob(nodes []dcos.Node) {
 
 	// place a summaryErrorsReport.txt in a zip archive which should provide info what failed during the logs collection.
 	summaryErrorsReport := new(bytes.Buffer)
-
-	j.collectDataFromNodes(nodes, summaryReport, summaryErrorsReport, zipWriter)
-
+	j.setJobProgressPercentage(0)
+	defer j.setJobProgressPercentage(100)
+	err = j.collectDataFromNodes(nodes, summaryReport, summaryErrorsReport, zipWriter)
+	if err != nil {
+		logrus.WithError(err).Warn("Diagnostics job failed")
+		j.setStatus("Diagnostics job failed")
+	} else {
+		j.setStatus("Diagnostics job successfully finished")
+	}
 	j.flushReport(zipWriter, "summaryReport.txt", summaryReport)
 	if summaryErrorsReport.Len() > 0 {
 		j.flushReport(zipWriter, "summaryErrorsReport.txt", summaryErrorsReport)
