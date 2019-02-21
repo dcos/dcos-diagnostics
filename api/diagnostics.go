@@ -48,8 +48,6 @@ type DiagnosticsJob struct {
 	logProviders logProviders
 	client       *http.Client
 
-	statusUpdateChan chan statusUpdate
-
 	Cfg       *config.Config
 	DCOSTools dcos.Tooler
 	Transport http.RoundTripper
@@ -167,10 +165,11 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.JobStarted = time.Now()
 	j.Running = true
 	j.JobDuration = 0
-	j.statusUpdateChan = statusUpdateChan
 
-	go j.runBackgroundJob(ctx, foundNodes)
-	go j.statusUpdater(ctx)
+	fetcher := fetcher{Cfg: j.Cfg, Client: j.client, StatusChan: statusUpdateChan}
+
+	go j.runBackgroundJob(ctx, foundNodes, fetcher)
+	go j.statusUpdater(statusUpdateChan)
 
 	var r createResponse
 	r.Extra.LastBundleFile = bundleName
@@ -181,7 +180,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 }
 
 //
-func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node) {
+func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node, fetcher fetcher) {
 	defer j.stop()
 
 	const jobFailedStatus = "Job failed"
@@ -235,7 +234,6 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	j.setJobProgressPercentage(0)
 	defer j.setJobProgressPercentage(100)
 
-	fetcher := fetcher{Cfg: j.Cfg, Client: j.client, StatusChan: j.statusUpdateChan}
 	err = fetcher.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport, zipWriter)
 	if err != nil {
 		logrus.WithError(err).Warn("Diagnostics job failed")
@@ -249,21 +247,16 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	}
 }
 
-func (j *DiagnosticsJob) statusUpdater(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case s := <-j.statusUpdateChan:
-			if s.incPercentage != 0 {
-				j.incJobProgressPercentage(s.incPercentage)
-			}
-			if s.error != nil {
-				j.appendError(s.error)
-			}
-			if s.msg != "" {
-				j.setStatus(s.msg)
-			}
+func (j *DiagnosticsJob) statusUpdater(update <-chan statusUpdate) {
+	for s := range update {
+		if s.incPercentage != 0 {
+			j.incJobProgressPercentage(s.incPercentage)
+		}
+		if s.error != nil {
+			j.appendError(s.error)
+		}
+		if s.msg != "" {
+			j.setStatus(s.msg)
 		}
 	}
 }

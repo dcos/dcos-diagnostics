@@ -226,8 +226,8 @@ func TestFetcherGetHTTPAddToZip(t *testing.T) {
 	statusUpdateChan := make(chan statusUpdate)
 	fetcher := fetcher{Client: http.DefaultClient, Cfg: testCfg(), StatusChan: statusUpdateChan}
 
-	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient, statusUpdateChan: statusUpdateChan}
-	go job.statusUpdater(context.TODO())
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient}
+	go job.statusUpdater(statusUpdateChan)
 	server, _ := stubServer("/ping", "pong")
 	defer server.Close()
 
