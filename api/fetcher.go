@@ -95,7 +95,7 @@ func (f *Fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoin
 		return nil, fmt.Errorf("could not get endpoints %s", err)
 	}
 
-	defer resp.Body.Close()
+	defer closeAndLogErr(resp.Body)
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil || resp.StatusCode != http.StatusOK {
@@ -160,12 +160,14 @@ func (f *Fetcher) getDataToZip(ctx context.Context, node dcos.Node, httpEndpoint
 	}
 	// put all logs in a `ip_role` folder
 	zipFile, err := zipWriter.Create(filepath.Join(node.IP+"_"+node.Role, fileName))
-	defer resp.Body.Close()
+	defer closeAndLogErr(resp.Body)
 	if err != nil {
 		e := fmt.Errorf("could not add %s to a zip archive: %s", fileName, err)
 		return e
 	}
-	io.Copy(zipFile, resp.Body)
+	if _, err := io.Copy(zipFile, resp.Body); err != nil {
+		return fmt.Errorf("could not copy response the zip: %s", err)
+	}
 	return nil
 }
 
@@ -191,7 +193,7 @@ func get(ctx context.Context, client *http.Client, url string) (*http.Response, 
 
 	if resp.StatusCode != http.StatusOK {
 		body, e := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
+		closeAndLogErr(resp.Body)
 		errMsg := fmt.Sprintf("unable to fetch %s. Return code %d.", url, resp.StatusCode)
 		if e != nil {
 			return nil, fmt.Errorf("%s Could not read body: %s", errMsg, e)
@@ -200,4 +202,10 @@ func get(ctx context.Context, client *http.Client, url string) (*http.Response, 
 	}
 
 	return resp, err
+}
+
+func closeAndLogErr(closable io.Closer) {
+	if err := closable.Close(); err != nil {
+		logrus.WithError(err).Warn("Could not closeAndLogErr")
+	}
 }

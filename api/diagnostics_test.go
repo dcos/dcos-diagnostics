@@ -227,7 +227,7 @@ func TestFetcherGetHTTPAddToZip(t *testing.T) {
 	fetcher := Fetcher{Client: http.DefaultClient, Cfg: testCfg(), StatusChan: statusUpdateChan}
 
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient, statusUpdateChan: statusUpdateChan}
-	go job.statusUpdater()
+	go job.statusUpdater(context.TODO())
 	server, _ := stubServer("/ping", "pong")
 	defer server.Close()
 
@@ -245,6 +245,8 @@ func TestFetcherGetHTTPAddToZip(t *testing.T) {
 
 	err = fetcher.getHTTPAddToZip(context.TODO(), node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
+
+	time.Sleep(time.Microsecond) // TODO: Remove it when removing mutexes from diagnosticJob
 
 	assert.Equal(t, float32(3.0), job.getJobProgressPercentage())
 	assert.Len(t, job.getErrors(), 1, "one URL could not be fetched")
@@ -825,7 +827,7 @@ func TestFailRunSnapshotJob(t *testing.T) {
 			  "command_exec_timeout_sec": 10
 			}
 	`
-	tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil)
+	require.NoError(t, tools.makeMockedResponse(url, []byte(mockedResponse), http.StatusOK, nil))
 
 	// should fail since request is in wrong format
 	body := bytes.NewBuffer([]byte(`{"nodes": "wrong"}`))
@@ -880,7 +882,7 @@ func TestDeleteBundleWhenBundleExistOnLocalNode(t *testing.T) {
 	bundlePath := filepath.Join(cfg.FlagDiagnosticsBundleDir, "bundle-test.zip")
 	f, err := os.Create(bundlePath)
 	require.NoError(t, err)
-	f.Close()
+	assert.NoError(t, f.Close())
 	require.NoError(t, err)
 
 	response, err := job.delete("bundle-test.zip")
@@ -896,12 +898,12 @@ func TestDeleteBundleWhenBundleExistOnLocalNode(t *testing.T) {
 func TestRunSnapshot(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	cfg := testCfg()
-	//statusUpdateChan := make(chan statusUpdate)
 	defer os.RemoveAll(cfg.FlagDiagnosticsBundleDir)
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient}
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient},
+		DtDiagnosticsJob: job,
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
@@ -940,6 +942,7 @@ func waitForBundle(t *testing.T, router *mux.Router) bool {
 			if !status.Running {
 				return true
 			}
+			time.Sleep(time.Millisecond)
 		}
 	}
 }

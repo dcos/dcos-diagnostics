@@ -33,6 +33,7 @@ func testCfg() *config.Config {
 		FlagPort:                         1050,
 		FlagMasterPort:                   1050,
 		FlagDiagnosticsJobTimeoutMinutes: 1,
+		FlagCommandExecTimeoutSec:        1,
 	}
 }
 

@@ -170,7 +170,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.statusUpdateChan = statusUpdateChan
 
 	go j.runBackgroundJob(ctx, foundNodes)
-	go j.statusUpdater()
+	go j.statusUpdater(ctx)
 
 	var r createResponse
 	r.Extra.LastBundleFile = bundleName
@@ -222,10 +222,10 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 		logrus.Error(e)
 		return
 	}
-	defer zipfile.Close()
+	defer closeAndLogErr(zipfile)
 
 	zipWriter := zip.NewWriter(zipfile)
-	defer zipWriter.Close()
+	defer closeAndLogErr(zipWriter)
 
 	// summaryReport is a log of a diagnostics job
 	summaryReport := new(bytes.Buffer)
@@ -249,16 +249,21 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	}
 }
 
-func (j *DiagnosticsJob) statusUpdater() {
-	for s := range j.statusUpdateChan {
-		if s.incPercentage != 0 {
-			j.incJobProgressPercentage(s.incPercentage)
-		}
-		if s.error != nil {
-			j.appendError(s.error)
-		}
-		if s.msg != "" {
-			j.setStatus(s.msg)
+func (j *DiagnosticsJob) statusUpdater(ctx context.Context) {
+	for {
+		select {
+		case <- ctx.Done():
+			return
+		case s := <-j.statusUpdateChan:
+			if s.incPercentage != 0 {
+				j.incJobProgressPercentage(s.incPercentage)
+			}
+			if s.error != nil {
+				j.appendError(s.error)
+			}
+			if s.msg != "" {
+				j.setStatus(s.msg)
+			}
 		}
 	}
 }
