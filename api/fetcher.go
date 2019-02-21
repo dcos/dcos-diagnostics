@@ -6,12 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/dcos/dcos-diagnostics/config"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"time"
+
+	"github.com/dcos/dcos-diagnostics/config"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/util"
@@ -19,17 +20,17 @@ import (
 )
 
 type Fetcher struct {
-	Cfg *config.Config
-	StatusChan chan <- statusUpdate
-	Client *http.Client
+	Cfg        *config.Config
+	StatusChan chan<- statusUpdate
+	Client     *http.Client
 
 	failed bool
 }
 
 type statusUpdate struct {
 	incPercentage float32
-	error error
-	msg string
+	error         error
+	msg           string
 }
 
 func (f Fetcher) incJobProgressPercentage(percentage float32) {
@@ -79,7 +80,6 @@ func (f *Fetcher) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, s
 	return nil
 }
 
-
 func (f *Fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoints map[string]string, e error) {
 	port, err := getPullPortByRole(f.Cfg, node.Role)
 	if err != nil {
@@ -113,7 +113,6 @@ func (f *Fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoin
 	return endpoints, nil
 }
 
-
 // fetch an HTTP endpoint and append the output to a zip file.
 func (f *Fetcher) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
@@ -122,11 +121,11 @@ func (f *Fetcher) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints
 	for fileName, httpEndpoint := range endpoints {
 		select {
 		case <-ctx.Done():
-				updateSummaryReport("Job canceled", node, "", summaryErrorsReport)
-				updateSummaryReport("Job canceled", node, "", summaryReport)
-				return diagnosticsJobCanceledError{
-					msg: "Job canceled",
-				}
+			updateSummaryReport("Job canceled", node, "", summaryErrorsReport)
+			updateSummaryReport("Job canceled", node, "", summaryReport)
+			return diagnosticsJobCanceledError{
+				msg: "Job canceled",
+			}
 		default:
 			logrus.Debugf("GET %s%s", node.IP, httpEndpoint)
 		}

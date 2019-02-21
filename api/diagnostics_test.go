@@ -373,7 +373,7 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 		return mockServer(func(w http.ResponseWriter, r *http.Request) {
 			if r.RequestURI == "/system/health/v1/logs" {
 				_, port, _ := net.SplitHostPort(r.Host[7:])
-				w.Write([]byte(`{"slow_server": ":`+port+`"}`))
+				w.Write([]byte(`{"slow_server": ":` + port + `"}`))
 			}
 			called <- true
 			t.Logf("Called %s", r.URL.RequestURI())

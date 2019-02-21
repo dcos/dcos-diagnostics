@@ -157,7 +157,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	t := time.Now()
 	bundleName := fmt.Sprintf("bundle-%d-%02d-%02d-%d.zip", t.Year(), t.Month(), t.Day(), t.Unix())
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute * time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes))
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute*time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes))
 
 	statusUpdateChan := make(chan statusUpdate)
 
@@ -252,7 +252,7 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 func (j *DiagnosticsJob) statusUpdater(ctx context.Context) {
 	for {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return
 		case s := <-j.statusUpdateChan:
 			if s.incPercentage != 0 {
