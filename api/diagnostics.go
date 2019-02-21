@@ -235,7 +235,7 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	j.setJobProgressPercentage(0)
 	defer j.setJobProgressPercentage(100)
 
-	fetcher := Fetcher{Cfg: j.Cfg, Client: j.client, StatusChan: j.statusUpdateChan}
+	fetcher := fetcher{Cfg: j.Cfg, Client: j.client, StatusChan: j.statusUpdateChan}
 	err = fetcher.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport, zipWriter)
 	if err != nil {
 		logrus.WithError(err).Warn("Diagnostics job failed")

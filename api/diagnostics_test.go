@@ -224,7 +224,7 @@ func TestDispatchLogsWithUnknownEntity(t *testing.T) {
 func TestFetcherGetHTTPAddToZip(t *testing.T) {
 
 	statusUpdateChan := make(chan statusUpdate)
-	fetcher := Fetcher{Client: http.DefaultClient, Cfg: testCfg(), StatusChan: statusUpdateChan}
+	fetcher := fetcher{Client: http.DefaultClient, Cfg: testCfg(), StatusChan: statusUpdateChan}
 
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient, statusUpdateChan: statusUpdateChan}
 	go job.statusUpdater(context.TODO())

@@ -19,7 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Fetcher struct {
+type fetcher struct {
 	Cfg        *config.Config
 	StatusChan chan<- statusUpdate
 	Client     *http.Client
@@ -33,20 +33,20 @@ type statusUpdate struct {
 	msg           string
 }
 
-func (f Fetcher) incJobProgressPercentage(percentage float32) {
+func (f *fetcher) incJobProgressPercentage(percentage float32) {
 	f.StatusChan <- statusUpdate{incPercentage: percentage}
 }
 
-func (f Fetcher) appendError(e error) {
+func (f *fetcher) appendError(e error) {
 	f.failed = true
 	f.StatusChan <- statusUpdate{error: e}
 }
 
-func (f Fetcher) setStatus(s string) {
+func (f *fetcher) setStatus(s string) {
 	f.StatusChan <- statusUpdate{msg: s}
 }
 
-func (f *Fetcher) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, summaryReport *bytes.Buffer,
+func (f *fetcher) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, summaryReport *bytes.Buffer,
 	summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) error {
 	// we already checked for nodes length, we should not get division by zero error at this point.
 	percentPerNode := 100.0 / float32(len(nodes))
@@ -65,8 +65,7 @@ func (f *Fetcher) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, s
 
 			// handle job cancel error
 			if _, ok := err.(diagnosticsJobCanceledError); ok {
-				err := fmt.Errorf("could not add diagnostics to zip file: %s", err)
-				return err
+				return fmt.Errorf("could not add diagnostics to zip file: %s", err)
 			}
 
 			logrus.WithError(err).Errorf("Could not add a log to a bundle: %s", err)
@@ -80,7 +79,7 @@ func (f *Fetcher) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, s
 	return nil
 }
 
-func (f *Fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoints map[string]string, e error) {
+func (f *fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoints map[string]string, e error) {
 	port, err := getPullPortByRole(f.Cfg, node.Role)
 	if err != nil {
 		e = fmt.Errorf("used incorrect role: %s", err)
@@ -88,7 +87,8 @@ func (f *Fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoin
 	}
 	url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, baseRoute)
 
-	c, _ := context.WithTimeout(ctx, time.Second*3)
+	c, cancelFunc := context.WithTimeout(ctx, time.Second*3)
+	defer cancelFunc()
 	resp, err := get(c, f.Client, url)
 
 	if err != nil {
@@ -114,7 +114,7 @@ func (f *Fetcher) getNodeEndpoints(ctx context.Context, node dcos.Node) (endpoin
 }
 
 // fetch an HTTP endpoint and append the output to a zip file.
-func (f *Fetcher) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
+func (f *fetcher) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
 	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
 	percentPerURL := percentPerNode / float32(len(endpoints))
 
@@ -143,7 +143,7 @@ func (f *Fetcher) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints
 	return nil
 }
 
-func (f *Fetcher) getDataToZip(ctx context.Context, node dcos.Node, httpEndpoint string, fileName string, zipWriter *zip.Writer) error {
+func (f *fetcher) getDataToZip(ctx context.Context, node dcos.Node, httpEndpoint string, fileName string, zipWriter *zip.Writer) error {
 	fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, f.Cfg.FlagForceTLS)
 	if err != nil {
 		e := fmt.Errorf("could not read force-tls flag: %s", err)
@@ -170,7 +170,7 @@ func (f *Fetcher) getDataToZip(ctx context.Context, node dcos.Node, httpEndpoint
 	return nil
 }
 
-func (f *Fetcher) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer) {
+func (f *fetcher) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer) {
 	f.appendError(e)
 	logrus.Error(e)
 	updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
