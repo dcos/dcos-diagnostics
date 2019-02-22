@@ -220,65 +220,6 @@ func TestDispatchLogsWithUnknownEntity(t *testing.T) {
 	}
 }
 
-func TestGetHTTPAddToZip(t *testing.T) {
-	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}, client: http.DefaultClient}
-	server, _ := stubServer("/ping", "pong")
-	defer server.Close()
-
-	zipFile, err := ioutil.TempFile("", "")
-	require.NoError(t, err)
-	defer os.Remove(zipFile.Name())
-
-	zipWriter := zip.NewWriter(zipFile)
-
-	summaryReport := new(bytes.Buffer)
-	summaryErrorsReport := new(bytes.Buffer)
-
-	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
-	node := dcos.Node{IP: server.URL[7:]} // strip http://
-
-	err = job.getHTTPAddToZip(context.TODO(), node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
-	assert.NoError(t, err)
-
-	assert.Equal(t, float32(3.0), job.getJobProgressPercentage())
-	assert.Len(t, job.getErrors(), 1, "one URL could not be fetched")
-
-	assert.Contains(t, summaryReport.String(), "ping")
-	assert.Contains(t, summaryReport.String(), "404")
-	assert.Contains(t, summaryErrorsReport.String(), "/404. Return code 404")
-
-	// validate zip file
-	err = zipWriter.Close()
-	require.NoError(t, err)
-
-	reader, err := zip.OpenReader(zipFile.Name())
-	require.NoError(t, err)
-
-	assert.Len(t, reader.File, 2)
-	for _, f := range reader.File {
-		rc, err := f.Open()
-		require.NoError(t, err)
-
-		data, err := ioutil.ReadAll(rc)
-		require.NoError(t, err)
-
-		assert.Equal(t, "pong\n", string(data))
-	}
-}
-
-// http://keighl.com/post/mocking-http-responses-in-golang/
-func stubServer(uri string, body string) (*httptest.Server, *http.Transport) {
-	return mockServer(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.RequestURI() == uri {
-			w.WriteHeader(200)
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, body)
-		} else {
-			w.WriteHeader(404)
-		}
-	})
-}
-
 func mockServer(handle func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *http.Transport) {
 	server := httptest.NewServer(http.HandlerFunc(handle))
 
@@ -409,6 +350,81 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 	tools.AssertExpectations(t)
 }
 
+func TestCreateBundle(t *testing.T) {
+	tools := new(MockedTools)
+
+	stubServer := func() (*httptest.Server, *http.Transport) {
+		return mockServer(func(w http.ResponseWriter, r *http.Request) {
+			t.Logf("Called %s", r.URL.RequestURI())
+			if r.URL.Path == "/ping" {
+				w.Write([]byte("pong"))
+			} else {
+				http.NotFound(w, r)
+			}
+		})
+	}
+
+	server, _ := stubServer()
+	defer server.Close()
+	_, port, _ := net.SplitHostPort(server.URL[7:])
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte(`{"ping": ":`+port+`/ping"}`), http.StatusOK, nil)
+	tools.On("GetNodeRole").Return("master", nil)
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{}, nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
+
+	cfg := testCfg()
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient}
+	dt := &Dt{
+		Cfg:              cfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: job,
+		MR:               &MonitoringResponse{},
+	}
+
+	_, err := dt.DtDiagnosticsJob.run(bundleCreateRequest{Nodes: []string{"all"}})
+	require.NoError(t, err)
+
+	for job.getBundleReportStatus().Running {
+		t.Log("Waiting for job to end")
+		time.Sleep(10 * time.Microsecond)
+	}
+
+	status := job.getBundleReportStatus()
+
+	assert.False(t, status.Running)
+	assert.Equal(t, float32(100.0), status.JobProgressPercentage)
+	assert.Equal(t, "Diagnostics job successfully finished", status.Status)
+	assert.Empty(t, status.Errors)
+	assert.Empty(t, status.Errors)
+
+	reader, err := zip.OpenReader(status.LastBundlePath)
+	require.NoError(t, err)
+
+	assert.Equal(t, filepath.Join("127.0.0.1_master", "ping"), reader.File[0].Name)
+	assert.Equal(t, "summaryReport.txt", reader.File[1].Name)
+
+	rc, err := reader.File[0].Open()
+	require.NoError(t, err)
+	content, err := ioutil.ReadAll(rc)
+	require.NoError(t, err)
+	assert.Equal(t, "pong", string(content))
+
+	rc, err = reader.File[1].Open()
+	require.NoError(t, err)
+	content, err = ioutil.ReadAll(rc)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "GET http://127.0.0.1:")
+
+	tools.AssertExpectations(t)
+}
+
 func TestCancelWhenJobIsRunning(t *testing.T) {
 	tools := new(MockedTools)
 
@@ -436,7 +452,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	).Return([]byte(`{"slow_server": ":`+port+`"}`), http.StatusOK, nil)
 	tools.On("GetNodeRole").Return("master", nil)
 	tools.On("DetectIP").Return("127.0.0.1", nil)
-	tools.On("GetAgentNodes").Return([]dcos.Node{{IP: "127.0.0.1", Role: "master"}}, nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{}, nil)
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
