@@ -137,7 +137,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	if err != nil {
 		return prepareCreateResponseWithErr(http.StatusServiceUnavailable, err)
 	}
-	logrus.Debugf("Found requested nodes: %x", foundNodes)
+	logrus.Debugf("Found requested nodes: %v", foundNodes)
 
 	// try to create directory for diagnostic bundles
 	_, err = os.Stat(j.Cfg.FlagDiagnosticsBundleDir)
@@ -249,7 +249,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 		default:
 		}
 
-		updateSummaryReport("START collecting logs", node, "", summaryReport)
+		updateSummaryReportBuffer("START collecting logs", node, "", summaryReport)
 		endpoints, err := j.getNodeEndpoints(node)
 		if err != nil {
 			j.logError(err, node, summaryErrorsReport)
@@ -267,9 +267,9 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 			}
 
 			logrus.WithError(err).Errorf("Could not add a log to a bundle: %s", err)
-			updateSummaryReport(err.Error(), node, err.Error(), summaryErrorsReport)
+			updateSummaryReportBuffer(err.Error(), node, err.Error(), summaryErrorsReport)
 		}
-		updateSummaryReport("STOP collecting logs", node, "", summaryReport)
+		updateSummaryReportBuffer("STOP collecting logs", node, "", summaryReport)
 	}
 	allErrors := j.getErrors()
 	if len(allErrors) != 0 {
@@ -524,8 +524,8 @@ func (j *DiagnosticsJob) getHTTPAddToZip(ctx context.Context, node dcos.Node, en
 	for fileName, httpEndpoint := range endpoints {
 		select {
 		case <-ctx.Done():
-			updateSummaryReport("Job canceled", node, "", summaryErrorsReport)
-			updateSummaryReport("Job canceled", node, "", summaryReport)
+			updateSummaryReportBuffer("Job canceled", node, "", summaryErrorsReport)
+			updateSummaryReportBuffer("Job canceled", node, "", summaryReport)
 			return diagnosticsJobCanceledError{
 				msg: "Job canceled",
 			}
@@ -534,9 +534,9 @@ func (j *DiagnosticsJob) getHTTPAddToZip(ctx context.Context, node dcos.Node, en
 		}
 
 		status := "GET " + node.IP + httpEndpoint
-		updateSummaryReport("START "+status, node, "", summaryReport)
+		updateSummaryReportBuffer("START "+status, node, "", summaryReport)
 		e := j.getDataToZip(ctx, node, httpEndpoint, fileName, zipWriter)
-		updateSummaryReport("STOP "+status, node, "", summaryReport)
+		updateSummaryReportBuffer("STOP "+status, node, "", summaryReport)
 		j.setStatus(status)
 		if e != nil {
 			j.logError(e, node, summaryErrorsReport)
@@ -574,7 +574,7 @@ func (j *DiagnosticsJob) getDataToZip(ctx context.Context, node dcos.Node, httpE
 func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer) {
 	j.appendError(e)
 	logrus.Error(e)
-	updateSummaryReport(e.Error(), node, e.Error(), summaryErrorsReport)
+	updateSummaryReportBuffer(e.Error(), node, e.Error(), summaryErrorsReport)
 }
 
 func get(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
@@ -958,7 +958,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 }
 
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
-func updateSummaryReport(prefix string, node dcos.Node, err string, r *bytes.Buffer) {
+func updateSummaryReportBuffer(prefix string, node dcos.Node, err string, r *bytes.Buffer) {
 	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), prefix, node.IP, node.Role, err))
 }
 
