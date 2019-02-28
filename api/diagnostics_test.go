@@ -237,7 +237,7 @@ func TestGetHTTPAddToZip(t *testing.T) {
 	endpoints := map[string]string{"ping": "/ping", "pong": "/ping", "not found": "/404"}
 	node := dcos.Node{IP: server.URL[7:]} // strip http://
 
-	err = job.getHTTPAddToZip(node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
+	err = job.getHTTPAddToZip(context.TODO(), node, endpoints, zipWriter, summaryErrorsReport, summaryReport, 3)
 	assert.NoError(t, err)
 
 	assert.Equal(t, float32(3.0), job.getJobProgressPercentage())
@@ -405,6 +405,69 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 		}
 	}
 	wait <- false
+
+	tools.AssertExpectations(t)
+}
+
+func TestCancelWhenJobIsRunning(t *testing.T) {
+	tools := new(MockedTools)
+
+	called := make(chan bool)
+	wait := make(chan bool)
+
+	stubServer := func() (*httptest.Server, *http.Transport) {
+		return mockServer(func(w http.ResponseWriter, r *http.Request) {
+			called <- true
+			t.Logf("Called %s", r.URL.RequestURI())
+			<-wait
+			w.WriteHeader(200)
+		})
+	}
+
+	server, _ := stubServer()
+	defer server.Close()
+	_, port, _ := net.SplitHostPort(server.URL[7:])
+
+	tools.On("Get",
+		mock.MatchedBy(func(url string) bool {
+			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
+		}),
+		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
+	).Return([]byte(`{"slow_server": ":`+port+`"}`), http.StatusOK, nil)
+	tools.On("GetNodeRole").Return("master", nil)
+	tools.On("DetectIP").Return("127.0.0.1", nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{{IP: "127.0.0.1", Role: "master"}}, nil)
+	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
+
+	cfg := testCfg()
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient}
+	dt := &Dt{
+		Cfg:              cfg,
+		DtDCOSTools:      tools,
+		DtDiagnosticsJob: job,
+		MR:               &MonitoringResponse{},
+	}
+
+	_, err := dt.DtDiagnosticsJob.run(bundleCreateRequest{Nodes: []string{"all"}})
+	require.NoError(t, err)
+
+	<-called
+	require.True(t, job.getBundleReportStatus().Running)
+	_, err = dt.DtDiagnosticsJob.cancel()
+	require.NoError(t, err)
+	wait <- false
+
+	for job.getBundleReportStatus().Running {
+		t.Log("Waiting for job to end")
+		time.Sleep(10 * time.Microsecond)
+	}
+
+	status := job.getBundleReportStatus()
+
+	assert.False(t, status.Running)
+	assert.Equal(t, float32(100.0), status.JobProgressPercentage)
+	assert.Equal(t, "Diagnostics job failed", status.Status)
+	assert.NotEmpty(t, status.Errors)
 
 	tools.AssertExpectations(t)
 }
@@ -764,17 +827,17 @@ func TestCancelGlobalJob(t *testing.T) {
 
 // try cancel a local job
 func TestCancelLocalJob(t *testing.T) {
+	ctx, cancelFunc := context.WithCancel(context.TODO())
 	tools := &fakeDCOSTools{}
 	dt := &Dt{
 		Cfg:              testCfg(),
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: testCfg(), DCOSTools: tools, cancelFunc: cancelFunc},
 		MR:               &MonitoringResponse{},
 	}
 	router := NewRouter(dt)
 
 	dt.DtDiagnosticsJob.Running = true
-	dt.DtDiagnosticsJob.cancelChan = make(chan bool, 1)
 	response, code, err := MakeHTTPRequest(t, router, "http://127.0.0.1:1050/system/health/v1/report/diagnostics/cancel", "POST", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, code, http.StatusOK)
@@ -787,8 +850,7 @@ func TestCancelLocalJob(t *testing.T) {
 		Status:       "Attempting to cancel a job, please check job status.",
 		ResponseCode: http.StatusOK,
 	})
-	r := <-dt.DtDiagnosticsJob.cancelChan
-	assert.True(t, r)
+	assert.Error(t, ctx.Err(), "context canceled")
 }
 
 func TestFailRunSnapshotJob(t *testing.T) {
