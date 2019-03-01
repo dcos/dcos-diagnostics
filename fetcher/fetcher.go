@@ -57,27 +57,7 @@ func New(
 func (f *Fetcher) Run(ctx context.Context) {
 	zipWriter := zip.NewWriter(f.file)
 
-LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			break LOOP
-		case in, ok := <-f.input:
-			if !ok {
-				break LOOP
-			}
-			err := getDataToZip(ctx, f.client, in, zipWriter)
-			select {
-			case <-ctx.Done():
-				break LOOP
-			default:
-				f.statusUpdate <- FetchStatusUpdate{
-					URL:   in.URL,
-					Error: err,
-				}
-			}
-		}
-	}
+	f.workOffRequests(ctx, zipWriter)
 
 	filename := f.file.Name()
 	if err := zipWriter.Close(); err != nil {
@@ -88,6 +68,29 @@ LOOP:
 	}
 	f.output <- FetchBulkResponse{
 		ZipFilePath: filename,
+	}
+}
+
+func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case in, ok := <-f.input:
+			if !ok {
+				return
+			}
+			err := getDataToZip(ctx, f.client, in, zipWriter)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				f.statusUpdate <- FetchStatusUpdate{
+					URL:   in.URL,
+					Error: err,
+				}
+			}
+		}
 	}
 }
 
