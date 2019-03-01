@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_FetcherReturnErrorWhenCantCreateZip(t *testing.T) {
-	err := Fetcher(context.TODO(), "not_existing_dir", nil, nil, nil, nil)
+func Test_NewReturnErrorWhenCantCreateZip(t *testing.T) {
+	_, err := New("not_existing_dir", nil, nil, nil, nil)
 	assert.Contains(t, err.Error(), "could not create temp zip file in not_existing_dir")
 }
 
@@ -25,8 +25,9 @@ func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
 
 	output := make(chan FetchBulkResponse)
 
-	err := Fetcher(ctx, "", nil, nil, nil, output)
+	f, err := New("", nil, nil, nil, output)
 	assert.NoError(t, err)
+	go f.Run(ctx)
 
 	zipfile := <-output
 
@@ -45,8 +46,9 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 	host := "http://" + server.URL[7:]
 	defer server.Close()
 
-	err := Fetcher(context.TODO(), "", http.DefaultClient, input, statusUpdate, output)
+	f, err := New("", http.DefaultClient, input, statusUpdate, output)
 	assert.NoError(t, err)
+	go f.Run(context.TODO())
 
 	input <- EndpointFetchRequest{
 		URL:      host + "/ping",

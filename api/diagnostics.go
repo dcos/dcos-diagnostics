@@ -292,10 +292,11 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 
 	numberOfWorkers := 1 //TODO(janisz): make number of workers configurable
 	for i := 0; i < numberOfWorkers; i++ {
-		err := fetcher.Fetcher(ctx, j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse)
+		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse)
 		if err != nil {
 			return nil, fmt.Errorf("could not start fetchers: %s", err)
 		}
+		go f.Run(ctx)
 	}
 
 	fetchRequests := make([]fetcher.EndpointFetchRequest, 0, len(nodes)*10)

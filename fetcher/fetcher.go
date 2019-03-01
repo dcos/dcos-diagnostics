@@ -29,48 +29,64 @@ type FetchBulkResponse struct {
 	ZipFilePath string
 }
 
-func Fetcher(ctx context.Context, tempdir string, client *http.Client, input <-chan EndpointFetchRequest, statusUpdate chan<- FetchStatusUpdate, output chan<- FetchBulkResponse) error {
-	f, err := ioutil.TempFile(tempdir, "")
-	if err != nil {
-		return fmt.Errorf("could not create temp zip file in %s: %s", tempdir, err)
-	}
-
-	go fetch(f, ctx, input, err, client, statusUpdate, output)
-
-	return nil
+type Fetcher struct {
+	file         *os.File
+	client       *http.Client
+	input        <-chan EndpointFetchRequest
+	statusUpdate chan<- FetchStatusUpdate
+	output       chan<- FetchBulkResponse
 }
 
-func fetch(f *os.File, ctx context.Context, input <-chan EndpointFetchRequest, err error, client *http.Client, statusUpdate chan<- FetchStatusUpdate, output chan<- FetchBulkResponse) {
-	zipWriter := zip.NewWriter(f)
+func New(
+	tempdir string,
+	client *http.Client,
+	input <-chan EndpointFetchRequest,
+	statusUpdate chan<- FetchStatusUpdate,
+	output chan<- FetchBulkResponse,
+) (*Fetcher, error) {
+	f, err := ioutil.TempFile(tempdir, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not create temp zip file in %s: %s", tempdir, err)
+	}
+
+	fetcher := &Fetcher{f, client, input, statusUpdate, output}
+
+	return fetcher, nil
+}
+
+func (f *Fetcher) Run(ctx context.Context) {
+	zipWriter := zip.NewWriter(f.file)
+
 LOOP:
 	for {
 		select {
 		case <-ctx.Done():
 			break LOOP
-		case in, ok := <-input:
+		case in, ok := <-f.input:
 			if !ok {
 				break LOOP
 			}
-			err = getDataToZip(ctx, client, in, zipWriter)
+			err := getDataToZip(ctx, f.client, in, zipWriter)
 			select {
 			case <-ctx.Done():
 				break LOOP
-			case statusUpdate <- FetchStatusUpdate{
-				URL:   in.URL,
-				Error: err,
-			}:
+			default:
+				f.statusUpdate <- FetchStatusUpdate{
+					URL:   in.URL,
+					Error: err,
+				}
 			}
 		}
+	}
 
-	}
-	filename := f.Name()
+	filename := f.file.Name()
 	if err := zipWriter.Close(); err != nil {
-		logrus.WithError(err).Errorf("Could not close zip writer %s", f.Name())
+		logrus.WithError(err).Errorf("Could not close zip writer %s", f.file.Name())
 	}
-	if err := f.Close(); err != nil {
-		logrus.WithError(err).Errorf("Could not close zip file %s", f.Name())
+	if err := f.file.Close(); err != nil {
+		logrus.WithError(err).Errorf("Could not close zip file %s", f.file.Name())
 	}
-	output <- FetchBulkResponse{
+	f.output <- FetchBulkResponse{
 		ZipFilePath: filename,
 	}
 }
