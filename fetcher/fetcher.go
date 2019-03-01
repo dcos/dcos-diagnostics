@@ -14,21 +14,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// EndpointFetchRequest is a struct passed to Fetcher with information about URL to be fetched
 type EndpointFetchRequest struct {
 	URL      string
 	Node     dcos.Node
 	FileName string
 }
 
+// FetchStatusUpdate is an update message published by Fetcher when EndpointFetchRequest is done. If error occurred	 during
+// fetch then Error field is not nil.
 type FetchStatusUpdate struct {
 	URL   string
 	Error error
 }
 
+// FetchBulkResponse is a message published when Fetcher finish it job due to cancelled context or closed input chanel
 type FetchBulkResponse struct {
 	ZipFilePath string
 }
 
+// Fetcher is a struct responsible for fetching nodes endpoints
 type Fetcher struct {
 	file         *os.File
 	client       *http.Client
@@ -37,6 +42,7 @@ type Fetcher struct {
 	output       chan<- FetchBulkResponse
 }
 
+// New creates new Fetcher. Fetcher needs to be started with Run()
 func New(
 	tempdir string,
 	client *http.Client,
@@ -54,6 +60,7 @@ func New(
 	return fetcher, nil
 }
 
+// Run starts fetcher. This method should be run as a gorutine
 func (f *Fetcher) Run(ctx context.Context) {
 	zipWriter := zip.NewWriter(f.file)
 
@@ -104,7 +111,11 @@ func getDataToZip(ctx context.Context, client *http.Client, r EndpointFetchReque
 		r.FileName += ".gz"
 	}
 
-	zipFile, err := zipWriter.Create(filepath.Join(r.Node.IP+"_"+r.Node.Role, r.FileName))
+	filename := filepath.Join(r.Node.IP+"_"+r.Node.Role, r.FileName)
+	zipFile, err := zipWriter.Create(filename)
+	if err != nil {
+		return fmt.Errorf("could not create a %s in the zip: %s", filename, err)
+	}
 	if _, err := io.Copy(zipFile, resp.Body); err != nil {
 		return fmt.Errorf("could not copy data to zip: %s", err)
 	}

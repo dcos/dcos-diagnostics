@@ -330,7 +330,24 @@ NodeLoop:
 
 	numberOfEndpointsToFetch := len(fetchRequests)
 	percentPerEndpoint := 100.0 / float32(numberOfEndpointsToFetch)
-	done := j.collectStatusUpdates(ctx, numberOfEndpointsToFetch, fetchStatusUpdate, percentPerEndpoint, summaryReport, summaryErrorsReport)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < numberOfEndpointsToFetch; i++ {
+			select {
+			case <-ctx.Done():
+				return
+			case status := <-fetchStatusUpdate:
+				j.incJobProgressPercentage(percentPerEndpoint)
+				e := status.Error
+				updateSummaryReportBuffer("GET "+status.URL, fmt.Sprint(e), summaryReport)
+				j.setStatus("GET " + status.URL)
+				if e != nil {
+					j.logError(e, status.URL, summaryErrorsReport)
+				}
+			}
+		}
+	}()
 
 	for _, r := range fetchRequests {
 		fetchReq <- r
@@ -353,28 +370,6 @@ NodeLoop:
 		return zips, fmt.Errorf("diagnostics job failed: %v", allErrors)
 	}
 	return zips, nil
-}
-
-func (j *DiagnosticsJob) collectStatusUpdates(ctx context.Context, numberOfEndpointsToFetch int, fetchStatusUpdate chan fetcher.FetchStatusUpdate, percentPerEndpoint float32, summaryReport *bytes.Buffer, summaryErrorsReport *bytes.Buffer) <-chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for i := 0; i < numberOfEndpointsToFetch; i++ {
-			select {
-			case <-ctx.Done():
-				return
-			case status := <-fetchStatusUpdate:
-				j.incJobProgressPercentage(percentPerEndpoint)
-				e := status.Error
-				updateSummaryReportBuffer("GET "+status.URL, fmt.Sprint(e), summaryReport)
-				j.setStatus("GET " + status.URL)
-				if e != nil {
-					j.logError(e, status.URL, summaryErrorsReport)
-				}
-			}
-		}
-	}()
-	return done
 }
 
 func (j *DiagnosticsJob) setJobProgressPercentage(v float32) {
