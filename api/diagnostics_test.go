@@ -400,7 +400,7 @@ func TestCreateBundle(t *testing.T) {
 
 	assert.False(t, status.Running)
 	assert.Equal(t, float32(100.0), status.JobProgressPercentage)
-	assert.Equal(t, "Diagnostics job successfully finished", status.Status)
+	assert.Equal(t, "Diagnostics job successfully collected all data", status.Status)
 	assert.Empty(t, status.Errors)
 	assert.Empty(t, status.Errors)
 

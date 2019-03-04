@@ -14,22 +14,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// EndpointFetchRequest is a struct passed to Fetcher with information about URL to be fetched
-type EndpointFetchRequest struct {
+// EndpointRequest is a struct passed to Fetcher with information about URL to be fetched
+type EndpointRequest struct {
 	URL      string
 	Node     dcos.Node
 	FileName string
 }
 
-// FetchStatusUpdate is an update message published by Fetcher when EndpointFetchRequest is done. If error occurred	 during
+// StatusUpdate is an update message published by Fetcher when EndpointRequest is done. If error occurred	 during
 // fetch then Error field is not nil.
-type FetchStatusUpdate struct {
+type StatusUpdate struct {
 	URL   string
 	Error error
 }
 
-// FetchBulkResponse is a message published when Fetcher finish it job due to cancelled context or closed input chanel
-type FetchBulkResponse struct {
+// BulkResponse is a message published when Fetcher finish it job due to cancelled context or closed endpoints chanel
+type BulkResponse struct {
 	ZipFilePath string
 }
 
@@ -37,18 +37,18 @@ type FetchBulkResponse struct {
 type Fetcher struct {
 	file         *os.File
 	client       *http.Client
-	input        <-chan EndpointFetchRequest
-	statusUpdate chan<- FetchStatusUpdate
-	output       chan<- FetchBulkResponse
+	endpoints    <-chan EndpointRequest
+	statusUpdate chan<- StatusUpdate
+	results      chan<- BulkResponse
 }
 
 // New creates new Fetcher. Fetcher needs to be started with Run()
 func New(
 	tempdir string,
 	client *http.Client,
-	input <-chan EndpointFetchRequest,
-	statusUpdate chan<- FetchStatusUpdate,
-	output chan<- FetchBulkResponse,
+	input <-chan EndpointRequest,
+	statusUpdate chan<- StatusUpdate,
+	output chan<- BulkResponse,
 ) (*Fetcher, error) {
 	f, err := ioutil.TempFile(tempdir, "")
 	if err != nil {
@@ -73,7 +73,7 @@ func (f *Fetcher) Run(ctx context.Context) {
 	if err := f.file.Close(); err != nil {
 		logrus.WithError(err).Errorf("Could not close zip file %s", f.file.Name())
 	}
-	f.output <- FetchBulkResponse{
+	f.results <- BulkResponse{
 		ZipFilePath: filename,
 	}
 }
@@ -83,7 +83,7 @@ func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
 		select {
 		case <-ctx.Done():
 			return
-		case in, ok := <-f.input:
+		case in, ok := <-f.endpoints:
 			if !ok {
 				return
 			}
@@ -92,7 +92,7 @@ func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
 			case <-ctx.Done():
 				return
 			default:
-				f.statusUpdate <- FetchStatusUpdate{
+				f.statusUpdate <- StatusUpdate{
 					URL:   in.URL,
 					Error: err,
 				}
@@ -101,7 +101,7 @@ func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
 	}
 }
 
-func getDataToZip(ctx context.Context, client *http.Client, r EndpointFetchRequest, zipWriter *zip.Writer) error {
+func getDataToZip(ctx context.Context, client *http.Client, r EndpointRequest, zipWriter *zip.Writer) error {
 	resp, err := get(ctx, client, r.URL)
 	if err != nil {
 		return fmt.Errorf("could not get from url %s: %s", r.URL, err)

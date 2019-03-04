@@ -23,7 +23,7 @@ func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.TODO())
 	cancelFunc()
 
-	output := make(chan FetchBulkResponse)
+	output := make(chan BulkResponse)
 
 	f, err := New("", nil, nil, nil, output)
 	assert.NoError(t, err)
@@ -38,9 +38,9 @@ func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
 }
 
 func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
-	input := make(chan EndpointFetchRequest)
-	statusUpdate := make(chan FetchStatusUpdate)
-	output := make(chan FetchBulkResponse)
+	input := make(chan EndpointRequest)
+	statusUpdate := make(chan StatusUpdate)
+	output := make(chan BulkResponse)
 
 	server, _ := stubServer("/ping", "pong")
 	host := "http://" + server.URL[7:]
@@ -50,15 +50,15 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 	assert.NoError(t, err)
 	go f.Run(context.TODO())
 
-	input <- EndpointFetchRequest{
+	input <- EndpointRequest{
 		URL:      host + "/ping",
 		Node:     dcos.Node{IP: "127.0.0.1", Role: dcos.AgentRole},
 		FileName: "ping_file",
 	}
 
-	assert.Equal(t, FetchStatusUpdate{URL: host + "/ping"}, <-statusUpdate)
+	assert.Equal(t, StatusUpdate{URL: host + "/ping"}, <-statusUpdate)
 
-	input <- EndpointFetchRequest{
+	input <- EndpointRequest{
 		URL:      host + "/error",
 		Node:     dcos.Node{IP: "127.0.0.2", Role: dcos.MasterRole},
 		FileName: "error_file",

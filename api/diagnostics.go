@@ -210,29 +210,25 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	summaryErrorsReport := new(bytes.Buffer)
 
 	zips, err := j.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport)
-	defer func(files []string) {
-		for _, path := range zips {
-			if err = os.Remove(path); err != nil {
-				logrus.WithError(err).Warnf("Could not delete %s", path)
-			}
-		}
-	}(zips)
-
-	for _, path := range zips {
-		e := appendToZip(zipWriter, path)
-		if e != nil {
-			logrus.Error(e)
-			j.appendError(e)
-			j.setStatus(e.Error())
-		}
-	}
-
-	j.setJobProgressPercentage(100)
 	if err != nil {
 		logrus.WithError(err).Warn("Diagnostics job failed")
 		j.setStatus("Diagnostics job failed")
 	} else {
-		j.setStatus("Diagnostics job successfully finished")
+		j.setStatus("Diagnostics job successfully collected all data")
+	}
+	j.setJobProgressPercentage(100)
+
+	for _, path := range zips {
+		e := appendToZip(zipWriter, path)
+		if e != nil {
+			j.logError(e, "Could not create a bundle", summaryErrorsReport)
+		}
+	}
+
+	for _, path := range zips {
+		if err = os.Remove(path); err != nil {
+			j.logError(err, "Could not remove temporary file", summaryErrorsReport)
+		}
 	}
 
 	j.flushReport(zipWriter, "summaryReport.txt", summaryReport)
@@ -286,9 +282,16 @@ func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, rep
 func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, summaryReport *bytes.Buffer,
 	summaryErrorsReport *bytes.Buffer) ([]string, error) {
 
-	fetchReq := make(chan fetcher.EndpointFetchRequest)
-	fetchStatusUpdate := make(chan fetcher.FetchStatusUpdate)
-	fetchResponse := make(chan fetcher.FetchBulkResponse)
+	fetchRequests := j.getEndpointsToFetch(ctx, nodes, summaryReport, summaryErrorsReport)
+
+	fetchReq := make(chan fetcher.EndpointRequest, len(fetchRequests))
+	for _, r := range fetchRequests {
+		fetchReq <- r
+	}
+	close(fetchReq)
+
+	fetchStatusUpdate := make(chan fetcher.StatusUpdate)
+	fetchResponse := make(chan fetcher.BulkResponse)
 
 	numberOfWorkers := 1 //TODO(janisz): make number of workers configurable
 	for i := 0; i < numberOfWorkers; i++ {
@@ -299,67 +302,9 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 		go f.Run(ctx)
 	}
 
-	fetchRequests := make([]fetcher.EndpointFetchRequest, 0, len(nodes)*10)
+	j.waitForStatusUpdates(ctx, fetchStatusUpdate, len(fetchRequests), summaryReport, summaryErrorsReport)
 
-NodeLoop:
-	for _, node := range nodes {
-		updateSummaryReportBuffer("START collecting logs "+node.IP, "", summaryReport)
-		endpoints, err := j.getNodeEndpoints(node)
-		if err != nil {
-			j.logError(err, node.IP, summaryErrorsReport)
-			continue
-		}
-		for fileName, httpEndpoint := range endpoints {
-			select {
-			case <-ctx.Done():
-				break NodeLoop
-			default:
-			}
-			fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
-			if err != nil {
-				j.logError(fmt.Errorf("could prepare URL: %s", err), node.IP, summaryErrorsReport)
-				continue
-			}
-			fetchRequests = append(fetchRequests, fetcher.EndpointFetchRequest{
-				URL:      fullURL,
-				Node:     node,
-				FileName: fileName,
-			})
-		}
-	}
-
-	numberOfEndpointsToFetch := len(fetchRequests)
-	percentPerEndpoint := 100.0 / float32(numberOfEndpointsToFetch)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for i := 0; i < numberOfEndpointsToFetch; i++ {
-			select {
-			case <-ctx.Done():
-				return
-			case status := <-fetchStatusUpdate:
-				j.incJobProgressPercentage(percentPerEndpoint)
-				e := status.Error
-				updateSummaryReportBuffer("GET "+status.URL, fmt.Sprint(e), summaryReport)
-				j.setStatus("GET " + status.URL)
-				if e != nil {
-					j.logError(e, status.URL, summaryErrorsReport)
-				}
-			}
-		}
-	}()
-
-	for _, r := range fetchRequests {
-		fetchReq <- r
-	}
-	close(fetchReq)
-	<-done
-
-	zips := make([]string, 0, numberOfWorkers)
-	for i := 0; i < numberOfWorkers; i++ {
-		result := <-fetchResponse
-		zips = append(zips, result.ZipFilePath)
-	}
+	zips := gatherAllResults(numberOfWorkers, fetchResponse)
 
 	if ctx.Err() != nil {
 		j.logError(ctx.Err(), "job cancelled", summaryErrorsReport)
@@ -370,6 +315,65 @@ NodeLoop:
 		return zips, fmt.Errorf("diagnostics job failed: %v", allErrors)
 	}
 	return zips, nil
+}
+
+func gatherAllResults(numberOfWorkers int, fetchResponse chan fetcher.BulkResponse) []string {
+	zips := make([]string, 0, numberOfWorkers)
+	for i := 0; i < numberOfWorkers; i++ {
+		result := <-fetchResponse
+		zips = append(zips, result.ZipFilePath)
+	}
+	return zips
+}
+
+func (j *DiagnosticsJob) waitForStatusUpdates(ctx context.Context, statusUpdates <-chan fetcher.StatusUpdate,
+	numberOfEndpointsToFetch int, summaryReport, summaryErrorsReport *bytes.Buffer) {
+	percentPerEndpoint := 100.0 / float32(numberOfEndpointsToFetch)
+	for i := 0; i < numberOfEndpointsToFetch; i++ {
+		select {
+		case <-ctx.Done():
+			return
+		case status := <-statusUpdates:
+			j.incJobProgressPercentage(percentPerEndpoint)
+			e := status.Error
+			updateSummaryReportBuffer("GET "+status.URL, fmt.Sprint(e), summaryReport)
+			j.setStatus("GET " + status.URL)
+			if e != nil {
+				j.logError(e, status.URL, summaryErrorsReport)
+			}
+		}
+	}
+}
+
+func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.Node,
+	summaryReport, summaryErrorsReport *bytes.Buffer) []fetcher.EndpointRequest {
+	fetchRequests := make([]fetcher.EndpointRequest, 0, len(nodes)*10)
+	for _, node := range nodes {
+		updateSummaryReportBuffer("START collecting logs "+node.IP, "", summaryReport)
+		endpoints, err := j.getNodeEndpoints(node)
+		if err != nil {
+			j.logError(err, node.IP, summaryErrorsReport)
+			continue
+		}
+		for fileName, httpEndpoint := range endpoints {
+			select {
+			case <-ctx.Done():
+				return fetchRequests
+			default:
+			}
+			fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
+			if err != nil {
+				j.logError(fmt.Errorf("could prepare URL: %s", err), node.IP, summaryErrorsReport)
+				continue
+			}
+			fetchRequests = append(fetchRequests, fetcher.EndpointRequest{
+				URL:      fullURL,
+				Node:     node,
+				FileName: fileName,
+			})
+		}
+	}
+	return fetchRequests
 }
 
 func (j *DiagnosticsJob) setJobProgressPercentage(v float32) {
