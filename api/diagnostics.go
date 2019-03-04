@@ -219,13 +219,9 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	j.setJobProgressPercentage(100)
 
 	for _, path := range zips {
-		e := appendToZip(zipWriter, path)
-		if e != nil {
-			j.logError(e, "Could not create a bundle", summaryErrorsReport)
+		if err := appendToZip(zipWriter, path); err != nil {
+			j.logError(err, "Could not create a bundle", summaryErrorsReport)
 		}
-	}
-
-	for _, path := range zips {
 		if err = os.Remove(path); err != nil {
 			j.logError(err, "Could not remove temporary file", summaryErrorsReport)
 		}

@@ -60,7 +60,7 @@ func New(
 	return fetcher, nil
 }
 
-// Run starts fetcher. This method should be run as a gorutine
+// Run starts fetcher. This method should be run as a goroutine
 func (f *Fetcher) Run(ctx context.Context) {
 	zipWriter := zip.NewWriter(f.file)
 
