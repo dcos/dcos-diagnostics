@@ -8,13 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dcos/dcos-diagnostics/fetcher"
 
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
@@ -208,19 +209,55 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	// place a summaryErrorsReport.txt in a zip archive which should provide info what failed during the logs collection.
 	summaryErrorsReport := new(bytes.Buffer)
 
-	err = j.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport, zipWriter)
-	j.setJobProgressPercentage(100)
+	zips, err := j.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport)
 	if err != nil {
 		logrus.WithError(err).Warn("Diagnostics job failed")
 		j.setStatus("Diagnostics job failed")
 	} else {
-		j.setStatus("Diagnostics job successfully finished")
+		j.setStatus("Diagnostics job successfully collected all data")
+	}
+	j.setJobProgressPercentage(100)
+
+	for _, path := range zips {
+		if err := appendToZip(zipWriter, path); err != nil {
+			j.logError(err, "Could not create a bundle", summaryErrorsReport)
+		}
+		if err = os.Remove(path); err != nil {
+			j.logError(err, "Could not remove temporary file", summaryErrorsReport)
+		}
 	}
 
 	j.flushReport(zipWriter, "summaryReport.txt", summaryReport)
 	if summaryErrorsReport.Len() > 0 {
 		j.flushReport(zipWriter, "summaryErrorsReport.txt", summaryErrorsReport)
 	}
+}
+
+func appendToZip(writer *zip.Writer, path string) error {
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		return fmt.Errorf("could not open %s: %s", path, err)
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
+		}
+
+		file, err := writer.Create(f.Name)
+		if err != nil {
+			return fmt.Errorf("could not create file %s: %s", f.Name, err)
+		}
+		_, err = io.Copy(file, rc)
+		if err != nil {
+			return fmt.Errorf("could not copy file %s to zip: %s", f.Name, err)
+		}
+		rc.Close()
+	}
+
+	return nil
 }
 
 func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, report *bytes.Buffer) {
@@ -239,43 +276,109 @@ func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, rep
 }
 
 func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, summaryReport *bytes.Buffer,
-	summaryErrorsReport *bytes.Buffer, zipWriter *zip.Writer) error {
-	// we already checked for nodes length, we should not get division by zero error at this point.
-	percentPerNode := 100.0 / float32(len(nodes))
-	for _, node := range nodes {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	summaryErrorsReport *bytes.Buffer) ([]string, error) {
 
-		updateSummaryReportBuffer("START collecting logs", node, "", summaryReport)
-		endpoints, err := j.getNodeEndpoints(node)
-		if err != nil {
-			j.logError(err, node, summaryErrorsReport)
-			j.incJobProgressPercentage(percentPerNode)
-		}
+	fetchRequests := j.getEndpointsToFetch(ctx, nodes, summaryReport, summaryErrorsReport)
 
-		// add http endpoints
-		err = j.getHTTPAddToZip(ctx, node, endpoints, zipWriter, summaryErrorsReport, summaryReport, percentPerNode)
-		if err != nil {
-			j.appendError(err)
-
-			// handle job cancel error
-			if _, ok := err.(diagnosticsJobCanceledError); ok {
-				return fmt.Errorf("could not add diagnostics to ZIP file: %s", err)
-			}
-
-			logrus.WithError(err).Errorf("Could not add a log to a bundle: %s", err)
-			updateSummaryReportBuffer(err.Error(), node, err.Error(), summaryErrorsReport)
-		}
-		updateSummaryReportBuffer("STOP collecting logs", node, "", summaryReport)
+	fetchReq := make(chan fetcher.EndpointRequest, len(fetchRequests))
+	for _, r := range fetchRequests {
+		fetchReq <- r
 	}
+	close(fetchReq)
+
+	fetchStatusUpdate := make(chan fetcher.StatusUpdate)
+	fetchResponse := make(chan fetcher.BulkResponse)
+
+	numberOfWorkers := 1 //TODO(janisz): make number of workers configurable
+	for i := 0; i < numberOfWorkers; i++ {
+		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse)
+		if err != nil {
+			return nil, fmt.Errorf("could not start fetchers: %s", err)
+		}
+		go f.Run(ctx)
+	}
+
+	j.waitForStatusUpdates(ctx, fetchStatusUpdate, len(fetchRequests), summaryReport, summaryErrorsReport)
+
+	zips, errs := gatherAllResults(fetchResponse)
+
+	if len(errs) != 0 {
+		j.logError(fmt.Errorf("%v", errs), "failed to gather all results", summaryErrorsReport)
+	}
+
+	if ctx.Err() != nil {
+		j.logError(ctx.Err(), "job cancelled", summaryErrorsReport)
+	}
+
 	allErrors := j.getErrors()
 	if len(allErrors) != 0 {
-		return fmt.Errorf("diagnostics job failed: %v", allErrors)
+		return zips, fmt.Errorf("diagnostics job failed: %v", allErrors)
 	}
-	return nil
+	return zips, nil
+}
+
+func gatherAllResults(fetchResponse chan fetcher.BulkResponse) ([]string, []error) {
+	//TODO(janisz): make number of workers configurable
+	zips := make([]string, 0, 1)
+	var errs []error
+	for i := 0; i < 1; i++ {
+		result := <-fetchResponse
+		zips = append(zips, result.ZipFilePath)
+		if result.Error != nil {
+			errs = append(errs, result.Error)
+		}
+	}
+	return zips, errs
+}
+
+func (j *DiagnosticsJob) waitForStatusUpdates(ctx context.Context, statusUpdates <-chan fetcher.StatusUpdate,
+	numberOfEndpointsToFetch int, summaryReport, summaryErrorsReport *bytes.Buffer) {
+	percentPerEndpoint := 100.0 / float32(numberOfEndpointsToFetch)
+	for i := 0; i < numberOfEndpointsToFetch; i++ {
+		select {
+		case <-ctx.Done():
+			return
+		case status := <-statusUpdates:
+			j.incJobProgressPercentage(percentPerEndpoint)
+			e := status.Error
+			updateSummaryReportBuffer("GET "+status.URL, fmt.Sprint(e), summaryReport)
+			j.setStatus("GET " + status.URL)
+			if e != nil {
+				j.logError(e, status.URL, summaryErrorsReport)
+			}
+		}
+	}
+}
+
+func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.Node,
+	summaryReport, summaryErrorsReport *bytes.Buffer) []fetcher.EndpointRequest {
+	fetchRequests := make([]fetcher.EndpointRequest, 0, len(nodes)*10)
+	for _, node := range nodes {
+		updateSummaryReportBuffer("START collecting logs "+node.IP, "", summaryReport)
+		endpoints, err := j.getNodeEndpoints(node)
+		if err != nil {
+			j.logError(err, node.IP, summaryErrorsReport)
+			continue
+		}
+		for fileName, httpEndpoint := range endpoints {
+			select {
+			case <-ctx.Done():
+				return fetchRequests
+			default:
+			}
+			fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
+			if err != nil {
+				j.logError(fmt.Errorf("could prepare URL: %s", err), node.IP, summaryErrorsReport)
+				continue
+			}
+			fetchRequests = append(fetchRequests, fetcher.EndpointRequest{
+				URL:      fullURL,
+				Node:     node,
+				FileName: fileName,
+			})
+		}
+	}
+	return fetchRequests
 }
 
 func (j *DiagnosticsJob) setJobProgressPercentage(v float32) {
@@ -508,100 +611,10 @@ func (j *DiagnosticsJob) getBundleReportStatus() bundleReportStatus {
 	return status
 }
 
-type diagnosticsJobCanceledError struct {
-	msg string
-}
-
-func (d diagnosticsJobCanceledError) Error() string {
-	return d.msg
-}
-
-// fetch an HTTP endpoint and append the output to a zip file.
-func (j *DiagnosticsJob) getHTTPAddToZip(ctx context.Context, node dcos.Node, endpoints map[string]string, zipWriter *zip.Writer,
-	summaryErrorsReport, summaryReport *bytes.Buffer, percentPerNode float32) error {
-	percentPerURL := percentPerNode / float32(len(endpoints))
-
-	for fileName, httpEndpoint := range endpoints {
-		select {
-		case <-ctx.Done():
-			updateSummaryReportBuffer("Job canceled", node, "", summaryErrorsReport)
-			updateSummaryReportBuffer("Job canceled", node, "", summaryReport)
-			return diagnosticsJobCanceledError{
-				msg: "Job canceled",
-			}
-		default:
-			logrus.Debugf("GET %s%s", node.IP, httpEndpoint)
-		}
-
-		status := "GET " + node.IP + httpEndpoint
-		updateSummaryReportBuffer("START "+status, node, "", summaryReport)
-		e := j.getDataToZip(ctx, node, httpEndpoint, fileName, zipWriter)
-		updateSummaryReportBuffer("STOP "+status, node, "", summaryReport)
-		j.setStatus(status)
-		if e != nil {
-			j.logError(e, node, summaryErrorsReport)
-		}
-		j.incJobProgressPercentage(percentPerURL)
-	}
-	return nil
-}
-
-func (j *DiagnosticsJob) getDataToZip(ctx context.Context, node dcos.Node, httpEndpoint string, fileName string, zipWriter *zip.Writer) error {
-	fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
-	if err != nil {
-		e := fmt.Errorf("could not read force-tls flag: %s", err)
-		return e
-	}
-	resp, err := get(ctx, j.client, fullURL)
-	if err != nil {
-		e := fmt.Errorf("could not get from url %s: %s", fullURL, err)
-		return e
-	}
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		fileName += ".gz"
-	}
-	// put all logs in a `ip_role` folder
-	zipFile, err := zipWriter.Create(filepath.Join(node.IP+"_"+node.Role, fileName))
-	defer resp.Body.Close()
-	if err != nil {
-		e := fmt.Errorf("could not add %s to a zip archive: %s", fileName, err)
-		return e
-	}
-	io.Copy(zipFile, resp.Body)
-	return nil
-}
-
-func (j *DiagnosticsJob) logError(e error, node dcos.Node, summaryErrorsReport *bytes.Buffer) {
+func (j *DiagnosticsJob) logError(e error, msg string, summaryErrorsReport *bytes.Buffer) {
 	j.appendError(e)
 	logrus.Error(e)
-	updateSummaryReportBuffer(e.Error(), node, e.Error(), summaryErrorsReport)
-}
-
-func get(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
-	logrus.Debugf("Using URL %s to collect a log", url)
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("could not create a new HTTP request: %s", err)
-	}
-	request = request.WithContext(ctx)
-	request.Header.Add("Accept-Encoding", "gzip")
-
-	resp, err := client.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch url %s: %s", url, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		body, e := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		errMsg := fmt.Sprintf("unable to fetch %s. Return code %d.", url, resp.StatusCode)
-		if e != nil {
-			return nil, fmt.Errorf("%s Could not read body: %s", errMsg, e)
-		}
-		return nil, fmt.Errorf("%s Body: %s", errMsg, string(body))
-	}
-
-	return resp, err
+	updateSummaryReportBuffer(msg, e.Error(), summaryErrorsReport)
 }
 
 func prepareResponseOk(httpStatusCode int, okMsg string) (response diagnosticsReportResponse, err error) {
@@ -958,8 +971,8 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 }
 
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
-func updateSummaryReportBuffer(prefix string, node dcos.Node, err string, r *bytes.Buffer) {
-	r.WriteString(fmt.Sprintf("%s [%s] %s %s %s\n", time.Now().String(), prefix, node.IP, node.Role, err))
+func updateSummaryReportBuffer(prefix string, err string, r *bytes.Buffer) {
+	r.WriteString(fmt.Sprintf("%s [%s] %s \n", time.Now().String(), prefix, err))
 }
 
 // implement a io.ReadCloser wrapper over dcos/exec
