@@ -300,7 +300,11 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 
 	j.waitForStatusUpdates(ctx, fetchStatusUpdate, len(fetchRequests), summaryReport, summaryErrorsReport)
 
-	zips := gatherAllResults(fetchResponse)
+	zips, errs := gatherAllResults(fetchResponse)
+
+	if len(errs) != 0 {
+		j.logError(fmt.Errorf("%v", errs), "failed to gather all results", summaryErrorsReport)
+	}
 
 	if ctx.Err() != nil {
 		j.logError(ctx.Err(), "job cancelled", summaryErrorsReport)
@@ -313,14 +317,18 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 	return zips, nil
 }
 
-func gatherAllResults(fetchResponse chan fetcher.BulkResponse) []string {
+func gatherAllResults(fetchResponse chan fetcher.BulkResponse) ([]string, []error) {
 	//TODO(janisz): make number of workers configurable
 	zips := make([]string, 0, 1)
+	var errs []error
 	for i := 0; i < 1; i++ {
 		result := <-fetchResponse
 		zips = append(zips, result.ZipFilePath)
+		if result.Error != nil {
+			errs = append(errs, result.Error)
+		}
 	}
-	return zips
+	return zips, errs
 }
 
 func (j *DiagnosticsJob) waitForStatusUpdates(ctx context.Context, statusUpdates <-chan fetcher.StatusUpdate,

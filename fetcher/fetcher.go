@@ -31,6 +31,7 @@ type StatusUpdate struct {
 // BulkResponse is a message published when Fetcher finish it job due to cancelled context or closed endpoints chanel
 type BulkResponse struct {
 	ZipFilePath string
+	Error       error
 }
 
 // Fetcher is a struct responsible for fetching nodes endpoints
@@ -67,14 +68,17 @@ func (f *Fetcher) Run(ctx context.Context) {
 	f.workOffRequests(ctx, zipWriter)
 
 	filename := f.file.Name()
-	if err := zipWriter.Close(); err != nil {
-		logrus.WithError(err).Errorf("Could not close zip writer %s", f.file.Name())
+
+	err := zipWriter.Close()
+	if err != nil {
+		err = fmt.Errorf("could not close zip writer %s: %s", f.file.Name(), err)
 	}
-	if err := f.file.Close(); err != nil {
-		logrus.WithError(err).Errorf("Could not close zip file %s", f.file.Name())
+	if e := f.file.Close(); err != nil {
+		err = fmt.Errorf("could not close zip file %s: %s: %s", f.file.Name(), e, err)
 	}
 	f.results <- BulkResponse{
 		ZipFilePath: filename,
+		Error:       err,
 	}
 }
 
