@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,7 +17,7 @@ const baseRoute string = "/system/health/v1"
 
 type routeHandler struct {
 	url                 string
-	handler             func(http.ResponseWriter, *http.Request)
+	handler             http.HandlerFunc
 	headers             []header
 	methods             []string
 	gzip, canFlushCache bool
@@ -227,6 +228,10 @@ func getRoutes(dt *Dt) []routeHandler {
 			url:     baseRoute + "/selftest/info",
 			handler: h.selfTestHandler,
 		},
+		{
+			url:     "/metrics",
+			handler: promhttp.Handler().ServeHTTP,
+		},
 	}
 
 	if dt.Cfg.FlagDebug {
@@ -316,7 +321,7 @@ func wrapHandler(handler http.Handler, route routeHandler, dt *Dt) http.Handler 
 		h = noCacheMiddleware(h, dt)
 	}
 
-	return handlers.LoggingHandler(logrus.StandardLogger().Out, h)
+	return metricMiddleware(handlers.LoggingHandler(logrus.StandardLogger().Out, h))
 }
 
 func loadRoutes(router *mux.Router, dt *Dt) *mux.Router {
@@ -324,8 +329,7 @@ func loadRoutes(router *mux.Router, dt *Dt) *mux.Router {
 		if len(route.methods) == 0 {
 			route.methods = []string{"GET"}
 		}
-		handler := http.HandlerFunc(route.handler)
-		router.Handle(route.url, wrapHandler(handler, route, dt)).Methods(route.methods...)
+		router.Handle(route.url, wrapHandler(route.handler, route, dt)).Methods(route.methods...)
 	}
 	return router
 }

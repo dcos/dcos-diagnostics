@@ -8,12 +8,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/coreos/go-systemd/dbus"
-	"github.com/dcos/dcos-go/dcos/nodeutil"
-	"github.com/dcos/dcos-log/dcos-log/journal/reader"
 	"github.com/sirupsen/logrus"
 
+	"github.com/coreos/go-systemd/dbus"
 	"github.com/dcos/dcos-diagnostics/units"
+	"github.com/dcos/dcos-go/dcos/nodeutil"
+	"github.com/dcos/dcos-log/dcos-log/journal/reader"
 )
 
 // Tools is implementation of Tooler interface.
