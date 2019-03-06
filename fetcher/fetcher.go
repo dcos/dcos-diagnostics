@@ -9,9 +9,21 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	fetchHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "fetch_endpoint_time_seconds",
+		Help: "Time taken fetch single endpoint",
+	}, []string{"path", "statusCode"})
 )
 
 // EndpointRequest is a struct passed to Fetcher with information about URL to be fetched
@@ -106,10 +118,16 @@ func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
 }
 
 func getDataToZip(ctx context.Context, client *http.Client, r EndpointRequest, zipWriter *zip.Writer) error {
+	start := time.Now()
+
 	resp, err := get(ctx, client, r.URL)
 	if err != nil {
 		return fmt.Errorf("could not get from url %s: %s", r.URL, err)
 	}
+
+	duration := time.Since(start)
+	fetchHistogram.WithLabelValues(resp.Request.URL.Path, strconv.Itoa(resp.StatusCode)).Observe(duration.Seconds())
+
 	defer resp.Body.Close()
 	if resp.Header.Get("Content-Encoding") == "gzip" {
 		r.FileName += ".gz"

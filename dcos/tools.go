@@ -7,11 +7,29 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/dcos/dcos-diagnostics/util"
+)
+
+var (
+	findMasterNodesHistogram = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name: "find_master_node_time_seconds",
+		Help: "Time taken find single master node",
+	})
+)
+
+var (
+	doRequestHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "do_request_duration_seconds",
+		Help: "Time taken for HTTP request",
+	}, []string{"method", "path", "statusCode"})
 )
 
 // GetHostname return a localhost hostname.
@@ -53,13 +71,13 @@ func (st *Tools) GetMesosNodeID() (string, error) {
 }
 
 func (st *Tools) doRequest(method, url string, timeout time.Duration, body io.Reader) (responseBody []byte, httpResponseCode int, err error) {
+	start := time.Now()
 	if url != st.ExhibitorURL {
 		url, err = util.UseTLSScheme(url, st.ForceTLS)
 		if err != nil {
 			return responseBody, http.StatusBadRequest, err
 		}
 	}
-
 	logrus.Debugf("[%s] %s, timeout: %s, forceTLS: %v, basicURL: %s", method, url, timeout.String(), st.ForceTLS, url)
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -71,6 +89,9 @@ func (st *Tools) doRequest(method, url string, timeout time.Duration, body io.Re
 	if err != nil {
 		return responseBody, http.StatusBadRequest, err
 	}
+
+	duration := time.Since(start)
+	doRequestHistogram.WithLabelValues(method, request.URL.Path, strconv.Itoa(resp.StatusCode)).Observe(duration.Seconds())
 
 	defer resp.Body.Close()
 	responseBody, err = ioutil.ReadAll(resp.Body)
@@ -94,6 +115,9 @@ func (st *Tools) GetTimestamp() time.Time {
 
 // GetMasterNodes finds DC/OS masters.
 func (st *Tools) GetMasterNodes() (nodesResponse []Node, err error) {
+
+	start := time.Now()
+
 	finder := &findMastersInExhibitor{
 		url:   st.ExhibitorURL,
 		getFn: st.Get,
@@ -104,7 +128,13 @@ func (st *Tools) GetMasterNodes() (nodesResponse []Node, err error) {
 			next:      nil,
 		},
 	}
-	return finder.Find()
+
+	master, err := finder.Find()
+
+	duration := time.Since(start)
+	findMasterNodesHistogram.Observe(duration.Seconds())
+
+	return master, err
 }
 
 // GetAgentNodes finds DC/OS agents.

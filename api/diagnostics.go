@@ -15,6 +15,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/dcos/dcos-diagnostics/fetcher"
 
 	"github.com/dcos/dcos-diagnostics/config"
@@ -114,6 +117,11 @@ type bundleCreateRequest struct {
 	Nodes   []string
 }
 
+var bundleCreationTimeHistogram = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name: "bundle_creation_time_seconds",
+	Help: "Time taken to create a bundle",
+})
+
 // start a diagnostics job
 func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 
@@ -166,7 +174,12 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.Running = true
 	j.JobDuration = 0
 	j.JobProgressPercentage = 0
-	go j.runBackgroundJob(ctx, foundNodes)
+	go func() {
+		start := time.Now()
+		j.runBackgroundJob(ctx, foundNodes)
+		duration := time.Since(start)
+		bundleCreationTimeHistogram.Observe(duration.Seconds())
+	}()
 
 	var r createResponse
 	r.Extra.LastBundleFile = bundleName
