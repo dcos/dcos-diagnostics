@@ -3,10 +3,13 @@ package fetcher
 import (
 	"archive/zip"
 	"context"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
@@ -17,6 +20,10 @@ import (
 func Test_NewReturnErrorWhenCantCreateZip(t *testing.T) {
 	_, err := New("not_existing_dir", nil, nil, nil, nil)
 	assert.Contains(t, err.Error(), "could not create temp zip file in not_existing_dir")
+
+
+
+	assert.NoError(t, testutil.CollectAndCompare(fetchHistogram, strings.NewReader("")))
 }
 
 func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
@@ -35,6 +42,7 @@ func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, z.File)
 
+	assert.NoError(t, testutil.CollectAndCompare(fetchHistogram, strings.NewReader("")))
 }
 
 func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
@@ -82,6 +90,13 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 	body, err := ioutil.ReadAll(rc)
 	require.NoError(t, err)
 	assert.Equal(t, "pong", string(body))
+
+	reg := prometheus.NewPedanticRegistry()
+	assert.NoError(t, reg.Register(fetchHistogram))
+	got, err := reg.Gather()
+
+	assert.Len(t, got, 1)
+	assert.Equal(t, uint64(1), *got[0].Metric[0].Histogram.SampleCount)
 }
 
 // http://keighl.com/post/mocking-http-responses-in-golang/

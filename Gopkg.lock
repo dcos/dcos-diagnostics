@@ -193,13 +193,14 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:ef03fb1dae4d010196652653f00a8002e94c19bcabdc8ca5100a804ffef63a47"
+  digest = "1:7b9fa0181f740bed4de3321f29dfc46667927c13dd71e9cb740d390e49e22f9f"
   name = "github.com/prometheus/client_golang"
   packages = [
     "prometheus",
     "prometheus/internal",
     "prometheus/promauto",
     "prometheus/promhttp",
+    "prometheus/testutil",
   ]
   pruneopts = "UT"
   revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
@@ -416,6 +417,7 @@
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promauto",
     "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/prometheus/client_golang/prometheus/testutil",
     "github.com/shirou/gopsutil/disk",
     "github.com/sirupsen/logrus",
     "github.com/spf13/cobra",
