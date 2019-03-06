@@ -20,14 +20,11 @@ import (
 
 var (
 	findMasterNodesHistogram = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "find_master_node_time_seconds",
+		Name: "find_master_node_duration_seconds",
 		Help: "Time taken find single master node",
 	})
-)
-
-var (
 	doRequestHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "do_request_duration_seconds",
+		Name: "dcos_internal_request_duration_seconds",
 		Help: "Time taken for HTTP request",
 	}, []string{"method", "path", "statusCode"})
 )
@@ -117,6 +114,10 @@ func (st *Tools) GetTimestamp() time.Time {
 func (st *Tools) GetMasterNodes() (nodesResponse []Node, err error) {
 
 	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		findMasterNodesHistogram.Observe(duration.Seconds())
+	}()
 
 	finder := &findMastersInExhibitor{
 		url:   st.ExhibitorURL,
@@ -129,12 +130,7 @@ func (st *Tools) GetMasterNodes() (nodesResponse []Node, err error) {
 		},
 	}
 
-	master, err := finder.Find()
-
-	duration := time.Since(start)
-	findMasterNodesHistogram.Observe(duration.Seconds())
-
-	return master, err
+	return finder.Find()
 }
 
 // GetAgentNodes finds DC/OS agents.
