@@ -232,7 +232,7 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	j.setJobProgressPercentage(100)
 
 	for _, path := range zips {
-		if err := appendToZip(zipWriter, path); err != nil {
+		if err = appendToZip(zipWriter, path); err != nil {
 			j.logError(err, "Could not create a bundle", summaryErrorsReport)
 		}
 		if err = os.Remove(path); err != nil {
