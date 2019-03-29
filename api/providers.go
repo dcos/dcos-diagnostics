@@ -28,6 +28,7 @@ type HTTPProvider struct {
 type FileProvider struct {
 	Location string
 	Role     []string
+	Optional bool
 }
 
 // CommandProvider is a local command to execute.
