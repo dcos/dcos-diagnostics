@@ -479,7 +479,7 @@ func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportRe
 		}
 		msg := "Deleted " + bundlePath
 		logrus.Infof(msg)
-		return prepareResponseOk(http.StatusOK, msg)
+		return prepareResponseOk(http.StatusOK, msg), nil
 	}
 
 	node, _, ok, err := j.isBundleAvailable(bundleName)
@@ -506,7 +506,7 @@ func (j *DiagnosticsJob) delete(bundleName string) (response diagnosticsReportRe
 	}
 	status := "Bundle not found " + bundleName
 	j.setStatus(status)
-	return prepareResponseOk(http.StatusNotFound, status)
+	return prepareResponseOk(http.StatusNotFound, status), nil
 }
 
 // isRunning returns if the diagnostics job is running, node the job is running on and error. If the node is empty
@@ -631,10 +631,10 @@ func (j *DiagnosticsJob) logError(e error, msg string, summaryErrorsReport *byte
 	updateSummaryReportBuffer(msg, e.Error(), summaryErrorsReport)
 }
 
-func prepareResponseOk(httpStatusCode int, okMsg string) (response diagnosticsReportResponse, err error) {
+func prepareResponseOk(httpStatusCode int, okMsg string) (response diagnosticsReportResponse) {
 	response, _ = prepareResponseWithErr(httpStatusCode, nil)
 	response.Status = okMsg
-	return response, nil
+	return response
 }
 
 func prepareResponseWithErr(httpStatusCode int, e error) (response diagnosticsReportResponse, err error) {
@@ -697,7 +697,7 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 		return remoteResponse, nil
 
 	}
-	return prepareResponseOk(http.StatusOK, "Attempting to cancel a job, please check job status.")
+	return prepareResponseOk(http.StatusOK, "Attempting to cancel a job, please check job status."), nil
 }
 
 func (j *DiagnosticsJob) stop() {

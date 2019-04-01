@@ -1,9 +1,8 @@
 DEFAULT_TARGET: build
 CURRENT_DIR=$(shell pwd)
 BUILD_DIR=build
-PKG_DIR=/go/src/github.com/dcos
+PKG_DIR=/dcos-diagnostics
 BINARY_NAME=dcos-diagnostics
-PKG_NAME=$(PKG_DIR)/$(BINARY_NAME)
 IMAGE_NAME=dcos-diagnostics-dev
 
 all: test install
@@ -16,19 +15,17 @@ docker:
 build: docker
 	mkdir -p $(BUILD_DIR)
 	docker run \
-		-v $(CURRENT_DIR):$(PKG_DIR)/$(BINARY_NAME) \
-		-w $(PKG_DIR)/$(BINARY_NAME) \
-		--privileged \
+		-v $(CURRENT_DIR):$(PKG_DIR) \
+		-w $(PKG_DIR) \
 		--rm \
 		$(IMAGE_NAME) \
-		go build -v -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)
+		go build -mod=vendor -v -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: test
 test: docker
 	docker run \
-		-v $(CURRENT_DIR):$(PKG_DIR)/$(BINARY_NAME) \
-		-w $(PKG_DIR)/$(BINARY_NAME) \
-		--privileged \
+		-v $(CURRENT_DIR):$(PKG_DIR) \
+		-w $(PKG_DIR) \
 		--rm \
 		$(IMAGE_NAME) \
 		bash -x -c './scripts/test.sh'
