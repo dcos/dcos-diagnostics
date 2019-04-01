@@ -76,10 +76,10 @@ func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
 
 	assert.Equal(t, httpProviders, job.logProviders.HTTPEndpoints)
 	assert.Equal(t, map[string]FileProvider{
-		"etc_resolv.conf": {Location: "/etc/resolv.conf"},
 		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json"},
 		"var_lib_dcos_exhibitor_conf_zoo.cfg":            {Location: "/var/lib/dcos/exhibitor/conf/zoo.cfg", Role: []string{"master"}},
 		"var_lib_dcos_exhibitor_zookeeper_snapshot_myid": {Location: "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid", Role: []string{"master"}},
+		"not_existing_file":                              {Location: "/not/existing/file", Optional: true},
 	}, job.logProviders.LocalFiles)
 
 	assert.Equal(t, map[string]CommandProvider{
@@ -92,6 +92,7 @@ func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
 		},
 		"ps_aux_ww_Z.output":                {Command: []string{"ps", "aux", "ww", "Z"}},
 		"systemctl_list-units_dcos*.output": {Command: []string{"systemctl", "list-units", "dcos*"}},
+		"does_not_exist.output":             {Command: []string{"does", "not", "exist"}},
 	}, job.logProviders.LocalCommands)
 
 }
@@ -108,7 +109,6 @@ func TestGetLogsEndpoints(t *testing.T) {
 
 	const logPath = ":1050/system/health/v1/logs/"
 	assert.Equal(t, endpoints, map[string]string{
-		"/etc/resolv.conf":                                logPath + "files/etc_resolv.conf",
 		"/opt/mesosphere/active.buildinfo.full.json":      logPath + "files/opt_mesosphere_active.buildinfo.full.json",
 		"/var/lib/dcos/exhibitor/conf/zoo.cfg":            logPath + "files/var_lib_dcos_exhibitor_conf_zoo.cfg",
 		"/var/lib/dcos/exhibitor/zookeeper/snapshot/myid": logPath + "files/var_lib_dcos_exhibitor_zookeeper_snapshot_myid",
@@ -129,6 +129,8 @@ func TestGetLogsEndpoints(t *testing.T) {
 		"unit_b":                                          logPath + "units/unit_b",
 		"unit_c":                                          logPath + "units/unit_c",
 		"unit_to_fail":                                    logPath + "units/unit_to_fail",
+		"/not/existing/file":                              logPath + "files/not_existing_file",
+		"does_not_exist.output":                           logPath + "cmds/does_not_exist.output",
 	}, "only endpoints for master role should appear here")
 }
 
@@ -145,6 +147,21 @@ func TestDispatchLogsForCommand(t *testing.T) {
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
 	assert.Equal(t, "OK\n", string(data))
+}
+
+func TestDispatchLogsForCommandThatNotExists(t *testing.T) {
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+
+	err := job.Init()
+	require.NoError(t, err)
+
+	r, err := job.dispatchLogs(context.TODO(), "cmds", "does_not_exist.output")
+	assert.NoError(t, err)
+
+	data, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+	assert.Empty(t, data)
 }
 
 func TestDispatchLogsForFiles(t *testing.T) {
@@ -165,6 +182,21 @@ func TestDispatchLogsForFiles(t *testing.T) {
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
 	assert.Equal(t, "OK", string(data))
+}
+
+func TestDispatchLogsForOptionalFileThatNotExists(t *testing.T) {
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+
+	err := job.Init()
+	require.NoError(t, err)
+
+	r, err := job.dispatchLogs(context.TODO(), "files", "not_existing_file")
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+	assert.Contains (t, string(data), "open /not/existing/file: ")
 }
 
 func TestDispatchLogsForUnit(t *testing.T) {

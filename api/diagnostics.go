@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -957,7 +958,12 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 			return r, errors.New("Not allowed to read a file")
 		}
 		logrus.Debugf("Found a file %s", fileProvider.Location)
-		return os.Open(fileProvider.Location)
+
+		file, err := os.Open(fileProvider.Location)
+		if err != nil && fileProvider.Optional {
+			return ioutil.NopCloser(bytes.NewReader([]byte(err.Error()))), nil
+		}
+		return file, err
 	}
 	if provider == "cmds" {
 		logrus.Debugf("dispatching a command %s", entity)
