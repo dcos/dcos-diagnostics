@@ -15,7 +15,6 @@ set -e
 set -o pipefail
 export PATH="${GOPATH}/bin:${PATH}"
 
-PACKAGES="$(go list ./... | grep -v /vendor/)"
 SUBDIRS="api config cmd"
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build"
@@ -25,19 +24,20 @@ function logmsg {
     echo -e "\n\n*** $1 ***\n"
 }
 
-function _gometalinter {
-    logmsg "Running 'gometaliner' ..."
-    gometalinter ./...  --config=.gometalinter.json
+function _lint {
+    logmsg "Running linter..."
+    golangci-lint -v run
 }
 
 function _unittest_with_coverage {
-	go test -cover -race -test.v ${PACKAGES}
+    logmsg "Running unit tests..."
+	go test -mod=vendor -cover -race -test.v ./...
 }
 
 
 # Main.
 function main {
-    _gometalinter
+    _lint
     _unittest_with_coverage
 }
 

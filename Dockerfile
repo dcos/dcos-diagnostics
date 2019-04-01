@@ -1,4 +1,4 @@
-FROM golang:1.11.0
+FROM golang:1.12.1
 
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
@@ -6,6 +6,4 @@ ENV GOPATH /go
 RUN apt-get update && apt-get install -y \
     libsystemd-dev
 
-RUN go get github.com/stretchr/testify
-RUN go get github.com/alecthomas/gometalinter
-RUN gometalinter --install
+RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.16.0
