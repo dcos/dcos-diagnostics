@@ -23,13 +23,7 @@ build: docker
 
 .PHONY: test
 test: docker
-	docker run \
-		-v $(CURRENT_DIR):$(PKG_DIR) \
-		-w $(PKG_DIR) \
-		--rm \
-		$(IMAGE_NAME) \
-		bash -x -c './scripts/test.sh'
-
+	this will fail
 
 # install does not run in a docker container because it only compiles on linux.
 .PHONY: install
