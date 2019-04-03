@@ -34,7 +34,7 @@ test: docker
 # install does not run in a docker container because it only compiles on linux.
 .PHONY: install
 install:
-	go install -v -ldflags '$(LDFLAGS)'
+	go install -mod=vendor -v -ldflags '$(LDFLAGS)'
 
 .PHONY: clean
 clean:
