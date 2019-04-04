@@ -9,29 +9,21 @@ all: test install
 
 .PHONY: docker
 docker:
+ifndef NO_DOCKER
 	docker build -t $(IMAGE_NAME) .
+endif
 
 .PHONY: build
 build: docker
 	mkdir -p $(BUILD_DIR)
-	docker run \
-		-v $(CURRENT_DIR):$(PKG_DIR) \
-		-w $(PKG_DIR) \
-		--rm \
-		$(IMAGE_NAME) \
-		go build -mod=vendor -v -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)
+	$(call inDocker,go build -mod=vendor -v -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME))
 
 .PHONY: test
 test: docker
-	docker run \
-		-v $(CURRENT_DIR):$(PKG_DIR) \
-		-w $(PKG_DIR) \
-		--rm \
-		$(IMAGE_NAME) \
-		bash -x -c './scripts/test.sh'
+		$(call inDocker,bash -x -c './scripts/test.sh')
 
 
-# install does not run in a docker container because it only compiles on linux.
+# install does not run in a docker container to build for the correct OS
 .PHONY: install
 install:
 	go install -mod=vendor -v -ldflags '$(LDFLAGS)'
@@ -39,3 +31,18 @@ install:
 .PHONY: clean
 clean:
 	rm -rf ./$(BUILD_DIR)
+
+ifdef NO_DOCKER
+  define inDocker
+    $1
+  endef
+else
+  define inDocker
+    docker run \
+      -v $(CURRENT_DIR):$(PKG_DIR) \
+      -w $(PKG_DIR) \
+      --rm \
+      $(IMAGE_NAME) \
+      $1
+  endef
+endif

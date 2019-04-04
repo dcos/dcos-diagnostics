@@ -19,8 +19,6 @@ type Tools struct {
 	Transport    http.RoundTripper
 
 	hostname string
-	ip       string
-	mesosID  string
 }
 
 func (st *Tools) InitializeUnitControllerConnection() (err error) {
