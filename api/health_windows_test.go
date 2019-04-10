@@ -51,7 +51,7 @@ func TestSystemdUnits_GetUnitsProperties(t *testing.T) {
 		{UnitID: "unit_b", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
 		{UnitID: "unit_c", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
 		{UnitID: "unit_to_fail", UnitHealth: dcos.Healthy},
-	}, Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "some version", Role: "master", MesosID: "node-id-123", TdtVersion: "0.4.0"}
+	}, Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "some version", Role: "master", MesosID: "node-id-123", TdtVersion: "dev"}
 
 	assert.Equal(t, expected, units)
 }

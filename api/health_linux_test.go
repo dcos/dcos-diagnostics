@@ -33,7 +33,7 @@ func TestSystemdUnits_GetUnitsProperties(t *testing.T) {
 	assert.NoError(t, err)
 
 	expected := UnitsHealthResponseJSONStruct{
-		Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "", Role: "master", MesosID: "node-id-123", TdtVersion: "0.4.0",
+		Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "", Role: "master", MesosID: "node-id-123", TdtVersion: "dev",
 		Array: []HealthResponseValues{
 			{UnitID: "unit_a", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
 			{UnitID: "unit_b", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
