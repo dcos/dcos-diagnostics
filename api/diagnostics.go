@@ -1000,7 +1000,9 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 		cmd := exec.CommandContext(ctx, cmdProvider.Command[0], cmdProvider.Command[1:]...)
 		output, err := cmd.CombinedOutput()
 		if err != nil && cmdProvider.Optional {
-			return ioutil.NopCloser(bytes.NewReader([]byte(err.Error()))), nil
+			// combine output with error
+			o := append([]byte(err.Error()+"\n"), output...)
+			return ioutil.NopCloser(bytes.NewReader(o)), nil
 		}
 
 		return ioutil.NopCloser(bytes.NewReader(output)), err
