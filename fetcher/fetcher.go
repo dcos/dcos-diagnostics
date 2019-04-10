@@ -126,7 +126,7 @@ func getDataToZip(ctx context.Context, client *http.Client, r EndpointRequest, z
 		if !r.Optional {
 			return fmt.Errorf("could not get from url %s: %s", r.URL, err)
 		}
-		logrus.Infof("Failed to fetch OPTIONAL URL %s: %v", r.URL, err)
+		logrus.WithError(err).Infof("Failed to fetch OPTIONAL URL %s", r.URL)
 		return nil
 	}
 
