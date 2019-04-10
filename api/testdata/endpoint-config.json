@@ -17,6 +17,13 @@
     },
     {
       "Port": 5050,
+      "Uri": "/storage/uri_not_avail",
+      "Role": ["master"],
+      "Optional": true,
+      "FileName": "uri_not_avail.txt"
+    },
+    {
+      "Port": 5050,
       "Uri": "/system/stats.json",
       "Role": ["master"]
     },

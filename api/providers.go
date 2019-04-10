@@ -22,6 +22,7 @@ type HTTPProvider struct {
 	URI      string
 	FileName string
 	Role     []string
+	Optional bool
 }
 
 // FileProvider is a local file provider.

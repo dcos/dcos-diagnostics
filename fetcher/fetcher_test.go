@@ -66,6 +66,15 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 	assert.Equal(t, StatusUpdate{URL: host + "/ping"}, <-statusUpdate)
 
 	input <- EndpointRequest{
+		URL:      host + "/optional",
+		Node:     dcos.Node{IP: "127.0.0.2", Role: dcos.MasterRole},
+		FileName: "optional-file",
+		Optional: true,
+	}
+
+	assert.Equal(t, StatusUpdate{URL: host + "/optional"}, <-statusUpdate)
+
+	input <- EndpointRequest{
 		URL:      host + "/error",
 		Node:     dcos.Node{IP: "127.0.0.2", Role: dcos.MasterRole},
 		FileName: "error_file",

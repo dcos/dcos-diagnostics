@@ -31,6 +31,7 @@ type EndpointRequest struct {
 	URL      string
 	Node     dcos.Node
 	FileName string
+	Optional bool
 }
 
 // StatusUpdate is an update message published by Fetcher when EndpointRequest is done. If error occurred	 during
@@ -122,7 +123,11 @@ func getDataToZip(ctx context.Context, client *http.Client, r EndpointRequest, z
 
 	resp, err := get(ctx, client, r.URL)
 	if err != nil {
-		return fmt.Errorf("could not get from url %s: %s", r.URL, err)
+		if !r.Optional {
+			return fmt.Errorf("could not get from url %s: %s", r.URL, err)
+		}
+		logrus.Infof("Failed to fetch OPTIONAL URL %s: %v", r.URL, err)
+		return nil
 	}
 
 	duration := time.Since(start)
