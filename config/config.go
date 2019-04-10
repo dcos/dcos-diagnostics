@@ -2,7 +2,8 @@ package config
 
 var (
 	// Version of dcos-diagnostics code.
-	Version = "0.4.0"
+	Version = "dev"
+	Commit  = "unset"
 
 	// APIVer is an API version.
 	APIVer = 1

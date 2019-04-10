@@ -45,7 +45,7 @@ dcos-diagnostics daemon start an http server and polls the components health.
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		if version {
-			fmt.Printf("Version: %s\n", config.Version)
+			fmt.Printf("Version: %s-%s\n", config.Version, config.Commit)
 			os.Exit(0)
 		}
 
