@@ -72,6 +72,7 @@ func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
 		"unit_b":                          {Port: 1050, URI: "/system/health/v1/logs/units/unit_b", FileName: "unit_b"},
 		"unit_c":                          {Port: 1050, URI: "/system/health/v1/logs/units/unit_c", FileName: "unit_c"},
 		"unit_to_fail":                    {Port: 1050, URI: "/system/health/v1/logs/units/unit_to_fail", FileName: "unit_to_fail"},
+		"uri_not_avail.txt":               {Port: 5050, URI: "/storage/uri_not_avail", Role: []string{"master"}, FileName: "uri_not_avail.txt", Optional: true},
 	}
 
 	assert.Equal(t, httpProviders, job.logProviders.HTTPEndpoints)
@@ -108,30 +109,37 @@ func TestGetLogsEndpoints(t *testing.T) {
 	assert.NoError(t, err)
 
 	const logPath = ":1050/system/health/v1/logs/"
-	assert.Equal(t, endpoints, map[string]string{
-		"/opt/mesosphere/active.buildinfo.full.json":      logPath + "files/opt_mesosphere_active.buildinfo.full.json",
-		"/var/lib/dcos/exhibitor/conf/zoo.cfg":            logPath + "files/var_lib_dcos_exhibitor_conf_zoo.cfg",
-		"/var/lib/dcos/exhibitor/zookeeper/snapshot/myid": logPath + "files/var_lib_dcos_exhibitor_zookeeper_snapshot_myid",
-		"5050-__processes__.json":                         ":5050/__processes__",
-		"5050-master_state-summary.json":                  ":5050/master/state-summary",
-		"5050-registrar_1__registry.json":                 ":5050/registrar(1)/registry",
-		"5050-system_stats_json.json":                     ":5050/system/stats.json",
-		"binsh_-c_cat etc*-release.output":                logPath + "cmds/binsh_-c_cat etc*-release.output",
-		"dcos-diagnostics-health.json":                    ":1050/system/health/v1",
-		"dcos-download.service":                           logPath + "units/dcos-download.service",
-		"dcos-link-env.service":                           logPath + "units/dcos-link-env.service",
-		"dcos-setup.service":                              logPath + "units/dcos-setup.service",
-		"dmesg_-T.output":                                 logPath + "cmds/dmesg_-T.output",
-		"echo_OK.output":                                  logPath + "cmds/echo_OK.output",
-		"ps_aux_ww_Z.output":                              logPath + "cmds/ps_aux_ww_Z.output",
-		"systemctl_list-units_dcos*.output":               logPath + "cmds/systemctl_list-units_dcos*.output",
-		"unit_a":                                          logPath + "units/unit_a",
-		"unit_b":                                          logPath + "units/unit_b",
-		"unit_c":                                          logPath + "units/unit_c",
-		"unit_to_fail":                                    logPath + "units/unit_to_fail",
-		"/not/existing/file":                              logPath + "files/not_existing_file",
-		"does_not_exist.output":                           logPath + "cmds/does_not_exist.output",
-	}, "only endpoints for master role should appear here")
+	assert.Equal(t, endpoints, func() (x map[string]endpointSpec) {
+		x = make(map[string]endpointSpec)
+		for k, v := range map[string]string{
+			"/opt/mesosphere/active.buildinfo.full.json":      logPath + "files/opt_mesosphere_active.buildinfo.full.json",
+			"/var/lib/dcos/exhibitor/conf/zoo.cfg":            logPath + "files/var_lib_dcos_exhibitor_conf_zoo.cfg",
+			"/var/lib/dcos/exhibitor/zookeeper/snapshot/myid": logPath + "files/var_lib_dcos_exhibitor_zookeeper_snapshot_myid",
+			"5050-__processes__.json":                         ":5050/__processes__",
+			"5050-master_state-summary.json":                  ":5050/master/state-summary",
+			"5050-registrar_1__registry.json":                 ":5050/registrar(1)/registry",
+			"5050-system_stats_json.json":                     ":5050/system/stats.json",
+			"binsh_-c_cat etc*-release.output":                logPath + "cmds/binsh_-c_cat etc*-release.output",
+			"dcos-diagnostics-health.json":                    ":1050/system/health/v1",
+			"dcos-download.service":                           logPath + "units/dcos-download.service",
+			"dcos-link-env.service":                           logPath + "units/dcos-link-env.service",
+			"dcos-setup.service":                              logPath + "units/dcos-setup.service",
+			"dmesg_-T.output":                                 logPath + "cmds/dmesg_-T.output",
+			"echo_OK.output":                                  logPath + "cmds/echo_OK.output",
+			"ps_aux_ww_Z.output":                              logPath + "cmds/ps_aux_ww_Z.output",
+			"systemctl_list-units_dcos*.output":               logPath + "cmds/systemctl_list-units_dcos*.output",
+			"unit_a":                                          logPath + "units/unit_a",
+			"unit_b":                                          logPath + "units/unit_b",
+			"unit_c":                                          logPath + "units/unit_c",
+			"unit_to_fail":                                    logPath + "units/unit_to_fail",
+			"/not/existing/file":                              logPath + "files/not_existing_file",
+			"does_not_exist.output":                           logPath + "cmds/does_not_exist.output",
+		} {
+			x[k] = endpointSpec{PortAndPath: v}
+		}
+		x["uri_not_avail.txt"] = endpointSpec{PortAndPath: ":5050/storage/uri_not_avail", Optional: true}
+		return
+	}(), "only endpoints for master role should appear here")
 }
 
 func TestDispatchLogsForCommand(t *testing.T) {
@@ -196,7 +204,7 @@ func TestDispatchLogsForOptionalFileThatNotExists(t *testing.T) {
 
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
-	assert.Contains (t, string(data), "open /not/existing/file: ")
+	assert.Contains(t, string(data), "open /not/existing/file: ")
 }
 
 func TestDispatchLogsForUnit(t *testing.T) {
@@ -352,7 +360,7 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
 		}),
 		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
-	).Return([]byte(`{"slow_server": ":`+port+`"}`), http.StatusOK, nil)
+	).Return([]byte(`{"slow_server": {"PortAndPath":":`+port+`"}}`), http.StatusOK, nil)
 	tools.On("GetNodeRole").Return("master", nil)
 	tools.On("DetectIP").Return("127.0.0.1", nil)
 	tools.On("GetAgentNodes").Return([]dcos.Node{{IP: "127.0.0.1", Role: "master"}}, nil)
@@ -405,7 +413,7 @@ func TestCreateBundle(t *testing.T) {
 			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
 		}),
 		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
-	).Return([]byte(`{"ping": ":`+port+`/ping"}`), http.StatusOK, nil)
+	).Return([]byte(`{"ping": {"PortAndPath":":`+port+`/ping"}}`), http.StatusOK, nil)
 	tools.On("GetNodeRole").Return("master", nil)
 	tools.On("DetectIP").Return("127.0.0.1", nil)
 	tools.On("GetAgentNodes").Return([]dcos.Node{}, nil)
@@ -481,7 +489,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 			return url == fmt.Sprintf("http://127.0.0.1:1050%s/logs", baseRoute)
 		}),
 		mock.MatchedBy(func(t time.Duration) bool { return t == 3*time.Second }),
-	).Return([]byte(`{"slow_server": ":`+port+`"}`), http.StatusOK, nil)
+	).Return([]byte(`{"slow_server": {"PortAndPath":":`+port+`"}}`), http.StatusOK, nil)
 	tools.On("GetNodeRole").Return("master", nil)
 	tools.On("DetectIP").Return("127.0.0.1", nil)
 	tools.On("GetAgentNodes").Return([]dcos.Node{}, nil)

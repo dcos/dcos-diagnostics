@@ -52,6 +52,7 @@ ifdef NO_DOCKER
 else
   define inDocker
     docker run \
+      $(shell test -t 0 && echo "-t -i" || true) \
       -v $(CURRENT_DIR):$(PKG_DIR) \
       -w $(PKG_DIR) \
       --rm \

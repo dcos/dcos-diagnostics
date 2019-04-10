@@ -380,7 +380,7 @@ func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.N
 				return fetchRequests
 			default:
 			}
-			fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint, j.Cfg.FlagForceTLS)
+			fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint.PortAndPath, j.Cfg.FlagForceTLS)
 			if err != nil {
 				j.logError(fmt.Errorf("could prepare URL: %s", err), node.IP, summaryErrorsReport)
 				continue
@@ -389,6 +389,7 @@ func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.N
 				URL:      fullURL,
 				Node:     node,
 				FileName: fileName,
+				Optional: httpEndpoint.Optional,
 			})
 		}
 	}
@@ -437,7 +438,7 @@ func (j *DiagnosticsJob) getErrors() []string {
 	return append([]string{}, j.Errors...)
 }
 
-func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]string, e error) {
+func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]endpointSpec, e error) {
 	port, err := getPullPortByRole(j.Cfg, node.Role)
 	if err != nil {
 		e = fmt.Errorf("used incorrect role: %s", err)
@@ -832,8 +833,13 @@ func findRequestedNodes(requestedNodes []string, tools dcos.Tooler) ([]dcos.Node
 	return matchRequestedNodes(requestedNodes, masterNodes, agentNodes)
 }
 
-func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err error) {
-	endpoints = make(map[string]string)
+type endpointSpec struct {
+	PortAndPath string
+	Optional    bool
+}
+
+func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]endpointSpec, err error) {
+	endpoints = make(map[string]endpointSpec)
 
 	currentRole, err := j.DCOSTools.GetNodeRole()
 	if err != nil {
@@ -853,7 +859,10 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 		if !roleMatched(currentRole, httpEndpoint.Role) {
 			continue
 		}
-		endpoints[fileName] = fmt.Sprintf(":%d%s", httpEndpoint.Port, httpEndpoint.URI)
+		endpoints[fileName] = endpointSpec{
+			PortAndPath: fmt.Sprintf(":%d%s", httpEndpoint.Port, httpEndpoint.URI),
+			Optional:    httpEndpoint.Optional,
+		}
 	}
 
 	// file endpoints
@@ -861,7 +870,9 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 		if !roleMatched(currentRole, file.Role) {
 			continue
 		}
-		endpoints[file.Location] = fmt.Sprintf(":%d%s/logs/files/%s", port, baseRoute, sanitizedLocation)
+		endpoints[file.Location] = endpointSpec{
+			PortAndPath: fmt.Sprintf(":%d%s/logs/files/%s", port, baseRoute, sanitizedLocation),
+		}
 	}
 
 	// command endpoints
@@ -870,7 +881,9 @@ func (j *DiagnosticsJob) getLogsEndpoints() (endpoints map[string]string, err er
 			continue
 		}
 		if cmdKey != "" {
-			endpoints[cmdKey] = fmt.Sprintf(":%d%s/logs/cmds/%s", port, baseRoute, cmdKey)
+			endpoints[cmdKey] = endpointSpec{
+				PortAndPath: fmt.Sprintf(":%d%s/logs/cmds/%s", port, baseRoute, cmdKey),
+			}
 		}
 	}
 	return endpoints, nil
