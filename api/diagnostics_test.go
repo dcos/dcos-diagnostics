@@ -33,24 +33,28 @@ func TestDiagnosticsJobInitReturnsErrorWhenConfigurationIsInvalid(t *testing.T) 
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
 
 	// file does not exist
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = "test_endpoints-config.json"
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{"test_endpoints-config.json"}
 
 	err := job.Init()
 	assert.Error(t, err) // we can't use ErrorEqual: system errors differ between unix and windows
-	assert.Contains(t, err.Error(), "could not init diagnostic job: could not initialize external log providers: open test_endpoints-config.json:")
+	assert.Contains(t, err.Error(), "could not init diagnostic job: could not initialize external log providers: could not read test_endpoints-config.json: open test_endpoints-config.json: ")
 
 	// file exists but is not valid JSON
 	tmpfile, err := ioutil.TempFile("", "test_endpoints-config.json")
 	defer os.Remove(tmpfile.Name())
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = tmpfile.Name()
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{tmpfile.Name()}
 
 	err = job.Init()
-	assert.EqualError(t, err, "could not init diagnostic job: could not initialize external log providers: unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "could not init diagnostic job: could not initialize external log providers: could not parse ")
 }
 
-func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
+func TestDiagnosticsJobInitWithValidFilesCheckIfConfigsAreMerged(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{
+		filepath.Join("testdata", "endpoint-config.json"),
+		filepath.Join("testdata", "endpoint-config-3.json"),
+		filepath.Join("testdata", "endpoint-config-2.json"),
+	}
 
 	err := job.Init()
 	assert.NoError(t, err)
@@ -98,9 +102,33 @@ func TestDiagnosticsJobInitWithValidFile(t *testing.T) {
 
 }
 
+func TestDiagnosticsJobInitWithValidFilesCheckIfConfigsAreMergedWithOrder(t *testing.T) {
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{
+		filepath.Join("testdata", "endpoint-config.json"),
+		filepath.Join("testdata", "endpoint-config-2.json"),
+		filepath.Join("testdata", "endpoint-config-3.json"), // « Overrides endpoint-config-2.json
+	}
+
+	err := job.Init()
+	assert.NoError(t, err)
+
+	assert.Equal(t, map[string]FileProvider{
+		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json"},
+		"var_lib_dcos_exhibitor_conf_zoo.cfg":            {Location: "/var/lib/dcos/exhibitor/conf/zoo.cfg", Role: []string{"master"}},
+		"var_lib_dcos_exhibitor_zookeeper_snapshot_myid": {Location: "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid", Role: []string{"master"}},
+		"not_existing_file":                              {Location: "/not/existing/file", Optional: false}, // « Here is the difference
+	}, job.logProviders.LocalFiles)
+}
+
 func TestGetLogsEndpoints(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	// Check if double entries are merged
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{
+		filepath.Join("testdata", "endpoint-config.json"),
+		filepath.Join("testdata", "endpoint-config-2.json"),
+		filepath.Join("testdata", "endpoint-config-3.json"),
+	}
 
 	err := job.Init()
 	require.NoError(t, err)
@@ -144,7 +172,7 @@ func TestGetLogsEndpoints(t *testing.T) {
 
 func TestDispatchLogsForCommand(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config.json")}
 
 	err := job.Init()
 	require.NoError(t, err)
@@ -159,7 +187,7 @@ func TestDispatchLogsForCommand(t *testing.T) {
 
 func TestDispatchLogsForCommandThatNotExists(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config-2.json")}
 
 	err := job.Init()
 	require.NoError(t, err)
@@ -174,7 +202,7 @@ func TestDispatchLogsForCommandThatNotExists(t *testing.T) {
 
 func TestDispatchLogsForFiles(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config.json")}
 
 	f, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
@@ -194,7 +222,7 @@ func TestDispatchLogsForFiles(t *testing.T) {
 
 func TestDispatchLogsForOptionalFileThatNotExists(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config-2.json")}
 
 	err := job.Init()
 	require.NoError(t, err)
@@ -213,7 +241,7 @@ func TestDispatchLogsForUnit(t *testing.T) {
 	}
 
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config.json")}
 
 	err := job.Init()
 	require.NoError(t, err)
@@ -232,7 +260,7 @@ func TestDispatchLogsForUnit_Windows(t *testing.T) {
 	}
 
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
-	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFile = filepath.Join("testdata", "endpoint-config.json")
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config.json")}
 
 	err := job.Init()
 	require.NoError(t, err)

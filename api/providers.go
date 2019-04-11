@@ -45,7 +45,7 @@ func loadProviders(cfg *config.Config, DCOSTools dcos.Tooler) (*LogProviders, er
 		return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
 	}
 	// load the external providers from a cfg file
-	externalProviders, err := loadExternalProviders(cfg)
+	externalProviders, err := loadExternalProviders(cfg.FlagDiagnosticsBundleEndpointsConfigFiles)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize external log providers: %s", err)
 	}
@@ -57,13 +57,19 @@ func loadProviders(cfg *config.Config, DCOSTools dcos.Tooler) (*LogProviders, er
 	}, nil
 }
 
-func loadExternalProviders(cfg *config.Config) (externalProviders LogProviders, err error) {
-	endpointsConfig, err := ioutil.ReadFile(cfg.FlagDiagnosticsBundleEndpointsConfigFile)
-	if err != nil {
-		return externalProviders, err
-	}
-	if err = json.Unmarshal(endpointsConfig, &externalProviders); err != nil {
-		return externalProviders, err
+func loadExternalProviders(endpointsConfgFiles []string) (externalProviders LogProviders, err error) {
+	for _, endpointsConfigFile := range endpointsConfgFiles {
+		endpointsConfig, err := ioutil.ReadFile(endpointsConfigFile)
+		if err != nil {
+			return externalProviders, fmt.Errorf("could not read %s: %s", endpointsConfigFile, err)
+		}
+		var logProviders LogProviders
+		if err = json.Unmarshal(endpointsConfig, &logProviders); err != nil {
+			return externalProviders, fmt.Errorf("could not parse %s: %s", endpointsConfigFile, err)
+		}
+		externalProviders.HTTPEndpoints = append(externalProviders.HTTPEndpoints, logProviders.HTTPEndpoints...)
+		externalProviders.LocalFiles = append(externalProviders.LocalFiles, logProviders.LocalFiles...)
+		externalProviders.LocalCommands = append(externalProviders.LocalCommands, logProviders.LocalCommands...)
 	}
 
 	return externalProviders, nil

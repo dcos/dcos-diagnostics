@@ -1,0 +1,21 @@
+{
+  "HTTPEndpoints": [
+    {
+      "Port": 5050,
+      "Uri": "/__processes__",
+      "Role": ["master"]
+    }
+  ],
+  "LocalFiles": [
+    {
+      "Location": "/not/existing/file",
+      "Optional": true
+    }
+  ],
+  "LocalCommands": [
+    {
+      "Command": ["does", "not", "exist"],
+      "Optional": true
+    }
+  ]
+}

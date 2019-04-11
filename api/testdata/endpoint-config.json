@@ -2,11 +2,6 @@
   "HTTPEndpoints": [
     {
       "Port": 5050,
-      "Uri": "/__processes__",
-      "Role": ["master"]
-    },
-    {
-      "Port": 5050,
       "Uri": "/master/state-summary",
       "Role": ["master"]
     },
@@ -54,10 +49,6 @@
     {
       "Location": "/var/lib/dcos/exhibitor/conf/zoo.cfg",
       "Role": ["master"]
-    },
-    {
-      "Location": "/not/existing/file",
-      "Optional": true
     }
   ],
   "LocalCommands": [
@@ -79,10 +70,6 @@
     },
     {
       "Command": ["echo", "OK"]
-    },
-    {
-      "Command": ["does", "not", "exist"],
-      "Optional": true
     }
   ]
 }

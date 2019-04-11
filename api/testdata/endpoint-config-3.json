@@ -1,0 +1,8 @@
+{
+  "LocalFiles": [
+    {
+      "Location": "/not/existing/file",
+      "Optional": false
+    }
+  ]
+}

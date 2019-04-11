@@ -31,10 +31,10 @@ type Config struct {
 	FlagIAMConfig                  string `mapstructure:"iam-config"`
 
 	// diagnostics job flags
-	FlagDiagnosticsBundleDir                     string `mapstructure:"diagnostics-bundle-dir"`
-	FlagDiagnosticsBundleEndpointsConfigFile     string `mapstructure:"endpoint-config"`
-	FlagDiagnosticsBundleUnitsLogsSinceString    string `mapstructure:"diagnostics-units-since"`
-	FlagDiagnosticsJobTimeoutMinutes             int    `mapstructure:"diagnostics-job-timeout"`
-	FlagDiagnosticsJobGetSingleURLTimeoutMinutes int    `mapstructure:"diagnostics-url-timeout"`
-	FlagCommandExecTimeoutSec                    int    `mapstructure:"command-exec-timeout"`
+	FlagDiagnosticsBundleDir                     string   `mapstructure:"diagnostics-bundle-dir"`
+	FlagDiagnosticsBundleEndpointsConfigFiles    []string `mapstructure:"endpoint-config"`
+	FlagDiagnosticsBundleUnitsLogsSinceString    string   `mapstructure:"diagnostics-units-since"`
+	FlagDiagnosticsJobTimeoutMinutes             int      `mapstructure:"diagnostics-job-timeout"`
+	FlagDiagnosticsJobGetSingleURLTimeoutMinutes int      `mapstructure:"diagnostics-url-timeout"`
+	FlagCommandExecTimeoutSec                    int      `mapstructure:"command-exec-timeout"`
 }
