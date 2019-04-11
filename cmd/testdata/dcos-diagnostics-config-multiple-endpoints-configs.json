@@ -1,0 +1,8 @@
+{
+  "role": "master",
+  "pull": true,
+  "diagnostics-bundle-dir": "diag-bundles",
+  "endpoint-config": ["1", "2"],
+  "no-unix-socket": true,
+  "agent-port": 61001
+}

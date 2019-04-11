@@ -29,18 +29,48 @@ func Test_initConfig(t *testing.T) {
 	initConfig()
 
 	expected := &config.Config{
-		FlagRole:                                     "master",
-		FlagPort:                                     1050,
-		FlagPull:                                     true,
-		FlagMasterPort:                               1050,
-		FlagAgentPort:                                61001,
-		FlagPullInterval:                             60,
-		FlagPullTimeoutSec:                           3,
-		FlagUpdateHealthReportInterval:               60,
-		FlagExhibitorClusterStatusURL:                "http://127.0.0.1:8181/exhibitor/v1/cluster/status",
-		FlagDisableUnixSocket:                        true,
-		FlagDiagnosticsBundleDir:                     "diag-bundles",
-		FlagDiagnosticsBundleEndpointsConfigFile:     "dcos-diagnostics-endpoint-config.json",
+		FlagRole:                       "master",
+		FlagPort:                       1050,
+		FlagPull:                       true,
+		FlagMasterPort:                 1050,
+		FlagAgentPort:                  61001,
+		FlagPullInterval:               60,
+		FlagPullTimeoutSec:             3,
+		FlagUpdateHealthReportInterval: 60,
+		FlagExhibitorClusterStatusURL:  "http://127.0.0.1:8181/exhibitor/v1/cluster/status",
+		FlagDisableUnixSocket:          true,
+		FlagDiagnosticsBundleDir:       "diag-bundles",
+		FlagDiagnosticsBundleEndpointsConfigFiles:    []string{"dcos-diagnostics-endpoint-config.json"},
+		FlagDiagnosticsBundleUnitsLogsSinceString:    "24h",
+		FlagDiagnosticsJobTimeoutMinutes:             720,
+		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,
+		FlagCommandExecTimeoutSec:                    120,
+	}
+
+	assert.Equal(t, expected, defaultConfig)
+
+}
+
+
+func Test_initConfig_multiple_endpints_configs(t *testing.T) {
+	cfgFile = filepath.Join("testdata", "dcos-diagnostics-config-multiple-endpoints-configs.json")
+	defer func() { cfgFile = "" }()
+
+	initConfig()
+
+	expected := &config.Config{
+		FlagRole:                       "master",
+		FlagPort:                       1050,
+		FlagPull:                       true,
+		FlagMasterPort:                 1050,
+		FlagAgentPort:                  61001,
+		FlagPullInterval:               60,
+		FlagPullTimeoutSec:             3,
+		FlagUpdateHealthReportInterval: 60,
+		FlagExhibitorClusterStatusURL:  "http://127.0.0.1:8181/exhibitor/v1/cluster/status",
+		FlagDisableUnixSocket:          true,
+		FlagDiagnosticsBundleDir:       "diag-bundles",
+		FlagDiagnosticsBundleEndpointsConfigFiles:    []string{"1", "2"},
 		FlagDiagnosticsBundleUnitsLogsSinceString:    "24h",
 		FlagDiagnosticsJobTimeoutMinutes:             720,
 		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,

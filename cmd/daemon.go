@@ -76,8 +76,8 @@ func init() {
 	// diagnostics job flags
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleDir,
 		"diagnostics-bundle-dir", diagnosticsBundleDir, "Set a path to store diagnostic bundles")
-	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleEndpointsConfigFile,
-		"endpoint-config", diagnosticsEndpointConfig,
+	daemonCmd.PersistentFlags().StringSliceVar(&defaultConfig.FlagDiagnosticsBundleEndpointsConfigFiles,
+		"endpoint-config", []string{diagnosticsEndpointConfig},
 		"Use endpoints_config.json")
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleUnitsLogsSinceString,
 		"diagnostics-units-since", "24h", "Collect systemd units logs since")
