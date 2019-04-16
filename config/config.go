@@ -37,4 +37,5 @@ type Config struct {
 	FlagDiagnosticsJobTimeoutMinutes             int      `mapstructure:"diagnostics-job-timeout"`
 	FlagDiagnosticsJobGetSingleURLTimeoutMinutes int      `mapstructure:"diagnostics-url-timeout"`
 	FlagCommandExecTimeoutSec                    int      `mapstructure:"command-exec-timeout"`
+	FlagDiagnosticsBundleFetchersCount           int      `mapstructure:"fetchers-count"`
 }

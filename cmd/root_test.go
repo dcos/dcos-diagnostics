@@ -45,6 +45,7 @@ func Test_initConfig(t *testing.T) {
 		FlagDiagnosticsJobTimeoutMinutes:             720,
 		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,
 		FlagCommandExecTimeoutSec:                    120,
+		FlagDiagnosticsBundleFetchersCount:           1,
 	}
 
 	assert.Equal(t, expected, defaultConfig)
@@ -75,6 +76,7 @@ func Test_initConfig_multiple_endpints_configs(t *testing.T) {
 		FlagDiagnosticsJobTimeoutMinutes:             720,
 		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,
 		FlagCommandExecTimeoutSec:                    120,
+		FlagDiagnosticsBundleFetchersCount:           1,
 	}
 
 	assert.Equal(t, expected, defaultConfig)

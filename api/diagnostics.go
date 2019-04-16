@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -303,7 +304,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 	fetchStatusUpdate := make(chan fetcher.StatusUpdate)
 	fetchResponse := make(chan fetcher.BulkResponse)
 
-	numberOfWorkers := 1 //TODO(janisz): make number of workers configurable
+	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
 	for i := 0; i < numberOfWorkers; i++ {
 		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse)
 		if err != nil {
@@ -314,7 +315,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 
 	j.waitForStatusUpdates(ctx, fetchStatusUpdate, len(fetchRequests), summaryReport, summaryErrorsReport)
 
-	zips, errs := gatherAllResults(fetchResponse)
+	zips, errs := gatherAllResults(fetchResponse, numberOfWorkers)
 
 	if len(errs) != 0 {
 		j.logError(fmt.Errorf("%v", errs), "failed to gather all results", summaryErrorsReport)
@@ -331,11 +332,10 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 	return zips, nil
 }
 
-func gatherAllResults(fetchResponse chan fetcher.BulkResponse) ([]string, []error) {
-	//TODO(janisz): make number of workers configurable
-	zips := make([]string, 0, 1)
+func gatherAllResults(fetchResponse chan fetcher.BulkResponse, numberOfWorkers int) ([]string, []error) {
+	zips := make([]string, 0, numberOfWorkers)
 	var errs []error
-	for i := 0; i < 1; i++ {
+	for i := 0; i < numberOfWorkers; i++ {
 		result := <-fetchResponse
 		zips = append(zips, result.ZipFilePath)
 		if result.Error != nil {
@@ -393,6 +393,14 @@ func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.N
 			})
 		}
 	}
+
+	// To prevent attacking (DoS) a single host at one time
+	// shuffle list of endpoints to evenly
+	// distribute work among all nodes.
+	rand.Shuffle(len(fetchRequests), func(i, j int) {
+		fetchRequests[i], fetchRequests[j] = fetchRequests[j], fetchRequests[i]
+	})
+
 	return fetchRequests
 }
 
