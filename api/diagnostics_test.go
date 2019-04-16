@@ -395,6 +395,7 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
+	cfg.FlagDiagnosticsBundleFetchersCount = 1
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
