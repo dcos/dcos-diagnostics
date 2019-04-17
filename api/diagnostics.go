@@ -124,6 +124,11 @@ var bundleCreationTimeHistogram = promauto.NewHistogram(prometheus.HistogramOpts
 	Help: "Time taken to create a bundle",
 })
 
+var bundleCreationTimeGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "bundle_creation_time_seconds_gauge",
+	Help: "Time taken to create a bundle",
+})
+
 // start a diagnostics job
 func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 
@@ -181,6 +186,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 		j.runBackgroundJob(ctx, foundNodes)
 		duration := time.Since(start)
 		bundleCreationTimeHistogram.Observe(duration.Seconds())
+		bundleCreationTimeGauge.Set(duration.Seconds())
 	}()
 
 	var r createResponse

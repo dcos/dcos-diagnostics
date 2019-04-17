@@ -22,7 +22,7 @@ $(BUILD_DIR)/$(BINARY_NAME): $(SRCS)
 	$(call inDocker,go build -mod=vendor -v -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME))
 
 .PHONY: build
-build: $(BUILD_DIR)/$(BINARY_NAME)
+build: docker $(BUILD_DIR)/$(BINARY_NAME)
 
 # install does not run in a docker container to build for the correct OS
 .PHONY: install
