@@ -332,6 +332,7 @@ func (h *handler) getUnitLogHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response, _ := prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		writeResponse(w, response)
+		log.WithError(err).Warnf("Could NOT prepare a response for %s", r.URL.Path)
 		return
 	}
 	defer unitLogOut.Close()

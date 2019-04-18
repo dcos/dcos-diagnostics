@@ -49,6 +49,10 @@
     {
       "Location": "/var/lib/dcos/exhibitor/conf/zoo.cfg",
       "Role": ["master"]
+    },
+    {
+      "Location": "/not/existing/file",
+      "Optional": true
     }
   ],
   "LocalCommands": [
@@ -70,6 +74,10 @@
     },
     {
       "Command": ["echo", "OK"]
+    },
+    {
+      "Command": ["does", "not", "exist"],
+      "Optional": true
     }
   ]
 }

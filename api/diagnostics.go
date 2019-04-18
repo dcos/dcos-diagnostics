@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -27,7 +28,6 @@ import (
 	"github.com/dcos/dcos-diagnostics/units"
 	"github.com/dcos/dcos-diagnostics/util"
 
-	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/sirupsen/logrus"
 )
@@ -996,16 +996,16 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 		if !canExecute {
 			return r, errors.New("Not allowed to execute a command")
 		}
-		var args []string
-		if len(cmdProvider.Command) > 1 {
-			args = cmdProvider.Command[1:]
+
+		cmd := exec.CommandContext(ctx, cmdProvider.Command[0], cmdProvider.Command[1:]...)
+		output, err := cmd.CombinedOutput()
+		if err != nil && cmdProvider.Optional {
+			// combine output with error
+			o := append([]byte(err.Error()+"\n"), output...)
+			return ioutil.NopCloser(bytes.NewReader(o)), nil
 		}
 
-		ce, err := exec.Run(ctx, cmdProvider.Command[0], args)
-		if err != nil {
-			return nil, err
-		}
-		return &execCloser{ce}, nil
+		return ioutil.NopCloser(bytes.NewReader(output)), err
 	}
 	return r, errors.New("Unknown provider " + provider)
 }
@@ -1013,17 +1013,4 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
 func updateSummaryReportBuffer(prefix string, err string, r *bytes.Buffer) {
 	r.WriteString(fmt.Sprintf("%s [%s] %s \n", time.Now().String(), prefix, err))
-}
-
-// implement a io.ReadCloser wrapper over dcos/exec
-type execCloser struct {
-	r io.Reader
-}
-
-func (e *execCloser) Read(b []byte) (int, error) {
-	return e.r.Read(b)
-}
-
-func (e *execCloser) Close() error {
-	return nil
 }
