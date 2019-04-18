@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"archive/zip"
+	"compress/gzip"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -95,8 +96,12 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 	rc, err := z.File[0].Open()
 	require.NoError(t, err)
 
-	body, err := ioutil.ReadAll(rc)
+	r, err := gzip.NewReader(rc)
 	require.NoError(t, err)
+
+	body, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+
 	assert.Equal(t, "pong", string(body))
 
 	reg := prometheus.NewPedanticRegistry()
@@ -113,7 +118,14 @@ func stubServer(uri string, body string) (*httptest.Server, *http.Transport) {
 		if r.URL.RequestURI() == uri {
 			w.WriteHeader(200)
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(body))
+
+			w.Header().Set("Content-Encoding", "gzip")
+			gz := gzip.NewWriter(w)
+			defer gz.Close()
+			_, err := gz.Write([]byte(body))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		} else {
 			http.NotFound(w, r)
 		}

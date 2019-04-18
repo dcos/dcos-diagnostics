@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -26,7 +28,6 @@ import (
 	"github.com/dcos/dcos-diagnostics/units"
 	"github.com/dcos/dcos-diagnostics/util"
 
-	"github.com/dcos/dcos-go/exec"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/sirupsen/logrus"
 )
@@ -309,7 +310,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 	fetchStatusUpdate := make(chan fetcher.StatusUpdate)
 	fetchResponse := make(chan fetcher.BulkResponse)
 
-	numberOfWorkers := 1 //TODO(janisz): make number of workers configurable
+	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
 	for i := 0; i < numberOfWorkers; i++ {
 		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse)
 		if err != nil {
@@ -320,7 +321,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 
 	j.waitForStatusUpdates(ctx, fetchStatusUpdate, len(fetchRequests), summaryReport, summaryErrorsReport)
 
-	zips, errs := gatherAllResults(fetchResponse)
+	zips, errs := gatherAllResults(fetchResponse, numberOfWorkers)
 
 	if len(errs) != 0 {
 		j.logError(fmt.Errorf("%v", errs), "failed to gather all results", summaryErrorsReport)
@@ -337,11 +338,10 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 	return zips, nil
 }
 
-func gatherAllResults(fetchResponse chan fetcher.BulkResponse) ([]string, []error) {
-	//TODO(janisz): make number of workers configurable
-	zips := make([]string, 0, 1)
+func gatherAllResults(fetchResponse chan fetcher.BulkResponse, numberOfWorkers int) ([]string, []error) {
+	zips := make([]string, 0, numberOfWorkers)
 	var errs []error
-	for i := 0; i < 1; i++ {
+	for i := 0; i < numberOfWorkers; i++ {
 		result := <-fetchResponse
 		zips = append(zips, result.ZipFilePath)
 		if result.Error != nil {
@@ -399,6 +399,14 @@ func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.N
 			})
 		}
 	}
+
+	// To prevent attacking (DoS) a single host at one time
+	// shuffle list of endpoints to evenly
+	// distribute work among all nodes.
+	rand.Shuffle(len(fetchRequests), func(i, j int) {
+		fetchRequests[i], fetchRequests[j] = fetchRequests[j], fetchRequests[i]
+	})
+
 	return fetchRequests
 }
 
@@ -994,16 +1002,16 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 		if !canExecute {
 			return r, errors.New("Not allowed to execute a command")
 		}
-		var args []string
-		if len(cmdProvider.Command) > 1 {
-			args = cmdProvider.Command[1:]
+
+		cmd := exec.CommandContext(ctx, cmdProvider.Command[0], cmdProvider.Command[1:]...)
+		output, err := cmd.CombinedOutput()
+		if err != nil && cmdProvider.Optional {
+			// combine output with error
+			o := append([]byte(err.Error()+"\n"), output...)
+			return ioutil.NopCloser(bytes.NewReader(o)), nil
 		}
 
-		ce, err := exec.Run(ctx, cmdProvider.Command[0], args)
-		if err != nil {
-			return nil, err
-		}
-		return &execCloser{ce}, nil
+		return ioutil.NopCloser(bytes.NewReader(output)), err
 	}
 	return r, errors.New("Unknown provider " + provider)
 }
@@ -1011,17 +1019,4 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 // the summary report is a file added to a zip bundle file to track any errors occurred during collection logs.
 func updateSummaryReportBuffer(prefix string, err string, r *bytes.Buffer) {
 	r.WriteString(fmt.Sprintf("%s [%s] %s \n", time.Now().String(), prefix, err))
-}
-
-// implement a io.ReadCloser wrapper over dcos/exec
-type execCloser struct {
-	r io.Reader
-}
-
-func (e *execCloser) Read(b []byte) (int, error) {
-	return e.r.Read(b)
-}
-
-func (e *execCloser) Close() error {
-	return nil
 }

@@ -16,6 +16,10 @@
     {
       "Command": ["does", "not", "exist"],
       "Optional": true
+    },
+    {
+      "Command": ["does", "not", "exist", "required"],
+      "Optional": false
     }
   ]
 }

@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"archive/zip"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -165,12 +166,27 @@ func get(ctx context.Context, client *http.Client, url string) (*http.Response, 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, e := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
+
 		errMsg := fmt.Sprintf("unable to fetch %s. Return code %d.", url, resp.StatusCode)
-		if e != nil {
-			return nil, fmt.Errorf("%s Could not read body: %s", errMsg, e)
+
+		var body []byte
+		if resp.Header.Get("Content-Encoding") == "gzip" {
+			r, e := gzip.NewReader(resp.Body)
+			if e != nil {
+				return nil, fmt.Errorf("%s Could not read compressed body: %s", errMsg, e)
+			}
+			body, e = ioutil.ReadAll(r)
+			if e != nil {
+				return nil, fmt.Errorf("%s Could not uncompress body: %s", errMsg, e)
+			}
+		} else {
+			body, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("%s Could not read body: %s", errMsg, err)
+			}
 		}
+
 		return nil, fmt.Errorf("%s Body: %s", errMsg, string(body))
 	}
 

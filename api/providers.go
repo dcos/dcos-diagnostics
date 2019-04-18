@@ -34,8 +34,9 @@ type FileProvider struct {
 
 // CommandProvider is a local command to execute.
 type CommandProvider struct {
-	Command []string
-	Role    []string
+	Command  []string
+	Role     []string
+	Optional bool
 }
 
 func loadProviders(cfg *config.Config, DCOSTools dcos.Tooler) (*LogProviders, error) {

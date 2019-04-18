@@ -97,7 +97,8 @@ func TestDiagnosticsJobInitWithValidFilesCheckIfConfigsAreMerged(t *testing.T) {
 		},
 		"ps_aux_ww_Z.output":                {Command: []string{"ps", "aux", "ww", "Z"}},
 		"systemctl_list-units_dcos*.output": {Command: []string{"systemctl", "list-units", "dcos*"}},
-		"does_not_exist.output":             {Command: []string{"does", "not", "exist"}},
+		"does_not_exist.output":             {Command: []string{"does", "not", "exist"}, Optional: true},
+		"does_not_exist_required.output":    {Command: []string{"does", "not", "exist", "required"}, Optional: false},
 	}, job.logProviders.LocalCommands)
 
 }
@@ -166,6 +167,7 @@ func TestGetLogsEndpoints(t *testing.T) {
 			x[k] = endpointSpec{PortAndPath: v}
 		}
 		x["uri_not_avail.txt"] = endpointSpec{PortAndPath: ":5050/storage/uri_not_avail", Optional: true}
+		x["does_not_exist_required.output"] = endpointSpec{PortAndPath: logPath + "cmds/does_not_exist_required.output"}
 		return
 	}(), "only endpoints for master role should appear here")
 }
@@ -185,7 +187,7 @@ func TestDispatchLogsForCommand(t *testing.T) {
 	assert.Equal(t, "OK\n", string(data))
 }
 
-func TestDispatchLogsForCommandThatNotExists(t *testing.T) {
+func TestDispatchLogsForCommandThatNotExistsButIsOptional(t *testing.T) {
 	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
 	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config-2.json")}
 
@@ -193,11 +195,22 @@ func TestDispatchLogsForCommandThatNotExists(t *testing.T) {
 	require.NoError(t, err)
 
 	r, err := job.dispatchLogs(context.TODO(), "cmds", "does_not_exist.output")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	data, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
-	assert.Empty(t, data)
+	assert.Contains(t, string(data), `exec: "does": executable file not found in `)
+}
+
+func TestDispatchLogsForCommandThatNotExistsAndIsRequired(t *testing.T) {
+	job := DiagnosticsJob{Cfg: testCfg(), DCOSTools: &fakeDCOSTools{}}
+	job.Cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{filepath.Join("testdata", "endpoint-config.json")}
+
+	err := job.Init()
+	require.NoError(t, err)
+
+	_, err = job.dispatchLogs(context.TODO(), "cmds", "does_not_exist_required.output")
+	assert.Error(t, err)
 }
 
 func TestDispatchLogsForFiles(t *testing.T) {
@@ -395,6 +408,7 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
+	cfg.FlagDiagnosticsBundleFetchersCount = 1
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,

@@ -87,6 +87,9 @@ func init() {
 	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes,
 		"diagnostics-url-timeout", 2,
 		"Set a local timeout for every single GET request to a log endpoint")
+	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsBundleFetchersCount,
+		"fetchers-count", 1,
+		"Set a number of concurrent fetchers gathering nodes logs")
 	RootCmd.AddCommand(daemonCmd)
 }
 
@@ -117,6 +120,10 @@ func startDiagnosticsDaemon() {
 	nodeInfo, err := nodeutil.NewNodeInfo(client, defaultConfig.FlagRole, options...)
 	if err != nil {
 		logrus.Fatalf("Could not initialize nodeInfo: %s", err)
+	}
+
+	if defaultConfig.FlagDiagnosticsBundleFetchersCount < 1 {
+		logrus.Fatalf("workers-count must be greater than 0")
 	}
 
 	DCOSTools := &dcos.Tools{
