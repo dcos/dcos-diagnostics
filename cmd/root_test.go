@@ -20,6 +20,7 @@ import (
 
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/sirupsen/logrus"
 )
 
 func Test_initConfig(t *testing.T) {
@@ -81,4 +82,14 @@ func Test_initConfig_multiple_endpints_configs(t *testing.T) {
 
 	assert.Equal(t, expected, defaultConfig)
 
+}
+
+func TestPersistentPreRunSetsLogLevel(t *testing.T) {
+	assert.Equal(t, logrus.InfoLevel, logrus.GetLevel())
+	RootCmd.PersistentPreRun(nil, nil)
+	assert.Equal(t, logrus.InfoLevel, logrus.GetLevel())
+
+	defaultConfig.FlagVerbose = true
+	RootCmd.PersistentPreRun(nil, nil)
+	assert.Equal(t, logrus.DebugLevel, logrus.GetLevel())
 }

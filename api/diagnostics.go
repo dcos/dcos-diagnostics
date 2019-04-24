@@ -971,7 +971,7 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 			return r, errors.New("Only DC/OS systemd units are available")
 		}
 		logrus.Debugf("dispatching a Unit %s", entity)
-		return units.ReadJournalOutputSince(entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
+		return units.ReadJournalOutputSince(ctx, entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
 	}
 
 	if provider == "files" {

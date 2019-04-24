@@ -1,6 +1,7 @@
 package units
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -16,15 +17,22 @@ const (
 )
 
 // ReadJournalOutputSince returns logs since given duration from journal
-func ReadJournalOutputSince(unit, sinceString string) (io.ReadCloser, error) {
+func ReadJournalOutputSince(ctx context.Context, unit, sinceString string) (io.ReadCloser, error) {
 	matches := DefaultSystemdMatches(unit)
 	duration, err := time.ParseDuration(sinceString)
 	if err != nil {
-		logrus.Errorf("Error parsing %s. Defaulting to 24 hours", sinceString)
+		logrus.Errorf("Error parsing '%s'. Defaulting to 24 hours", sinceString)
 		duration = time.Hour * 24
 	}
-	format := reader.NewEntryFormatter("text/plain", false)
-	return reader.NewReader(format, reader.OptionMatchOR(matches), reader.OptionSince(duration))
+	src, err := reader.NewReader(reader.NewEntryFormatter("text/plain", false), reader.OptionMatchOR(matches), reader.OptionSince(duration))
+	if err != nil {
+		return nil, err
+	}
+
+	return &TimeoutReadCloser{
+		ctx: ctx,
+		src: src,
+	}, nil
 }
 
 // DefaultSystemdMatches returns default reader.JournalEntryMatch for a given systemd unit.

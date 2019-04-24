@@ -338,7 +338,12 @@ func (h *handler) getUnitLogHandler(w http.ResponseWriter, r *http.Request) {
 	defer unitLogOut.Close()
 
 	log.Infof("Start read %s", vars["entity"])
-	io.Copy(w, unitLogOut)
+	_, err = io.Copy(w, unitLogOut)
+	if err != nil {
+		msg := fmt.Sprintf("Error writing unit log of %s: %s\n", vars["entity"], err)
+		log.Info(msg)
+		io.WriteString(w, msg)
+	}
 	log.Infof("Done read %s", vars["entity"])
 }
 
