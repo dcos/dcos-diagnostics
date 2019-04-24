@@ -54,6 +54,12 @@ dcos-diagnostics daemon start an http server and polls the components health.
 		}
 		cmd.Help()
 	},
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if defaultConfig.FlagVerbose {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		logrus.Infof("Log level: %s (%t)", logrus.GetLevel(), defaultConfig.FlagVerbose)
+	},
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
