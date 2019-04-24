@@ -4,11 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -23,74 +20,6 @@ const mesosHTTPTimeout = 10 * time.Second
 // nodeFinder interface allows chain finding methods
 type nodeFinder interface {
 	Find() ([]Node, error)
-}
-
-var dcosHistoryPath = "/var/lib/dcos/dcos-history"
-
-func (f *FindAgentsInHistoryService) getMesosAgents() (nodes []Node, err error) {
-	basePath := dcosHistoryPath + f.PastTime
-	files, err := ioutil.ReadDir(basePath)
-	if err != nil {
-		return nodes, err
-	}
-	nodeCount := make(map[string]int)
-	for _, historyFile := range files {
-		filePath := filepath.Join(basePath, historyFile.Name())
-		agents, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			logrus.Errorf("Could not read %s: %s", filePath, err)
-			continue
-		}
-
-		unquotedAgents, err := strconv.Unquote(string(agents))
-		if err != nil {
-			logrus.Errorf("Could not unquote agents string %s: %s", string(agents), err)
-			continue
-		}
-
-		var sr agentsResponse
-		if err := json.Unmarshal([]byte(unquotedAgents), &sr); err != nil {
-			logrus.Errorf("Could not unmarshal unquotedAgents %s: %s", unquotedAgents, err)
-			continue
-		}
-
-		for _, agent := range sr.Agents {
-			if _, ok := nodeCount[agent.Hostname]; ok {
-				nodeCount[agent.Hostname]++
-			} else {
-				nodeCount[agent.Hostname] = 1
-			}
-		}
-
-	}
-	if len(nodeCount) == 0 {
-		return nodes, NodesNotFoundError{
-			msg: fmt.Sprintf("Agent nodes were not found in history service for the past %s", f.PastTime),
-		}
-	}
-
-	for ip := range nodeCount {
-		nodes = append(nodes, Node{
-			Role: AgentRole,
-			IP:   ip,
-		})
-	}
-	return nodes, nil
-}
-
-// Find returns list of nodes or error if nodes could not be detected
-func (f *FindAgentsInHistoryService) Find() (nodes []Node, err error) {
-	nodes, err = f.getMesosAgents()
-	if err == nil {
-		logrus.Debugf("Found agents in the history service for past %s", f.PastTime)
-		return nodes, nil
-	}
-	// try next provider if it is available
-	if f.next != nil {
-		logrus.Warning(err)
-		return f.next.Find()
-	}
-	return nodes, err
 }
 
 // Find masters via dns. Used to Find master nodes from agents.
@@ -161,12 +90,6 @@ type NodesNotFoundError struct {
 
 func (n NodesNotFoundError) Error() string {
 	return n.msg
-}
-
-// FindAgentsInHistoryService returns agents from dcos-history service files
-type FindAgentsInHistoryService struct {
-	PastTime string
-	next     nodeFinder
 }
 
 // Find agents by resolving dns entry

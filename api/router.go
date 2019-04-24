@@ -223,11 +223,6 @@ func getRoutes(dt *Dt) []routeHandler {
 			handler: h.deleteBundleHandler,
 			methods: []string{"POST"},
 		},
-		// self test route
-		{
-			url:     baseRoute + "/selftest/info",
-			handler: h.selfTestHandler,
-		},
 		{
 			url:     "/metrics",
 			handler: promhttp.Handler().ServeHTTP,

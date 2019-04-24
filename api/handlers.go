@@ -347,12 +347,6 @@ func (h *handler) getUnitLogHandler(w http.ResponseWriter, r *http.Request) {
 	log.Infof("Done read %s", vars["entity"])
 }
 
-func (h *handler) selfTestHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := json.NewEncoder(w).Encode(runSelfTest()); err != nil {
-		log.Errorf("Failed to encode responses to json: %s", err)
-	}
-}
-
 func httpError(w http.ResponseWriter, msg string, code int) {
 	log.WithField("Code", code).Error(msg)
 	http.Error(w, msg, code)
