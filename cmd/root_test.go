@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/dcos/dcos-diagnostics/config"
-	"github.com/stretchr/testify/assert"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_initConfig(t *testing.T) {
@@ -52,7 +52,6 @@ func Test_initConfig(t *testing.T) {
 	assert.Equal(t, expected, defaultConfig)
 
 }
-
 
 func Test_initConfig_multiple_endpints_configs(t *testing.T) {
 	cfgFile = filepath.Join("testdata", "dcos-diagnostics-config-multiple-endpoints-configs.json")

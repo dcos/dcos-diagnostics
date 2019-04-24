@@ -126,7 +126,6 @@ func (st *Tools) GetMasterNodes() (nodesResponse []Node, err error) {
 			forceTLS:  st.ForceTLS,
 			dnsRecord: "master.mesos",
 			role:      MasterRole,
-			next:      nil,
 		},
 	}
 
@@ -140,13 +139,6 @@ func (st *Tools) GetAgentNodes() (nodes []Node, err error) {
 		dnsRecord: "leader.mesos",
 		role:      AgentRole,
 		getFn:     st.Get,
-		next: &FindAgentsInHistoryService{
-			PastTime: "/minute/",
-			next: &FindAgentsInHistoryService{
-				PastTime: "/hour/",
-				next:     nil,
-			},
-		},
 	}
 	return finder.Find()
 }
