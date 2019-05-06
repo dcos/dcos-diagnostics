@@ -67,6 +67,7 @@ type DiagnosticsJob struct {
 	JobEnded              time.Time
 	JobDuration           time.Duration
 	JobProgressPercentage float32
+	fetchVec              prometheus.ObserverVec
 }
 
 type logProviders struct {
@@ -312,7 +313,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 
 	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
 	for i := 0; i < numberOfWorkers; i++ {
-		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse)
+		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse, j.fetchVec)
 		if err != nil {
 			return nil, fmt.Errorf("could not start fetchers: %s", err)
 		}
