@@ -13,18 +13,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-)
-
-var (
-	fetchHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "fetch_endpoint_time_seconds",
-		Help: "Time taken fetch single endpoint",
-	}, []string{"path", "statusCode"})
 )
 
 // EndpointRequest is a struct passed to Fetcher with information about URL to be fetched
@@ -50,11 +41,12 @@ type BulkResponse struct {
 
 // Fetcher is a struct responsible for fetching nodes endpoints
 type Fetcher struct {
-	file         *os.File
-	client       *http.Client
-	endpoints    <-chan EndpointRequest
-	statusUpdate chan<- StatusUpdate
-	results      chan<- BulkResponse
+	file          *os.File
+	client        *http.Client
+	endpoints     <-chan EndpointRequest
+	statusUpdate  chan<- StatusUpdate
+	results       chan<- BulkResponse
+	prometheusVec prometheus.ObserverVec
 }
 
 // New creates new Fetcher. Fetcher needs to be started with Run()
@@ -64,13 +56,14 @@ func New(
 	input <-chan EndpointRequest,
 	statusUpdate chan<- StatusUpdate,
 	output chan<- BulkResponse,
+	prometheusVec prometheus.ObserverVec,
 ) (*Fetcher, error) {
 	f, err := ioutil.TempFile(tempdir, "")
 	if err != nil {
 		return nil, fmt.Errorf("could not create temp zip file in %s: %s", tempdir, err)
 	}
 
-	fetcher := &Fetcher{f, client, input, statusUpdate, output}
+	fetcher := &Fetcher{f, client, input, statusUpdate, output, prometheusVec}
 
 	return fetcher, nil
 }
@@ -105,7 +98,7 @@ func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
 			if !ok {
 				return
 			}
-			err := getDataToZip(ctx, f.client, in, zipWriter)
+			err := f.getDataToZip(ctx, in, zipWriter)
 			select {
 			case <-ctx.Done():
 				return
@@ -119,10 +112,10 @@ func (f *Fetcher) workOffRequests(ctx context.Context, zipWriter *zip.Writer) {
 	}
 }
 
-func getDataToZip(ctx context.Context, client *http.Client, r EndpointRequest, zipWriter *zip.Writer) error {
+func (f *Fetcher) getDataToZip(ctx context.Context, r EndpointRequest, zipWriter *zip.Writer) error {
 	start := time.Now()
 
-	resp, err := get(ctx, client, r.URL)
+	resp, err := get(ctx, f.client, r.URL)
 	if err != nil {
 		if !r.Optional {
 			return fmt.Errorf("could not get from url %s: %s", r.URL, err)
@@ -132,7 +125,7 @@ func getDataToZip(ctx context.Context, client *http.Client, r EndpointRequest, z
 	}
 
 	duration := time.Since(start)
-	fetchHistogram.WithLabelValues(resp.Request.URL.Path, strconv.Itoa(resp.StatusCode)).Observe(duration.Seconds())
+	f.prometheusVec.WithLabelValues(resp.Request.URL.Path, strconv.Itoa(resp.StatusCode)).Observe(duration.Seconds())
 
 	defer resp.Body.Close()
 	if resp.Header.Get("Content-Encoding") == "gzip" {

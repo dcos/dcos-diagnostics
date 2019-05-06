@@ -8,22 +8,19 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/testutil"
-
 	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/dcos/dcos-diagnostics/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_NewReturnErrorWhenCantCreateZip(t *testing.T) {
-	_, err := New("not_existing_dir", nil, nil, nil, nil)
+	mockHistogram := &mocks.MockHistogram{}
+	_, err := New("not_existing_dir", nil, nil, nil, nil, mockHistogram)
 	assert.Contains(t, err.Error(), "could not create temp zip file in not_existing_dir")
-
-	assert.NoError(t, testutil.CollectAndCompare(fetchHistogram, strings.NewReader("")))
 }
 
 func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
@@ -31,8 +28,9 @@ func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
 	cancelFunc()
 
 	output := make(chan BulkResponse)
+	mockHistogram := &mocks.MockHistogram{}
 
-	f, err := New("", nil, nil, nil, output)
+	f, err := New("", nil, nil, nil, output, mockHistogram)
 	assert.NoError(t, err)
 	go f.Run(ctx)
 
@@ -41,8 +39,6 @@ func Test_FetcherReturnEmptyZipOnClosedContext(t *testing.T) {
 	z, err := zip.OpenReader(zipfile.ZipFilePath)
 	assert.NoError(t, err)
 	assert.Empty(t, z.File)
-
-	assert.NoError(t, testutil.CollectAndCompare(fetchHistogram, strings.NewReader("")))
 }
 
 func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
@@ -54,7 +50,12 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 	host := "http://" + server.URL[7:]
 	defer server.Close()
 
-	f, err := New("", http.DefaultClient, input, statusUpdate, output)
+	observer := &mocks.MockObserver{}
+	observer.On("Observe", mock.MatchedBy(func(v float64) bool { return v > 0 })).Once()
+	mockHistogram := &mocks.MockHistogram{}
+	mockHistogram.On("WithLabelValues", "/ping", "200").Return(observer).Once()
+
+	f, err := New("", http.DefaultClient, input, statusUpdate, output, mockHistogram)
 	assert.NoError(t, err)
 	go f.Run(context.TODO())
 
@@ -104,12 +105,8 @@ func Test_FetcherShouldSentUpdateAfterFetchingAnEndpoint(t *testing.T) {
 
 	assert.Equal(t, "pong", string(body))
 
-	reg := prometheus.NewPedanticRegistry()
-	assert.NoError(t, reg.Register(fetchHistogram))
-	got, err := reg.Gather()
-
-	assert.Len(t, got, 1)
-	assert.Equal(t, uint64(1), *got[0].Metric[0].Histogram.SampleCount)
+	mockHistogram.AssertExpectations(t)
+	observer.AssertExpectations(t)
 }
 
 // http://keighl.com/post/mocking-http-responses-in-golang/

@@ -23,6 +23,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/dcos/dcos-diagnostics/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -409,10 +410,18 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 
 	cfg := testCfg()
 	cfg.FlagDiagnosticsBundleFetchersCount = 1
+
+	mockObs := &mocks.MockObserver{}
+	mockObs.On("Observe", mock.MatchedBy(func(v float64) bool {
+		return v > 0
+	})).Maybe()
+	mockHistogram := &mocks.MockHistogram{}
+	mockHistogram.On("WithLabelValues", "", "200").Return(mockObs).Maybe()
+
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, fetchVec: mockHistogram},
 		MR:               &MonitoringResponse{},
 	}
 
@@ -430,6 +439,8 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 	wait <- false
 
 	tools.AssertExpectations(t)
+	mockObs.AssertExpectations(t)
+	mockHistogram.AssertExpectations(t)
 }
 
 func TestCreateBundle(t *testing.T) {
@@ -462,7 +473,13 @@ func TestCreateBundle(t *testing.T) {
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
-	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient}
+	mockObs := &mocks.MockObserver{}
+	mockObs.On("Observe", mock.MatchedBy(func(v float64) bool {
+		return v > 0
+	})).Once()
+	mockHistogram := &mocks.MockHistogram{}
+	mockHistogram.On("WithLabelValues", "/ping", "200").Return(mockObs).Once()
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, fetchVec: mockHistogram}
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
