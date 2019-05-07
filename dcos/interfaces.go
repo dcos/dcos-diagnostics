@@ -1,9 +1,6 @@
 package dcos
 
 import (
-	"net"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/dcos/dcos-go/dcos"
@@ -11,13 +8,6 @@ import (
 
 // Health is a type to indicates health of the unit.
 type Health int
-
-// DefaultStateURL use https scheme
-var DefaultStateURL = url.URL{
-	Scheme: "https",
-	Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
-	Path:   "/state",
-}
 
 const (
 	// Unhealthy indicates Unit is not healthy

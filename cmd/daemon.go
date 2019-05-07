@@ -16,10 +16,14 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/dcos/dcos-diagnostics/api"
-	"github.com/dcos/dcos-diagnostics/dcos"
+	diagDcos "github.com/dcos/dcos-diagnostics/dcos"
+	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/prometheus/client_golang/prometheus"
@@ -115,8 +119,13 @@ func startDiagnosticsDaemon() {
 	}
 
 	var options []nodeutil.Option
+	defaultStateURL := url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
+		Path:   "/state",
+	}
 	if defaultConfig.FlagForceTLS {
-		options = append(options, nodeutil.OptionMesosStateURL(dcos.DefaultStateURL.String()))
+		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
 	}
 
 	nodeInfo, err := nodeutil.NewNodeInfo(client, defaultConfig.FlagRole, options...)
@@ -128,7 +137,7 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("workers-count must be greater than 0")
 	}
 
-	DCOSTools := &dcos.Tools{
+	DCOSTools := &diagDcos.Tools{
 		ExhibitorURL: defaultConfig.FlagExhibitorClusterStatusURL,
 		ForceTLS:     defaultConfig.FlagForceTLS,
 		Role:         defaultConfig.FlagRole,
