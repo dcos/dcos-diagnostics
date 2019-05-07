@@ -41,12 +41,13 @@ type BulkResponse struct {
 
 // Fetcher is a struct responsible for fetching nodes endpoints
 type Fetcher struct {
-	file          *os.File
-	client        *http.Client
-	endpoints     <-chan EndpointRequest
-	statusUpdate  chan<- StatusUpdate
-	results       chan<- BulkResponse
-	prometheusVec prometheus.ObserverVec
+	file         *os.File
+	client       *http.Client
+	endpoints    <-chan EndpointRequest
+	statusUpdate chan<- StatusUpdate
+	results      chan<- BulkResponse
+	// This vector is used to collect the HTTP response times of all endpoints.
+	prometheusVector prometheus.ObserverVec
 }
 
 // New creates new Fetcher. Fetcher needs to be started with Run()
@@ -56,14 +57,14 @@ func New(
 	input <-chan EndpointRequest,
 	statusUpdate chan<- StatusUpdate,
 	output chan<- BulkResponse,
-	prometheusVec prometheus.ObserverVec,
+	prometheusVector prometheus.ObserverVec,
 ) (*Fetcher, error) {
 	f, err := ioutil.TempFile(tempdir, "")
 	if err != nil {
 		return nil, fmt.Errorf("could not create temp zip file in %s: %s", tempdir, err)
 	}
 
-	fetcher := &Fetcher{f, client, input, statusUpdate, output, prometheusVec}
+	fetcher := &Fetcher{f, client, input, statusUpdate, output, prometheusVector}
 
 	return fetcher, nil
 }
@@ -125,7 +126,7 @@ func (f *Fetcher) getDataToZip(ctx context.Context, r EndpointRequest, zipWriter
 	}
 
 	duration := time.Since(start)
-	f.prometheusVec.WithLabelValues(resp.Request.URL.Path, strconv.Itoa(resp.StatusCode)).Observe(duration.Seconds())
+	f.prometheusVector.WithLabelValues(resp.Request.URL.Path, strconv.Itoa(resp.StatusCode)).Observe(duration.Seconds())
 
 	defer resp.Body.Close()
 	if resp.Header.Get("Content-Encoding") == "gzip" {
