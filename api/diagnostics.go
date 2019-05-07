@@ -67,7 +67,8 @@ type DiagnosticsJob struct {
 	JobEnded              time.Time
 	JobDuration           time.Duration
 	JobProgressPercentage float32
-	fetchVec              prometheus.ObserverVec
+	// This vector is used to collect the HTTP response times of all endpoints.
+	FetchPrometheusVector prometheus.ObserverVec
 }
 
 type logProviders struct {
@@ -313,7 +314,7 @@ func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.
 
 	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
 	for i := 0; i < numberOfWorkers; i++ {
-		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse, j.fetchVec)
+		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse, j.FetchPrometheusVector)
 		if err != nil {
 			return nil, fmt.Errorf("could not start fetchers: %s", err)
 		}

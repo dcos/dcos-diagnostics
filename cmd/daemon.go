@@ -22,6 +22,8 @@ import (
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -139,6 +141,10 @@ func startDiagnosticsDaemon() {
 		Transport: tr,
 		Cfg:       defaultConfig,
 		DCOSTools: DCOSTools,
+		FetchPrometheusVector: promauto.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "fetch_endpoint_time_seconds",
+			Help: "Time taken fetch single endpoint",
+		}, []string{"path", "statusCode"}),
 	}
 
 	err = diagnosticsJob.Init()

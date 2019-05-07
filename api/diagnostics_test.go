@@ -421,7 +421,7 @@ func TestGetStatusWhenJobIsRunning(t *testing.T) {
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
-		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, fetchVec: mockHistogram},
+		DtDiagnosticsJob: &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, FetchPrometheusVector: mockHistogram},
 		MR:               &MonitoringResponse{},
 	}
 
@@ -479,7 +479,7 @@ func TestCreateBundle(t *testing.T) {
 	})).Once()
 	mockHistogram := &mocks.MockHistogram{}
 	mockHistogram.On("WithLabelValues", "/ping", "200").Return(mockObs).Once()
-	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, fetchVec: mockHistogram}
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, FetchPrometheusVector: mockHistogram}
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
