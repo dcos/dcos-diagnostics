@@ -1,0 +1,193 @@
+FORMAT: 1A
+HOST: http://master.dcos.io:1050/system/health/v1
+
+# dcos-diagnostics 
+
+## Diagnostics Bundles [/system/health/v1]
+
+### List All Bundles [GET /report/diagnostics]
+
+Get list of all bundles and their state
+
++ Response 200 (application/json)
+
+        [
+            {
+                "uui": "123e4567-e89b-12d3-a456-426655440000",
+                "started_at": "2015-08-05T08:40:51.620Z",
+                "stoped_at": "2015-08-05T08:40:51.620Z",
+                "size": 64,
+                "status": "DONE"
+            }
+        ]
+
+### Create a New Bundle [PUT /report/diagnostics/{uuid}]
+
+The `LOCAL` bundle can be created at any node when dcos-diagnostics is running. 
+The special case is when user specify `REMOTE` type.
+This works only on masters and means the budnle will be creaded on selected nodes.
+
++ Parameters
+    + uuid - an identifier of a new bundle
+
++ Request (application/json)
+
+        {
+            "type": "REMOTE",
+            "nodes": ["node1", "node2", "node3"]
+        }
+
++ Response 202 (application/json)
+
+    The bundle is accepted. This means master nodes is sending requests to remote nodes asking them for a bundle.
+
+    + Headers
+
+            Location: /report/diagnostics/{uuid}
+
+    + Body
+
+            {
+                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "started_at": "2015-08-05T08:40:51.620Z",
+                "size": 0,
+                "status": "STARTED"
+            }
+            
++ Response 200 (application/json)
+
+    Bundle with given uuid was already started
+
+    + Body
+
+            {
+                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "started_at": "2015-08-05T08:40:51.620Z",
+                "stoped_at": "2015-08-05T08:40:51.620Z",
+                "size": 64,
+                "status": "DONE"
+            }
+
++ Response 409 (application/json)
+
+    Another bundle is already in progress
+    
+    + Body
+        
+            {
+                "error": "another bundle is in progress",
+            }
+        
+### Delete a Bundle [DELETE /report/diagnostics/{uuid}]
+
+When bundle exists and is `DONE` it delete the bundle file.
+If bundle was already `DELETED` is does not change it state.
+
++ Parameters
+    + uuid - an identifier of a new bundle
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "started_at": "2015-08-05T08:40:51.620Z",
+                "stoped_at": "2015-08-05T08:40:51.620Z",
+                "size": 0,
+                "status": "DELETED"
+            }
+            
++ Response 304 (application/json)
+
+    Bundle with given uuid was already deleted or canceled
+    
+    + Body
+
++ Response 404 (application/json)
+
+    Bundle with given uuid never existed
+    
+    + Body
+    
+            {
+                "error": "bundle wtih {uuid} does not exist",
+            }
+    
+### Cancel a Bundle [DELETE /report/diagnostics/{uuid}]
+        
+When bundle is in progress (`STARTED`, `PROCESSING`) it cancel bundle creation and remove all intermidiete files.
+If bundle was already `CANCELED` is does not change it state.
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "started_at": "2015-08-05T08:40:51.620Z",
+                "stoped_at": "2015-08-05T08:40:51.620Z",
+                "size": 0,
+                "status": "CANCELED"
+            }
+
++ Response 304 (application/json)
+
+    Bundle with given uuid was already deleted or canceled
+    
+    + Body
+
++ Response 404 (application/json)
+
+    Bundle with given uuid never existed
+    
+    + Body
+    
+            {
+                "error": "bundle wtih {uuid} does not exist",
+            }        
+
+            
+### Get a Bundle status [GET /report/diagnostics/{uuid}]
+
+Get status of a signle bundle `uuid`
+
++ Parameters
+    + uuid - an identifier of a new bundle
+
++ Response 200 (application/json)
+
+    + Body
+
+            {
+                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "started_at": "2015-08-05T08:40:51.620Z",
+                "stoped_at": "2015-08-05T08:40:51.620Z",
+                "size": 0,
+                "status": "IN_PROGRES"
+                "content": "/system/health/v1/report/diagnostics/123e4567-e89b-12d3-a456-426655440001/file"
+            }
+            
++ Response 404 (application/json)
+
+    Bundle with given uuid never existed
+    
+    + Headers
+
+            Location: /report/diagnostics
+
+### Get a Bundle file [GET /report/diagnostics/{uuid}/file]
+
+Get content of a bundle with given `uuid`
+
++ Parameters
+    + uuid - an identifier of a new bundle
+
+            
++ Response 404 (application/json)
+
+    Bundle with given uuid never existed
+    
+    + Headers
+
+            Location: /report/diagnostics
