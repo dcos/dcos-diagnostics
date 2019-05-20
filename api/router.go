@@ -13,7 +13,11 @@ import (
 )
 
 // baseRoute a base dcos-diagnostics endpoint location.
+// See: https://github.com/dcos/dcos/blob/5108a310d33084e852b6a9d6f122c02b861e4b97/packages/adminrouter/extra/src/docs/api/nginx.agent.yaml#L56-L62
 const baseRoute string = "/system/health/v1"
+
+// CRUD endpoint for diagnostics files
+const reportDiagnostics = "/diagnostics"
 
 type routeHandler struct {
 	url                 string
@@ -86,6 +90,8 @@ func getRoutes(dt *Dt) []routeHandler {
 		systemdUnits:       dt.SystemdUnits,
 		monitoringResponse: dt.MR,
 	}
+	bh := bundleHandler{}
+
 	routes := []routeHandler{
 		{
 			// /system/health/v1
@@ -177,6 +183,34 @@ func getRoutes(dt *Dt) []routeHandler {
 			},
 			gzip: true,
 		},
+		//---------------------------------------------------------------------
+		// 					V2 REST API for bundles CRUD
+		{
+			url:     baseRoute + reportDiagnostics + "/{uuid}",
+			handler: bh.create,
+			methods: []string{"PUT"},
+		},
+		{
+			url:     baseRoute + reportDiagnostics + "/{uuid}",
+			handler: bh.delete,
+			methods: []string{"DELETE"},
+		},
+		{
+			url:     baseRoute + reportDiagnostics,
+			handler: bh.list,
+			methods: []string{"GET"},
+		},
+		{
+			url:     baseRoute + reportDiagnostics + "/{uuid}",
+			handler: bh.get,
+			methods: []string{"GET"},
+		},
+		{
+			url:     baseRoute + reportDiagnostics + "/{uuid}/file",
+			handler: bh.getFile,
+			methods: []string{"GET"},
+		},
+		//---------------------------------------------------------------------
 		{
 			// /system/health/v1/report/diagnostics
 			url:     baseRoute + "/report/diagnostics/create",
