@@ -12,21 +12,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Status int
-
+// work dir contains only directories, each dir is created for single bundle (id is its name) and should contains:
 const (
-	Unknown    Status = iota // No information about this bundle
-	Started                  // Diagnostics is preparing
-	InProgress               // Diagnostics in progress
-	Done                     // Diagnostics finished and the file is ready to be downloaded
-	Canceled                 // Diagnostics has been cancelled
-	Deleted                  // Diagnostics was finished but was deleted
+	stateFileName = "state.json" // file with information about diagnostics run
+	dataFileName  = "file.zip"   // data gathered by diagnostics
 )
 
 type Bundle struct {
 	ID      string    `json:"id,omitempty"`
 	Size    int64     `json:"size,omitempty"` // length in bytes for regular files; 0 when Canceled or Deleted
-	Status  Status    `json:"status,omitempty"`
+	Status  Status    `json:"status"`
 	Started time.Time `json:"started_at,omitempty"`
 	Stopped time.Time `json:"stopped_at,omitempty"`
 }
@@ -60,12 +55,6 @@ func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not read work dir: %s", err))
 	}
 
-	// work dir contains only directories, each dir is created for single bundle (id is its name) and should contains:
-	const (
-		stateFileName = "state.json" // file with information about diagnostics run
-		dataFileName  = "file.zip"   // data gathered by diagnostics
-	)
-
 	bundles := make([]*Bundle, 0, len(ids))
 
 	for _, id := range ids {
@@ -88,6 +77,7 @@ func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
 
 		err = json.Unmarshal(rawState, &bundle)
 		if err != nil {
+			logrus.WithError(err).WithField("ID", bundle.ID).Errorf("Could not unmarshal state file")
 			continue
 		}
 

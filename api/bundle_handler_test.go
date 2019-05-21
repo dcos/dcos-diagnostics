@@ -77,7 +77,7 @@ func TestIfDirsAsBundlesIdsWithStatusUnknown(t *testing.T) {
 	workdir, err := ioutil.TempDir("", "work-dir")
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
-		err = os.Mkdir(filepath.Join(workdir, fmt.Sprintf("bundle-%d", i)), 0600)
+		err = os.Mkdir(filepath.Join(workdir, fmt.Sprintf("bundle-%d", i)), 0700)
 		require.NoError(t, err)
 	}
 
@@ -96,17 +96,56 @@ func TestIfDirsAsBundlesIdsWithStatusUnknown(t *testing.T) {
 	assert.JSONEq(t, `[
 	{
 	    "id":"bundle-0",
+		"status": "Unknown",
 	    "started_at":"0001-01-01T00:00:00Z",
 	    "stopped_at":"0001-01-01T00:00:00Z"
 	},
 	{
     	"id":"bundle-1",
+		"status": "Unknown",
 	    "started_at":"0001-01-01T00:00:00Z",
 	    "stopped_at":"0001-01-01T00:00:00Z"
   	},
   	{
 	    "id":"bundle-2",
+		"status": "Unknown",
 	    "started_at":"0001-01-01T00:00:00Z",
 	    "stopped_at":"0001-01-01T00:00:00Z"
   	}]`, rr.Body.String())
+}
+
+func TestIfShowsStatusWithoutAFile(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
+		[]byte(`{
+		"id": "bundle",
+		"status": "Deleted",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`), 0600)
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(bh.list)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	assert.JSONEq(t, `[{
+		"id": "bundle",
+		"status": "Deleted",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z"
+	}]`, rr.Body.String())
 }
