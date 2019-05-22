@@ -85,13 +85,7 @@ func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		dataFile, err := os.Open(filepath.Join(h.workDir, id.Name(), dataFileName))
-		if err != nil {
-			bundle.Status = Unknown
-			continue
-		}
-
-		dataFileStat, err := dataFile.Stat()
+		dataFileStat, err := os.Stat(filepath.Join(h.workDir, id.Name(), dataFileName))
 		if err != nil {
 			bundle.Status = Unknown
 			continue

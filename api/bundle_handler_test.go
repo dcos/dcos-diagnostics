@@ -149,3 +149,84 @@ func TestIfShowsStatusWithoutAFile(t *testing.T) {
 		"stopped_at":"2019-05-21T00:00:00Z"
 	}]`, rr.Body.String())
 }
+
+func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
+		[]byte(`{
+		"id": "bundle",
+		"status": "Done",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`), 0600)
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(bh.list)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	assert.JSONEq(t, `[{
+		"id": "bundle",
+		"status": "Unknown",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z"
+	}]`, rr.Body.String())
+}
+
+func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	err = ioutil.WriteFile(stateFilePath,
+		[]byte(`{
+		"id": "bundle",
+		"status": "Done",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`), 0600)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName), []byte(`OK`), 0600)
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(bh.list)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	expectedState := `{
+		"id": "bundle",
+		"status": "Done",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z",
+		"size": 2
+	}`
+
+	assert.JSONEq(t, "["+expectedState+"]", rr.Body.String())
+
+	newState, err := ioutil.ReadFile(stateFilePath)
+	assert.JSONEq(t, expectedState, string(newState))
+}

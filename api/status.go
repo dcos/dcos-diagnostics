@@ -16,8 +16,8 @@ const (
 	Deleted                  // Diagnostics was finished but was deleted
 )
 
-func (s *Status) String() string {
-	return toString[*s]
+func (s Status) String() string {
+	return toString[s]
 }
 
 var toString = map[Status]string{
@@ -39,9 +39,9 @@ var toID = map[string]Status{
 }
 
 // MarshalJSON marshals the enum as a quoted json string
-func (s *Status) MarshalJSON() ([]byte, error) {
+func (s Status) MarshalJSON() ([]byte, error) {
 	buffer := bytes.NewBufferString(`"`)
-	buffer.WriteString(toString[*s])
+	buffer.WriteString(toString[s])
 	buffer.WriteString(`"`)
 	return buffer.Bytes(), nil
 }
