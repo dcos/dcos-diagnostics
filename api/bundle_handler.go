@@ -43,11 +43,24 @@ func (h bundleHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bundleHandler) get(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["uuid"]
 
+	bundle, err := h.getBundleState(id)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle not found: %s", err))
+		return
+	}
+
+	body := jsonMarshal(bundle)
+	write(w, body)
 }
 
 func (h bundleHandler) getFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["uuid"]
 
+	http.ServeFile(w, r, filepath.Join(h.workDir, id, dataFileName))
 }
 
 func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
@@ -56,66 +69,64 @@ func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not read work dir: %s", err))
 	}
 
-	bundles := make([]*Bundle, 0, len(ids))
+	bundles := make([]Bundle, 0, len(ids))
 
 	for _, id := range ids {
 		if !id.IsDir() {
 			continue
 		}
 
-		bundle := Bundle{
-			ID:     id.Name(),
-			Status: Unknown,
-		}
-
-		bundles = append(bundles, &bundle)
-
-		stateFilePath := filepath.Join(h.workDir, id.Name(), stateFileName)
-		rawState, err := ioutil.ReadFile(stateFilePath)
+		bundle, err := h.getBundleState(id.Name())
 		if err != nil {
-			continue
+			logrus.WithField("ID", id.Name()).WithError(err).Warn("There is a problem with bundle")
 		}
+		bundles = append(bundles, bundle)
 
-		err = json.Unmarshal(rawState, &bundle)
-		if err != nil {
-			logrus.WithError(err).WithField("ID", bundle.ID).Errorf("Could not unmarshal state file")
-			continue
-		}
-
-		if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown {
-			continue
-		}
-
-		dataFileStat, err := os.Stat(filepath.Join(h.workDir, id.Name(), dataFileName))
-		if err != nil {
-			bundle.Status = Unknown
-			continue
-		}
-
-		if bundle.Size != dataFileStat.Size() {
-			bundle.Size = dataFileStat.Size()
-			// Update status files
-			bundleStatus, err := json.Marshal(bundle)
-			if err != nil {
-				continue
-			}
-			err = ioutil.WriteFile(stateFilePath, bundleStatus, 0644)
-			if err != nil {
-				continue
-			}
-		}
 	}
 
-	body, err := json.Marshal(bundles)
+	body := jsonMarshal(bundles)
+
+	write(w, body)
+}
+
+func (h bundleHandler) getBundleState(id string) (Bundle, error) {
+	bundle := Bundle{
+		ID:     id,
+		Status: Unknown,
+	}
+
+	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
+	rawState, err := ioutil.ReadFile(stateFilePath)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("could not marshal response: %s", err))
-		return
+		return bundle, fmt.Errorf("could not read state file for bundle %s: %s", id, err)
 	}
 
-	_, err = w.Write(body)
+	err = json.Unmarshal(rawState, &bundle)
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not write response: %s", err)
+		return bundle, fmt.Errorf("could not unmarshal state file %s: %s", id, err)
 	}
+
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown {
+		return bundle, nil
+	}
+
+	dataFileStat, err := os.Stat(filepath.Join(h.workDir, id, dataFileName))
+	if err != nil {
+		bundle.Status = Unknown
+		return bundle, fmt.Errorf("could not stat data file %s: %s", id, err)
+	}
+
+	if bundle.Size != dataFileStat.Size() {
+		bundle.Size = dataFileStat.Size()
+		// Update status files
+		bundleStatus := jsonMarshal(bundle)
+		err = ioutil.WriteFile(stateFilePath, bundleStatus, 0644)
+		if err != nil {
+			return bundle, fmt.Errorf("could not update state file %s: %s", id, err)
+		}
+	}
+
+	return bundle, nil
 }
 
 func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
@@ -140,12 +151,11 @@ func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
 
 	if bundle.Status == Deleted || bundle.Status == Canceled {
 		w.WriteHeader(http.StatusNotModified)
-		_, err := w.Write(rawState)
-		if err != nil {
-			logrus.WithError(err).Errorf("Could not write response: %s", err)
-		}
+		write(w, rawState)
 		return
 	}
+
+	//TODO(janisz): Handle Canceled Status
 
 	err = os.Remove(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {
@@ -154,37 +164,42 @@ func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bundle.Status = Deleted
-	newRawState, err := json.Marshal(bundle)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError,
-			fmt.Errorf("bundle %s was deleted but state could not be updated: %s", id, err))
-		return
-	}
+	newRawState := jsonMarshal(bundle)
 	err = ioutil.WriteFile(stateFilePath, newRawState, 0644)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError,
 			fmt.Errorf("bundle %s was deleted but state could not be updated: %s", id, err))
 		return
 	}
-	_, err = w.Write(newRawState)
-	if err != nil {
-		logrus.WithError(err).Errorf("Could not write response: %s", err)
-	}
-
+	write(w, newRawState)
 }
 
 func writeJSONError(w http.ResponseWriter, code int, e error) {
 	resp := ErrorResponse{Code: code, Error: e.Error()}
-	body, err := json.Marshal(resp)
+	body := jsonMarshal(resp)
+
+	if e != nil {
+		logrus.WithError(e).Errorf("Could not parse response: %s", e)
+	}
 
 	w.WriteHeader(code)
+	write(w, body)
+}
+
+func write(w http.ResponseWriter, body []byte) {
+	_, err := w.Write(body)
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not write response")
+	}
+}
+
+// jsonMarshal is a replacement for json.Marshal when we are 100% sure
+// there won't be any error on marshaling.
+func jsonMarshal(v interface{}) []byte {
+	rawJson, err := json.Marshal(v)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not parse response: %s", e)
+		logrus.WithError(err).Errorf("Could not marshal %v: %s", v, err)
 	}
-
-	_, err = w.Write(body)
-	if err != nil {
-		logrus.WithError(err).Errorf("Could not write response: %s", e)
-	}
+	return rawJson
 }

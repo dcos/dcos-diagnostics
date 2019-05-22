@@ -115,7 +115,7 @@ func TestIfDirsAsBundlesIdsWithStatusUnknown(t *testing.T) {
   	}]`, rr.Body.String())
 }
 
-func TestIfShowsStatusWithoutAFile(t *testing.T) {
+func TestIfListShowsStatusWithoutAFile(t *testing.T) {
 
 	workdir, err := ioutil.TempDir("", "work-dir")
 	require.NoError(t, err)
@@ -230,6 +230,98 @@ func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
 
 	newState, err := ioutil.ReadFile(stateFilePath)
 	assert.JSONEq(t, expectedState, string(newState))
+}
+
+func TestIfGetShowsStatusWithoutAFileWhenBundleIsDeleted(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
+		[]byte(`{
+		"id": "bundle",
+		"status": "Deleted",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`), 0600)
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", bundlesEndpoint + "/bundle", nil)
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.get)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	assert.JSONEq(t, `{
+		"id": "bundle",
+		"status": "Deleted",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z"
+	}`, rr.Body.String())
+}
+
+func TestIfGetShowsStatusWithoutAFileWhenBundleIsDone(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
+		[]byte(`{
+		"id": "bundle",
+		"status": "Done",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`), 0600)
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", bundlesEndpoint + "/bundle", nil)
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.get)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	assert.True(t, strings.HasPrefix(rr.Body.String(),
+		`{"code":404,"error":"bundle not found: could not stat data file bundle: `), rr.Body.String())
+
+}
+
+func TestIfGetReturns404WhenBundleStateIsNotJson(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle-state-not-json")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	err = ioutil.WriteFile(stateFilePath,
+		[]byte(`invalid JSON`), 0600)
+	require.NoError(t, err)
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", bundlesEndpoint + "/bundle-state-not-json", nil)
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.get)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.True(t, strings.HasPrefix(rr.Body.String(), `{"code":404,"error":"bundle not found: could not unmarshal state file bundle-state-not-json:`), rr.Body.String())
 }
 
 func TestIfDeleteReturns404WhenNoBundleFound(t *testing.T) {
@@ -399,4 +491,52 @@ func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
 		"size": 2,
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z" }`, rr.Body.String())
+}
+
+func TestIfGetFileReturnsBundle(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName),
+		[]byte(`OK`), 0600)
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", bundlesEndpoint + "/bundle", nil)
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.getFile)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "OK", rr.Body.String())
+
+}
+
+func TestIfGetFileReturnsErrorWhenBundleDoesNotExists(t *testing.T) {
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("GET", bundlesEndpoint + "/bundle", nil)
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.getFile)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, "404 page not found\n", rr.Body.String())
+
 }
