@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,7 @@ import (
 func TestIfReturns507ForNotExistingDir(t *testing.T) {
 	bh := bundleHandler{workDir: "not existing dir"}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -37,7 +38,7 @@ func TestIfReturnsEmptyListWhenDirIsEmpty(t *testing.T) {
 
 	bh := bundleHandler{workDir: workdir}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -59,7 +60,7 @@ func TestIfReturnsEmptyListWhenDirIsEmptyContainsNoDirs(t *testing.T) {
 
 	bh := bundleHandler{workDir: workdir}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -83,7 +84,7 @@ func TestIfDirsAsBundlesIdsWithStatusUnknown(t *testing.T) {
 
 	bh := bundleHandler{workDir: workdir}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -132,7 +133,7 @@ func TestIfShowsStatusWithoutAFile(t *testing.T) {
 
 	bh := bundleHandler{workDir: workdir}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -168,7 +169,7 @@ func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *te
 
 	bh := bundleHandler{workDir: workdir}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -207,7 +208,7 @@ func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
 
 	bh := bundleHandler{workDir: workdir}
 
-	req, err := http.NewRequest("GET", baseRoute+reportDiagnostics, nil)
+	req, err := http.NewRequest("GET", bundlesEndpoint, nil)
 	require.NoError(t, err)
 
 	handler := http.HandlerFunc(bh.list)
@@ -229,4 +230,173 @@ func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
 
 	newState, err := ioutil.ReadFile(stateFilePath)
 	assert.JSONEq(t, expectedState, string(newState))
+}
+
+func TestIfDeleteReturns404WhenNoBundleFound(t *testing.T) {
+
+	bh := bundleHandler{}
+
+	req, err := http.NewRequest("DELETE", bundlesEndpoint + "/not-existing-bundle", nil)
+	require.NoError(t, err)
+
+
+	// Need to create a router that we can pass the request through so that the vars will be added to the context
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.delete)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.True(t, strings.HasPrefix(rr.Body.String(), `{"code":404,"error":"could not find bundle not-existing-bundle: `), rr.Body.String())
+
+}
+
+func TestIfDeleteReturns404WhenNoBundleStateFound(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "not-existing-bundle-state")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("DELETE", bundlesEndpoint + "/not-existing-bundle-state", nil)
+	require.NoError(t, err)
+
+
+	// Need to create a router that we can pass the request through so that the vars will be added to the context
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.delete)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.True(t, strings.HasPrefix(rr.Body.String(), `{"code":404,"error":"could not find bundle not-existing-bundle-state: `), rr.Body.String())
+}
+
+func TestIfDeleteReturns404WhenBundleStateIsNotJson(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle-state-not-json")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	err = ioutil.WriteFile(stateFilePath,
+		[]byte(`invalid JSON`), 0600)
+	require.NoError(t, err)
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("DELETE", bundlesEndpoint + "/bundle-state-not-json", nil)
+	require.NoError(t, err)
+
+
+	// Need to create a router that we can pass the request through so that the vars will be added to the context
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.delete)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.True(t, strings.HasPrefix(rr.Body.String(), `{"code":404,"error":"could not find bundle bundle-state-not-json: `), rr.Body.String())
+}
+
+func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "deleted-bundle")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	bundleState := `{
+		"id": "bundle",
+		"status": "Deleted",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`
+	err = ioutil.WriteFile(stateFilePath, []byte(bundleState), 0600)
+	require.NoError(t, err)
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("DELETE", bundlesEndpoint + "/deleted-bundle", nil)
+	require.NoError(t, err)
+
+
+	// Need to create a router that we can pass the request through so that the vars will be added to the context
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.delete)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotModified, rr.Code)
+	assert.JSONEq(t, bundleState, rr.Body.String())
+}
+
+func TestIfDeleteReturns500WhenBundleCouldNotBeDeleted(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "missing-data-file")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	err = ioutil.WriteFile(stateFilePath, []byte((`{
+		"id": "bundle",
+		"status": "Done",
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`)), 0600)
+	require.NoError(t, err)
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("DELETE", bundlesEndpoint + "/missing-data-file", nil)
+	require.NoError(t, err)
+
+
+	// Need to create a router that we can pass the request through so that the vars will be added to the context
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.delete)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.True(t, strings.HasPrefix(rr.Body.String(), `{"code":500,"error":"could not delete bundle missing-data-file: `), rr.Body.String())
+}
+
+func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	bundleWorkDir := filepath.Join(workdir, "bundle-0")
+	err = os.Mkdir(bundleWorkDir, 0700)
+	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	err = ioutil.WriteFile(stateFilePath, []byte((`{
+		"id": "bundle-0",
+		"status": "Done",
+		"size": 2,
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`)), 0600)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName), []byte(`OK`), 0600)
+	require.NoError(t, err)
+
+	bh := bundleHandler{workDir: workdir}
+
+	req, err := http.NewRequest("DELETE", bundlesEndpoint + "/bundle-0", nil)
+	require.NoError(t, err)
+
+
+	// Need to create a router that we can pass the request through so that the vars will be added to the context
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.delete)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.JSONEq(t, `{
+		"id": "bundle-0",
+		"status": "Deleted",
+		"size": 2,
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z" }`, rr.Body.String())
 }

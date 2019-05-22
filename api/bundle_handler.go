@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -118,6 +119,57 @@ func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["uuid"]
+	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
+	rawState, err := ioutil.ReadFile(stateFilePath)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("could not find bundle %s: %s", id, err))
+		return
+	}
+
+	bundle := Bundle{
+		ID:     id,
+		Status: Unknown,
+	}
+	err = json.Unmarshal(rawState, &bundle)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("could not find bundle %s: %s", id, err))
+		return
+	}
+
+	if bundle.Status == Deleted || bundle.Status == Canceled {
+		w.WriteHeader(http.StatusNotModified)
+		_, err := w.Write(rawState)
+		if err != nil {
+			logrus.WithError(err).Errorf("Could not write response: %s", err)
+		}
+		return
+	}
+
+	err = os.Remove(filepath.Join(h.workDir, id, dataFileName))
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("could not delete bundle %s: %s", id, err))
+		return
+	}
+
+	bundle.Status = Deleted
+	newRawState, err := json.Marshal(bundle)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError,
+			fmt.Errorf("bundle %s was deleted but state could not be updated: %s", id, err))
+		return
+	}
+	err = ioutil.WriteFile(stateFilePath, newRawState, 0644)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError,
+			fmt.Errorf("bundle %s was deleted but state could not be updated: %s", id, err))
+		return
+	}
+	_, err = w.Write(newRawState)
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not write response: %s", err)
+	}
 
 }
 

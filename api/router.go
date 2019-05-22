@@ -16,8 +16,12 @@ import (
 // See: https://github.com/dcos/dcos/blob/5108a310d33084e852b6a9d6f122c02b861e4b97/packages/adminrouter/extra/src/docs/api/nginx.agent.yaml#L56-L62
 const baseRoute string = "/system/health/v1"
 
-// CRUD endpoint for diagnostics files
-const reportDiagnostics = "/diagnostics"
+// Edpoint for listing all bundles
+const bundlesEndpoint = baseRoute + "/diagnostics"
+// CRUD endpoint for diagnostics bundle files
+const bundleEndpoint = bundlesEndpoint + "/{uuid}"
+// Endpoint to download bundle file
+const bundleFileEndpoint = bundleEndpoint + "/file"
 
 type routeHandler struct {
 	url                 string
@@ -186,27 +190,27 @@ func getRoutes(dt *Dt) []routeHandler {
 		//---------------------------------------------------------------------
 		// 					V2 REST API for bundles CRUD
 		{
-			url:     baseRoute + reportDiagnostics + "/{uuid}",
+			url:     bundleEndpoint,
 			handler: bh.create,
 			methods: []string{"PUT"},
 		},
 		{
-			url:     baseRoute + reportDiagnostics + "/{uuid}",
+			url:     bundleEndpoint,
 			handler: bh.delete,
 			methods: []string{"DELETE"},
 		},
 		{
-			url:     baseRoute + reportDiagnostics,
+			url:     bundlesEndpoint,
 			handler: bh.list,
 			methods: []string{"GET"},
 		},
 		{
-			url:     baseRoute + reportDiagnostics + "/{uuid}",
+			url:     bundleEndpoint,
 			handler: bh.get,
 			methods: []string{"GET"},
 		},
 		{
-			url:     baseRoute + reportDiagnostics + "/{uuid}/file",
+			url:     bundleFileEndpoint,
 			handler: bh.getFile,
 			methods: []string{"GET"},
 		},
