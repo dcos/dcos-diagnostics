@@ -3,12 +3,13 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/gorilla/mux"
 
 	"github.com/sirupsen/logrus"
 )
@@ -17,6 +18,8 @@ import (
 const (
 	stateFileName = "state.json" // file with information about diagnostics run
 	dataFileName  = "file.zip"   // data gathered by diagnostics
+	filePerm      = 0600
+	dirPerm       = 0700
 )
 
 type Bundle struct {
@@ -32,13 +35,49 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+type Clock interface {
+	Now() time.Time
+}
+
 // bundleHandler is a struct that collects all functions
 // responsible for diagnostics bundle lifecycle
 type bundleHandler struct {
-	workDir string // location where bundles are generated and stored
+	clock     Clock
+	workDir   string       // location where bundles are generated and stored
+	providers logProviders // information what should be in the bundle
 }
 
 func (h bundleHandler) create(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["uuid"]
+
+	_, err := h.getBundleState(id)
+	if err == nil {
+		writeJSONError(w, http.StatusConflict, fmt.Errorf("bundle %s already exists", id))
+		return
+	}
+
+	bundleWorkDir := filepath.Join(h.workDir, id)
+	err = os.Mkdir(bundleWorkDir, dirPerm)
+	if err != nil {
+		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create bundle %s workdir: %s", id, err))
+		return
+	}
+
+	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
+
+	bundle := Bundle{
+		ID:      id,
+		Started: h.clock.Now(),
+		Status:  Started,
+	}
+
+	bundleStatus := jsonMarshal(bundle)
+	err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
+	if err != nil {
+		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not update state file %s: %s", id, err))
+		return
+	}
 
 }
 
@@ -120,7 +159,7 @@ func (h bundleHandler) getBundleState(id string) (Bundle, error) {
 		bundle.Size = dataFileStat.Size()
 		// Update status files
 		bundleStatus := jsonMarshal(bundle)
-		err = ioutil.WriteFile(stateFilePath, bundleStatus, 0644)
+		err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
 		if err != nil {
 			return bundle, fmt.Errorf("could not update state file %s: %s", id, err)
 		}
@@ -165,7 +204,7 @@ func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
 
 	bundle.Status = Deleted
 	newRawState := jsonMarshal(bundle)
-	err = ioutil.WriteFile(stateFilePath, newRawState, 0644)
+	err = ioutil.WriteFile(stateFilePath, newRawState, filePerm)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError,
 			fmt.Errorf("bundle %s was deleted but state could not be updated: %s", id, err))
