@@ -1,10 +1,11 @@
-package api
+package rest
 
 import (
 	"bytes"
 	"encoding/json"
 )
 
+// Status represents an bundle status
 type Status int
 
 const (

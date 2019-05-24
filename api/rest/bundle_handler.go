@@ -1,8 +1,9 @@
-package api
+package rest
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dcos/dcos-diagnostics/api"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -43,8 +44,8 @@ type Clock interface {
 // responsible for diagnostics bundle lifecycle
 type bundleHandler struct {
 	clock     Clock
-	workDir   string       // location where bundles are generated and stored
-	providers logProviders // information what should be in the bundle
+	workDir   string           // location where bundles are generated and stored
+	providers api.LogProviders // information what should be in the bundle
 }
 
 func (h bundleHandler) create(w http.ResponseWriter, r *http.Request) {

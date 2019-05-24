@@ -14,7 +14,7 @@ import (
 	"github.com/dcos/dcos-diagnostics/units"
 )
 
-// Collector is the interface to collect data into a bundle
+// Collector is the interface to abstract data collection from different sources
 type Collector interface {
 	// Name returns the name of this collector
 	Name() string
