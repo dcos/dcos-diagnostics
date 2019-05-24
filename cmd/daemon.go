@@ -20,6 +20,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
+
+	"github.com/dcos/dcos-diagnostics/util"
 
 	"github.com/dcos/dcos-diagnostics/api/rest"
 
@@ -163,7 +166,8 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 
-	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, http.DefaultClient)
+	timeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
+	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, util.NewHTTPClient(timeout, tr))
 	if err != nil {
 		logrus.Fatalf("Could not init collectors properly: %s", err)
 	}

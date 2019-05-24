@@ -83,7 +83,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bundleWorkDir := filepath.Join(h.workDir, id)
-	err = os.Mkdir(bundleWorkDir, dirPerm)
+	err = os.MkdirAll(bundleWorkDir, dirPerm)
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not Create bundle %s workdir: %s", id, err))
 		return

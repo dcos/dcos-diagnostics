@@ -635,7 +635,9 @@ func TestIfCreateReturns507WhenCouldNotCreateWorkDir(t *testing.T) {
 
 func TestIfE2E_(t *testing.T) {
 	workdir, err := ioutil.TempDir("", "work-dir")
-	defer os.RemoveAll(workdir)
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
 
 	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
 	require.NoError(t, err)
