@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/dcos/dcos-diagnostics/collectors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/dcos/dcos-diagnostics/collectors"
 
 	"github.com/gorilla/mux"
 

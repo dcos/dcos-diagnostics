@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/dcos/dcos-diagnostics/collectors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dcos/dcos-diagnostics/collectors"
+
 	"github.com/gorilla/mux"
 
 	"github.com/stretchr/testify/assert"
@@ -23,8 +24,8 @@ import (
 )
 
 const (
-	bundlesEndpoint = "/diagnostics"
-	bundleEndpoint = bundlesEndpoint + "/{uuid}"
+	bundlesEndpoint    = "/diagnostics"
+	bundleEndpoint     = bundlesEndpoint + "/{uuid}"
 	bundleFileEndpoint = bundleEndpoint + "/file"
 )
 
@@ -632,7 +633,6 @@ func TestIfCreateReturns507WhenCouldNotCreateWorkDir(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rr.Body.String(), `{"code":507,"error":"could not Create bundle bundle-0 workdir: `), rr.Body.String())
 }
 
-
 func TestIfE2E_(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
@@ -642,7 +642,7 @@ func TestIfE2E_(t *testing.T) {
 	require.NoError(t, err)
 
 	bh := BundleHandler{
-		clock: &MockClock{now: now},
+		clock:   &MockClock{now: now},
 		workDir: workdir,
 		collectors: []collectors.Collector{
 			MockCollector{name: "collector-1", err: fmt.Errorf("some error")},
@@ -764,8 +764,8 @@ func (m *MockClock) Now() time.Time {
 
 type MockCollector struct {
 	name string
-	rc io.ReadCloser
-	err error
+	rc   io.ReadCloser
+	err  error
 }
 
 func (m MockCollector) Name() string {

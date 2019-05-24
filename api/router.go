@@ -2,10 +2,11 @@ package api
 
 import (
 	"fmt"
-	"github.com/dcos/dcos-diagnostics/api/rest"
 	"net/http"
 	"net/http/pprof"
 	"time"
+
+	"github.com/dcos/dcos-diagnostics/api/rest"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
