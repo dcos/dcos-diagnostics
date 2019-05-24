@@ -40,7 +40,8 @@
   ],
   "LocalFiles": [
     {
-      "Location": "/opt/mesosphere/active.buildinfo.full.json"
+      "Location": "/opt/mesosphere/active.buildinfo.full.json",
+      "Role":["agent", "agent_public"]
     },
     {
       "Location": "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid",

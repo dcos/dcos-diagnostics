@@ -2,6 +2,7 @@ package rest
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/collectors"
@@ -23,8 +25,13 @@ import (
 const (
 	stateFileName = "state.json" // file with information about diagnostics run
 	dataFileName  = "file.zip"   // data gathered by diagnostics
-	filePerm      = 0600
-	dirPerm       = 0700
+
+	//TODO(janisz): Think about removing/replacing summary files with something more structured
+	summaryErrorsReportFileName = "summaryErrorsReport.txt" // error log in bundle
+	summaryReportFileName       = "summaryReport.txt"       // error log in bundle
+
+	filePerm = 0600
+	dirPerm  = 0700
 )
 
 type Bundle struct {
@@ -43,6 +50,18 @@ type ErrorResponse struct {
 
 type Clock interface {
 	Now() time.Time
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time { return time.Now() }
+
+func NewBundleHandler(workDir string, collectors []collectors.Collector) BundleHandler {
+	return BundleHandler{
+		clock:      realClock{},
+		workDir:    workDir,
+		collectors: collectors,
+	}
 }
 
 // BundleHandler is a struct that collects all functions
@@ -91,7 +110,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background() //TODO(janisz): Use context with deadline
-	done := make(chan []error)
+	done := make(chan []string)
 
 	go collectAll(ctx, done, dataFile, h.collectors)
 
@@ -99,10 +118,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-ctx.Done():
 			break
-		case errors := <-done:
-			for _, e := range errors {
-				bundle.Errors = append(bundle.Errors, e.Error())
-			}
+		case bundle.Errors = <-done:
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
 			newBundleStatus := jsonMarshal(bundle)
@@ -116,26 +132,50 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	write(w, bundleStatus)
 }
 
-func collectAll(ctx context.Context, done chan<- []error, dataFile io.WriteCloser, collectors []collectors.Collector) {
+func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collectors.Collector) {
 	zipWriter := zip.NewWriter(dataFile)
-	var errors []error
+	var errors []string
+	// summaryReport is a log of a diagnostics job
+	summaryReport := new(bytes.Buffer)
 
 	for _, c := range collectors {
 		if ctx.Err() != nil {
-			errors = append(errors, ctx.Err())
+			errors = append(errors, ctx.Err().Error())
 			break
 		}
+		summaryReport.WriteString(fmt.Sprintf("[START GET %s]\n", c.Name()))
 		err := collect(ctx, c, zipWriter)
+		summaryReport.WriteString(fmt.Sprintf("[STOP GET %s]\n", c.Name()))
+		if err != nil && !c.Optional() {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	summaryReportFile, err := zipWriter.Create(summaryReportFileName)
+	if err != nil {
+		errors = append(errors, err.Error())
+	} else {
+		if _, err := io.Copy(summaryReportFile, summaryReport); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	if len(errors) != 0 {
+		summaryErrorReportFile, err := zipWriter.Create(summaryErrorsReportFileName)
 		if err != nil {
-			errors = append(errors, err)
+			errors = append(errors, err.Error())
+		} else {
+			if _, err := summaryErrorReportFile.Write([]byte(strings.Join(errors, "\n"))); err != nil {
+				errors = append(errors, err.Error())
+			}
 		}
 	}
 
 	if err := zipWriter.Close(); err != nil {
-		errors = append(errors, err)
+		errors = append(errors, err.Error())
 	}
 	if err := dataFile.Close(); err != nil {
-		errors = append(errors, err)
+		errors = append(errors, err.Error())
 	}
 
 	done <- errors

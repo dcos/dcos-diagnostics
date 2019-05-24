@@ -19,11 +19,21 @@ func TestCmdCollectorIsCollector(t *testing.T) {
 }
 
 func TestCmdCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", CmdCollector{name: "test"}.Name())
+	assert.Equal(t, "test", CmdCollector{
+		NameOptional: NameOptional{Name: "test"},
+	}.Name())
+}
+
+func TestCmdCollector_Optional(t *testing.T) {
+	assert.False(t, CmdCollector{NameOptional: NameOptional{Name: "test"}}.Optional())
+	assert.True(t, CmdCollector{NameOptional: NameOptional{Name: "test", Optional: true}}.Optional())
 }
 
 func TestCmdCollector_Collect(t *testing.T) {
-	c := CmdCollector{name: "echo", cmd: []string{"echo", "OK"}}
+	c := CmdCollector{
+		NameOptional: NameOptional{Name: "echo"},
+		Cmd:          []string{"echo", "OK"},
+	}
 	r, err := c.Collect(context.TODO())
 
 	require.NoError(t, err)
@@ -33,7 +43,10 @@ func TestCmdCollector_Collect(t *testing.T) {
 
 	assert.Equal(t, "OK\n", string(raw))
 
-	c = CmdCollector{name: "unknown", cmd: []string{"unknown", "command"}}
+	c = CmdCollector{
+		NameOptional: NameOptional{Name: "unknown"},
+		Cmd:          []string{"unknown", "command"},
+	}
 	r, err = c.Collect(context.TODO())
 	assert.EqualError(t, err, fmt.Sprintf("exec: \"unknown\": executable file not found in $PATH"))
 
@@ -42,27 +55,29 @@ func TestCmdCollector_Collect(t *testing.T) {
 
 	assert.Empty(t, string(raw))
 }
-func TestSystemdCollectorIsCollector(t *testing.T) {
-	assert.Implements(t, (*Collector)(nil), new(SystemdCollector))
-}
-
-func TestSystemdCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", SystemdCollector{name: "test"}.Name())
-}
 
 func TestEndpointCollectorIsCollector(t *testing.T) {
 	assert.Implements(t, (*Collector)(nil), new(EndpointCollector))
 }
 
 func TestEndpointCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", EndpointCollector{name: "test"}.Name())
+	assert.Equal(t, "test", EndpointCollector{NameOptional: NameOptional{Name: "test"}}.Name())
+}
+
+func TestEndpointCollector_Optional(t *testing.T) {
+	assert.False(t, EndpointCollector{NameOptional: NameOptional{Name: "test"}}.Optional())
+	assert.True(t, EndpointCollector{NameOptional: NameOptional{Name: "test", Optional: true}}.Optional())
 }
 
 func TestEndpointCollector_Collect(t *testing.T) {
 	server, _ := stubServer("/ping", "OK")
 	defer server.Close()
 
-	c := EndpointCollector{name: "ping", url: server.URL + "/ping", client: http.DefaultClient}
+	c := EndpointCollector{
+		NameOptional: NameOptional{Name: "ping"},
+		URL:          server.URL + "/ping",
+		Client:       http.DefaultClient,
+	}
 	r, err := c.Collect(context.TODO())
 
 	require.NoError(t, err)
@@ -72,7 +87,11 @@ func TestEndpointCollector_Collect(t *testing.T) {
 
 	assert.Equal(t, "OK", string(raw))
 
-	c = EndpointCollector{name: "test", url: server.URL + "/test", client: http.DefaultClient}
+	c = EndpointCollector{
+		NameOptional: NameOptional{Name: "test"},
+		URL:          server.URL + "/test",
+		Client:       http.DefaultClient,
+	}
 	r, err = c.Collect(context.TODO())
 
 	assert.EqualError(t, err, fmt.Sprintf("unable to fetch %s. Return code 404. Body: 404 page not found\n", server.URL+"/test"))
@@ -82,7 +101,11 @@ func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
 	server, _ := stubServer("/ping", "OK")
 	defer server.Close()
 
-	c := EndpointCollector{name: "test", url: server.URL + "/test", client: http.DefaultClient}
+	c := EndpointCollector{
+		NameOptional: NameOptional{Name: "test"},
+		URL:          server.URL + "/test",
+		Client:       http.DefaultClient,
+	}
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
@@ -91,7 +114,11 @@ func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
 
 func TestEndpointCollector_CollectShouldReturnErrorWhenNoServer(t *testing.T) {
 	http.DefaultClient.Timeout = time.Millisecond
-	c := EndpointCollector{name: "test", url: "http://192.0.2.0/test", client: http.DefaultClient}
+	c := EndpointCollector{
+		NameOptional: NameOptional{Name: "test"},
+		URL:          "http://192.0.2.0/test",
+		Client:       http.DefaultClient,
+	}
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
@@ -100,7 +127,11 @@ func TestEndpointCollector_CollectShouldReturnErrorWhenNoServer(t *testing.T) {
 
 func TestEndpointCollector_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
 	http.DefaultClient.Timeout = time.Millisecond
-	c := EndpointCollector{name: "test", url: "invalid url", client: http.DefaultClient}
+	c := EndpointCollector{
+		NameOptional: NameOptional{Name: "test"},
+		URL:          "invalid url",
+		Client:       http.DefaultClient,
+	}
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
@@ -136,7 +167,14 @@ func TestFileCollectorIsCollector(t *testing.T) {
 }
 
 func TestFileCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", FileCollector{name: "test"}.Name())
+	assert.Equal(t, "test", FileCollector{
+		NameOptional: NameOptional{Name: "test"},
+	}.Name())
+}
+
+func TestFileCollector_Optional(t *testing.T) {
+	assert.False(t, FileCollector{NameOptional: NameOptional{Name: "test"}}.Optional())
+	assert.True(t, FileCollector{NameOptional: NameOptional{Name: "test", Optional: true}}.Optional())
 }
 
 func TestFileCollector_Collect(t *testing.T) {
@@ -147,8 +185,8 @@ func TestFileCollector_Collect(t *testing.T) {
 	require.NoError(t, err)
 
 	c := FileCollector{
-		name:     "test",
-		filePath: f.Name(),
+		NameOptional: NameOptional{Name: "test"},
+		FilePath:     f.Name(),
 	}
 
 	reader, err := c.Collect(context.Background())
@@ -164,8 +202,8 @@ func TestFileCollector_Collect(t *testing.T) {
 
 func TestFileCollector_CollectNotExistingFile(t *testing.T) {
 	c := FileCollector{
-		name:     "test",
-		filePath: "not-existing-file",
+		NameOptional: NameOptional{Name: "test"},
+		FilePath:     "not-existing-file",
 	}
 
 	reader, err := c.Collect(context.Background())
@@ -181,8 +219,8 @@ func TestFileCollector_CollectContextDont(t *testing.T) {
 	require.NoError(t, err)
 
 	c := FileCollector{
-		name:     "test",
-		filePath: f.Name(),
+		NameOptional: NameOptional{Name: "test"},
+		FilePath:     f.Name(),
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())

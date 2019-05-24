@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
+
+	"github.com/dcos/dcos-diagnostics/collectors"
+	"github.com/dcos/dcos-diagnostics/util"
 
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
@@ -112,4 +117,86 @@ func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tooler) (internalC
 	return LogProviders{
 		HTTPEndpoints: httpEndpoints,
 	}, nil
+}
+
+func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) ([]collectors.Collector, error) {
+	providers, err := loadProviders(cfg, tools)
+	if err != nil {
+		return nil, fmt.Errorf("could not init bundle handler: %s", err)
+	}
+	var coll []collectors.Collector
+
+	role, err := tools.GetNodeRole()
+	if err != nil {
+		return nil, fmt.Errorf("could not get role: %s", err)
+	}
+
+	// set filename if not set, some endpoints might be named e.g., after corresponding unit
+	for _, endpoint := range providers.HTTPEndpoints {
+		if !roleMatched(role, endpoint.Role) {
+			continue
+		}
+
+		fileName := fmt.Sprintf("%d-%s.json", endpoint.Port, util.SanitizeString(endpoint.URI))
+		if endpoint.FileName != "" {
+			fileName = endpoint.FileName
+		}
+		//TODO(janisz): Handle socket-only endpoints e.g., dcos-diagnostics
+		url, err := util.UseTLSScheme(fmt.Sprintf("http://localhost:%d%s", endpoint.Port, endpoint.URI), cfg.FlagForceTLS)
+		if err != nil {
+			return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
+
+		}
+
+		c := collectors.EndpointCollector{
+			NameOptional: collectors.NameOptional{
+				Name:     fileName,
+				Optional: endpoint.Optional,
+			},
+			URL:    url,
+			Client: client, //TODO(janisz): Check if we can use default client
+		}
+		coll = append(coll, c)
+	}
+
+	// trim left "/" and replace all slashes with underscores.
+	for _, fileProvider := range providers.LocalFiles {
+		if !roleMatched(role, fileProvider.Role) {
+			continue
+		}
+
+		key := strings.Replace(strings.TrimLeft(fileProvider.Location, "/"), "/", "_", -1)
+		c := collectors.FileCollector{
+			NameOptional: collectors.NameOptional{
+				Name:     key,
+				Optional: fileProvider.Optional,
+			},
+			FilePath: fileProvider.Location,
+		}
+		coll = append(coll, c)
+	}
+
+	// sanitize command to use as filename
+	for _, commandProvider := range providers.LocalCommands {
+		if !roleMatched(role, commandProvider.Role) {
+			continue
+		}
+
+		cmdWithArgs := strings.Join(commandProvider.Command, "_")
+		trimmedCmdWithArgs := strings.Replace(cmdWithArgs, "/", "", -1)
+		key := fmt.Sprintf("%s.output", trimmedCmdWithArgs)
+		c := collectors.CmdCollector{
+			NameOptional: collectors.NameOptional{
+				Name:     key,
+				Optional: commandProvider.Optional,
+			},
+			Cmd: commandProvider.Command,
+		}
+		coll = append(coll, c)
+
+	}
+
+	//TODO(janisz): Setup systemd units
+
+	return coll, nil
 }

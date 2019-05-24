@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/dcos/dcos-diagnostics/api/rest"
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
 )
@@ -73,6 +74,7 @@ type Dt struct {
 	Cfg               *config.Config
 	DtDCOSTools       dcos.Tooler
 	DtDiagnosticsJob  *DiagnosticsJob
+	BundleHanlder     rest.BundleHandler
 	RunPullerChan     chan bool
 	RunPullerDoneChan chan bool
 	SystemdUnits      *SystemdUnits

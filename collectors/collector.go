@@ -10,66 +10,81 @@ import (
 	"os"
 	"os/exec"
 	"time"
-
-	"github.com/dcos/dcos-diagnostics/units"
 )
 
 // Collector is the interface to abstract data collection from different sources
 type Collector interface {
-	// Name returns the name of this collector
+	// Name returns the Name of this collector
 	Name() string
+	// Optional returns true if Collector is not mandatory and fails should be ignored
+	Optional() bool
 	// Collect returns collected data
 	Collect(ctx context.Context) (io.ReadCloser, error)
 }
 
+type NameOptional struct {
+	Name     string
+	Optional bool
+}
+
 type CmdCollector struct {
-	name string
-	cmd  []string
+	NameOptional
+	Cmd []string
 }
 
 func (c CmdCollector) Name() string {
-	return c.name
+	return c.NameOptional.Name
+}
+
+func (c CmdCollector) Optional() bool {
+	return c.NameOptional.Optional
 }
 
 func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	cmd := exec.CommandContext(ctx, c.cmd[0], c.cmd[1:]...)
+	cmd := exec.CommandContext(ctx, c.Cmd[0], c.Cmd[1:]...)
 	output, err := cmd.CombinedOutput()
 	return ioutil.NopCloser(bytes.NewReader(output)), err
 }
 
-type SystemdCollector struct {
-	name     string
-	unitName string
-	duration time.Duration
-}
-
-func (c SystemdCollector) Name() string {
-	return c.name
-}
-
-func (c SystemdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	return units.ReadJournalOutputSince(ctx, c.unitName, c.duration.String())
-}
+// TODO(janisz): Make use of this code instead of calling dcos-diagnostics for units data
+// See: https://github.com/dcos/dcos-diagnostics/blob/3734e2e03644449500427fb916289c4007dc5106/api/providers.go#L96-L103
+//type SystemdCollector struct {
+//	N        string
+//	UnitName string
+//	Duration time.Duration
+//}
+//
+//func (c SystemdCollector) Name() string {
+//	return c.N
+//}
+//
+//func (c SystemdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
+//	return units.ReadJournalOutputSince(ctx, c.UnitName, c.Duration.String())
+//}
 
 type EndpointCollector struct {
-	name   string
-	client *http.Client
-	url    string
+	NameOptional
+	Client *http.Client
+	URL    string
 }
 
 func (c EndpointCollector) Name() string {
-	return c.name
+	return c.NameOptional.Name
+}
+
+func (c EndpointCollector) Optional() bool {
+	return c.NameOptional.Optional
 }
 
 func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	url := c.url
+	url := c.URL
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a new HTTP request: %s", err)
 	}
 	request = request.WithContext(ctx)
 
-	resp, err := c.client.Do(request)
+	resp, err := c.Client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch url %s: %s", url, err)
 	}
@@ -91,16 +106,20 @@ func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 }
 
 type FileCollector struct {
-	name     string
-	filePath string
+	NameOptional
+	FilePath string
 }
 
 func (c FileCollector) Name() string {
-	return c.name
+	return c.NameOptional.Name
+}
+
+func (c FileCollector) Optional() bool {
+	return c.NameOptional.Optional
 }
 
 func (c FileCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	r, err := os.Open(c.filePath)
+	r, err := os.Open(c.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s: %s", c.Name(), err)
 	}

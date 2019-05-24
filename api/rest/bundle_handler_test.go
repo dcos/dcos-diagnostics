@@ -634,7 +634,6 @@ func TestIfCreateReturns507WhenCouldNotCreateWorkDir(t *testing.T) {
 }
 
 func TestIfE2E_(t *testing.T) {
-	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
 	defer os.RemoveAll(workdir)
 
@@ -690,7 +689,7 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    144,
+			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
 		})), rr.Body.String())
 	})
@@ -705,14 +704,33 @@ func TestIfE2E_(t *testing.T) {
 		reader, err := zip.OpenReader(filepath.Join(workdir, "bundle-0", dataFileName))
 		require.NoError(t, err)
 
-		assert.Len(t, reader.File, 1)
+		require.Len(t, reader.File, 3)
 		assert.Equal(t, "collector-2", reader.File[0].Name)
+		assert.Equal(t, "summaryReport.txt", reader.File[1].Name)
+		assert.Equal(t, "summaryErrorsReport.txt", reader.File[2].Name)
 
 		rc, err := reader.File[0].Open()
 		require.NoError(t, err)
 		content, err := ioutil.ReadAll(rc)
 		require.NoError(t, err)
 		assert.Equal(t, "OK", string(content))
+
+		rc, err = reader.File[1].Open()
+		require.NoError(t, err)
+		content, err = ioutil.ReadAll(rc)
+		require.NoError(t, err)
+		assert.Equal(t,
+			`[START GET collector-1]
+[STOP GET collector-1]
+[START GET collector-2]
+[STOP GET collector-2]
+`, string(content))
+
+		rc, err = reader.File[2].Open()
+		require.NoError(t, err)
+		content, err = ioutil.ReadAll(rc)
+		require.NoError(t, err)
+		assert.Equal(t, "could not collect collector-1: some error", string(content))
 	})
 
 	t.Run("delete bundle-0", func(t *testing.T) {
@@ -728,7 +746,7 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    144,
+			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
 		})), rr.Body.String())
 	})
@@ -746,7 +764,7 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    144,
+			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
 		})), rr.Body.String())
 	})
@@ -763,13 +781,18 @@ func (m *MockClock) Now() time.Time {
 }
 
 type MockCollector struct {
-	name string
-	rc   io.ReadCloser
-	err  error
+	name     string
+	optional bool
+	rc       io.ReadCloser
+	err      error
 }
 
 func (m MockCollector) Name() string {
 	return m.name
+}
+
+func (m MockCollector) Optional() bool {
+	return m.optional
 }
 
 func (m MockCollector) Collect(ctx context.Context) (io.ReadCloser, error) {

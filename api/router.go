@@ -6,8 +6,6 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/dcos/dcos-diagnostics/api/rest"
-
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -98,7 +96,8 @@ func getRoutes(dt *Dt) []routeHandler {
 		systemdUnits:       dt.SystemdUnits,
 		monitoringResponse: dt.MR,
 	}
-	bh := rest.BundleHandler{}
+
+	bh := dt.BundleHanlder
 
 	routes := []routeHandler{
 		{

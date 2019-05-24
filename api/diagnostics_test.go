@@ -82,7 +82,7 @@ func TestDiagnosticsJobInitWithValidFilesCheckIfConfigsAreMerged(t *testing.T) {
 
 	assert.Equal(t, httpProviders, job.logProviders.HTTPEndpoints)
 	assert.Equal(t, map[string]FileProvider{
-		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json"},
+		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json", Role: []string{"agent", "agent_public"}},
 		"var_lib_dcos_exhibitor_conf_zoo.cfg":            {Location: "/var/lib/dcos/exhibitor/conf/zoo.cfg", Role: []string{"master"}},
 		"var_lib_dcos_exhibitor_zookeeper_snapshot_myid": {Location: "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid", Role: []string{"master"}},
 		"not_existing_file":                              {Location: "/not/existing/file", Optional: true},
@@ -116,7 +116,7 @@ func TestDiagnosticsJobInitWithValidFilesCheckIfConfigsAreMergedWithOrder(t *tes
 	assert.NoError(t, err)
 
 	assert.Equal(t, map[string]FileProvider{
-		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json"},
+		"opt_mesosphere_active.buildinfo.full.json":      {Location: "/opt/mesosphere/active.buildinfo.full.json", Role: []string{"agent", "agent_public"}},
 		"var_lib_dcos_exhibitor_conf_zoo.cfg":            {Location: "/var/lib/dcos/exhibitor/conf/zoo.cfg", Role: []string{"master"}},
 		"var_lib_dcos_exhibitor_zookeeper_snapshot_myid": {Location: "/var/lib/dcos/exhibitor/zookeeper/snapshot/myid", Role: []string{"master"}},
 		"not_existing_file":                              {Location: "/not/existing/file", Optional: false}, // « Here is the difference
@@ -142,7 +142,6 @@ func TestGetLogsEndpoints(t *testing.T) {
 	assert.Equal(t, endpoints, func() (x map[string]endpointSpec) {
 		x = make(map[string]endpointSpec)
 		for k, v := range map[string]string{
-			"/opt/mesosphere/active.buildinfo.full.json":      logPath + "files/opt_mesosphere_active.buildinfo.full.json",
 			"/var/lib/dcos/exhibitor/conf/zoo.cfg":            logPath + "files/var_lib_dcos_exhibitor_conf_zoo.cfg",
 			"/var/lib/dcos/exhibitor/zookeeper/snapshot/myid": logPath + "files/var_lib_dcos_exhibitor_zookeeper_snapshot_myid",
 			"5050-__processes__.json":                         ":5050/__processes__",
