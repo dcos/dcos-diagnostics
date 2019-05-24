@@ -1,9 +1,12 @@
 package rest
 
 import (
+	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/dcos/dcos-diagnostics/collectors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -29,6 +32,7 @@ type Bundle struct {
 	Status  Status    `json:"status"`
 	Started time.Time `json:"started_at,omitempty"`
 	Stopped time.Time `json:"stopped_at,omitempty"`
+	Errors  []string  `json:"errors,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -80,10 +84,75 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = os.Create(filepath.Join(h.workDir, id, dataFileName))
+	dataFile, err := os.Create(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
 	}
+
+	ctx := context.Background() //TODO(janisz): Use context with deadline
+	done := make(chan []error)
+
+	go collectAll(ctx, done, dataFile, h.collectors)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case errors := <-done:
+			for _, e := range errors {
+				bundle.Errors = append(bundle.Errors, e.Error())
+			}
+			bundle.Status = Done
+			bundle.Stopped = h.clock.Now()
+			bundleStatus := jsonMarshal(bundle)
+			err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
+			if err != nil {
+				logrus.WithError(err).Errorf("Could not update state file %s", id)
+			}
+		}
+	}()
+
+	write(w, bundleStatus)
+}
+
+func collectAll(ctx context.Context, done chan<- []error, dataFile io.WriteCloser, collectors []collectors.Collector) {
+	zipWriter := zip.NewWriter(dataFile)
+	var errors []error
+
+	for _, c := range collectors {
+		if ctx.Err() != nil {
+			errors = append(errors, ctx.Err())
+			break
+		}
+		err := collect(ctx, c, zipWriter)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		errors = append(errors, err)
+	}
+
+	done <- errors
+}
+
+func collect(ctx context.Context, c collectors.Collector, zipWriter *zip.Writer) error {
+	rc, err := c.Collect(ctx)
+	if err != nil {
+		return fmt.Errorf("could not collect %s: %s", c.Name(), err)
+	}
+	defer rc.Close()
+
+	zipFile, err := zipWriter.Create(c.Name())
+	if err != nil {
+		return fmt.Errorf("could not create a %s in the zip: %s", c.Name(), err)
+	}
+	if _, err := io.Copy(zipFile, rc); err != nil {
+		return fmt.Errorf("could not copy data to zip: %s", err)
+	}
+
+	return nil
 }
 
 func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +202,7 @@ func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 	write(w, body)
 }
 
+//TODO(janisz): Add caching to this function
 func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 	bundle := Bundle{
 		ID:     id,
@@ -238,7 +308,7 @@ func write(w http.ResponseWriter, body []byte) {
 }
 
 // jsonMarshal is a replacement for json.Marshal when we are 100% sure
-// there won't be any error on marshaling.
+// there won't now be any error on marshaling.
 func jsonMarshal(v interface{}) []byte {
 	rawJson, err := json.Marshal(v)
 
