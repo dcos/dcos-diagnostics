@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/dcos/dcos-diagnostics/api/rest"
 	"net/http"
 	"net/http/pprof"
 	"time"
@@ -96,7 +97,7 @@ func getRoutes(dt *Dt) []routeHandler {
 		systemdUnits:       dt.SystemdUnits,
 		monitoringResponse: dt.MR,
 	}
-	bh := bundleHandler{}
+	bh := rest.BundleHandler{}
 
 	routes := []routeHandler{
 		{
@@ -193,27 +194,27 @@ func getRoutes(dt *Dt) []routeHandler {
 		// 					V2 REST API for bundles CRUD
 		{
 			url:     bundleEndpoint,
-			handler: bh.create,
+			handler: bh.Create,
 			methods: []string{"PUT"},
 		},
 		{
 			url:     bundleEndpoint,
-			handler: bh.delete,
+			handler: bh.Delete,
 			methods: []string{"DELETE"},
 		},
 		{
 			url:     bundlesEndpoint,
-			handler: bh.list,
+			handler: bh.List,
 			methods: []string{"GET"},
 		},
 		{
 			url:     bundleEndpoint,
-			handler: bh.get,
+			handler: bh.Get,
 			methods: []string{"GET"},
 		},
 		{
 			url:     bundleFileEndpoint,
-			handler: bh.getFile,
+			handler: bh.GetFile,
 			methods: []string{"GET"},
 		},
 		//---------------------------------------------------------------------

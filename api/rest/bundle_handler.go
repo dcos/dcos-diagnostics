@@ -3,7 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/dcos/dcos-diagnostics/api"
+	"github.com/dcos/dcos-diagnostics/collectors"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -40,15 +40,15 @@ type Clock interface {
 	Now() time.Time
 }
 
-// bundleHandler is a struct that collects all functions
+// BundleHandler is a struct that collects all functions
 // responsible for diagnostics bundle lifecycle
-type bundleHandler struct {
-	clock     Clock
-	workDir   string           // location where bundles are generated and stored
-	providers api.LogProviders // information what should be in the bundle
+type BundleHandler struct {
+	clock      Clock
+	workDir    string                 // location where bundles are generated and stored
+	collectors []collectors.Collector // information what should be in the bundle
 }
 
-func (h bundleHandler) create(w http.ResponseWriter, r *http.Request) {
+func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["uuid"]
 
@@ -61,7 +61,7 @@ func (h bundleHandler) create(w http.ResponseWriter, r *http.Request) {
 	bundleWorkDir := filepath.Join(h.workDir, id)
 	err = os.Mkdir(bundleWorkDir, dirPerm)
 	if err != nil {
-		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create bundle %s workdir: %s", id, err))
+		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not Create bundle %s workdir: %s", id, err))
 		return
 	}
 
@@ -80,9 +80,13 @@ func (h bundleHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err = os.Create(filepath.Join(h.workDir, id, dataFileName))
+	if err != nil {
+		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
+	}
 }
 
-func (h bundleHandler) get(w http.ResponseWriter, r *http.Request) {
+func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["uuid"]
 
@@ -96,14 +100,14 @@ func (h bundleHandler) get(w http.ResponseWriter, r *http.Request) {
 	write(w, body)
 }
 
-func (h bundleHandler) getFile(w http.ResponseWriter, r *http.Request) {
+func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["uuid"]
 
 	http.ServeFile(w, r, filepath.Join(h.workDir, id, dataFileName))
 }
 
-func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
+func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 	ids, err := ioutil.ReadDir(h.workDir)
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not read work dir: %s", err))
@@ -129,7 +133,7 @@ func (h bundleHandler) list(w http.ResponseWriter, r *http.Request) {
 	write(w, body)
 }
 
-func (h bundleHandler) getBundleState(id string) (Bundle, error) {
+func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 	bundle := Bundle{
 		ID:     id,
 		Status: Unknown,
@@ -169,7 +173,7 @@ func (h bundleHandler) getBundleState(id string) (Bundle, error) {
 	return bundle, nil
 }
 
-func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
+func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["uuid"]
 	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
@@ -199,7 +203,7 @@ func (h bundleHandler) delete(w http.ResponseWriter, r *http.Request) {
 
 	err = os.Remove(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("could not delete bundle %s: %s", id, err))
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("could not Delete bundle %s: %s", id, err))
 		return
 	}
 
