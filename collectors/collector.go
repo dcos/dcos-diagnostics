@@ -79,9 +79,9 @@ func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 
 		errMsg := fmt.Sprintf("unable to fetch %s. Return code %d.", url, resp.StatusCode)
 
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("%s Could not read body: %s", errMsg, err)
+		body, e := ioutil.ReadAll(resp.Body)
+		if e != nil {
+			return nil, fmt.Errorf("%s Could not read body: %s", errMsg, e)
 		}
 
 		return nil, fmt.Errorf("%s Body: %s", errMsg, string(body))

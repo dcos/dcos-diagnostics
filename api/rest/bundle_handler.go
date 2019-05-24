@@ -98,17 +98,17 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		select {
 		case <-ctx.Done():
-			return
+			break
 		case errors := <-done:
 			for _, e := range errors {
 				bundle.Errors = append(bundle.Errors, e.Error())
 			}
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
-			bundleStatus := jsonMarshal(bundle)
-			err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
-			if err != nil {
-				logrus.WithError(err).Errorf("Could not update state file %s", id)
+			newBundleStatus := jsonMarshal(bundle)
+			e := ioutil.WriteFile(stateFilePath, newBundleStatus, filePerm)
+			if e != nil {
+				logrus.WithError(e).Errorf("Could not update state file %s", id)
 			}
 		}
 	}()
@@ -132,6 +132,9 @@ func collectAll(ctx context.Context, done chan<- []error, dataFile io.WriteClose
 	}
 
 	if err := zipWriter.Close(); err != nil {
+		errors = append(errors, err)
+	}
+	if err := dataFile.Close(); err != nil {
 		errors = append(errors, err)
 	}
 
@@ -301,7 +304,7 @@ func writeJSONError(w http.ResponseWriter, code int, e error) {
 	write(w, body)
 }
 
-func write(w http.ResponseWriter, body []byte) {
+func write(w io.Writer, body []byte) {
 	_, err := w.Write(body)
 	if err != nil {
 		logrus.WithError(err).Errorf("Could not write response")
@@ -311,10 +314,10 @@ func write(w http.ResponseWriter, body []byte) {
 // jsonMarshal is a replacement for json.Marshal when we are 100% sure
 // there won't now be any error on marshaling.
 func jsonMarshal(v interface{}) []byte {
-	rawJson, err := json.Marshal(v)
+	rawJSON, err := json.Marshal(v)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("Could not marshal %v: %s", v, err)
 	}
-	return rawJson
+	return rawJSON
 }
