@@ -29,6 +29,7 @@ type Config struct {
 	FlagDebug                      bool   `mapstructure:"debug"`
 	FlagRole                       string `mapstructure:"role"`
 	FlagIAMConfig                  string `mapstructure:"iam-config"`
+	FlagHostname                   string `mapstructure:"hostname"`
 
 	// diagnostics job flags
 	FlagDiagnosticsBundleDir                     string   `mapstructure:"diagnostics-bundle-dir"`

@@ -142,7 +142,7 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 			fileName = endpoint.FileName
 		}
 		//TODO(janisz): Handle socket-only endpoints e.g., dcos-diagnostics
-		url, err := util.UseTLSScheme(fmt.Sprintf("http://localhost:%d%s", endpoint.Port, endpoint.URI), cfg.FlagForceTLS)
+		url, err := util.UseTLSScheme(fmt.Sprintf("http://%s:%d%s", cfg.FlagHostname, endpoint.Port, endpoint.URI), cfg.FlagForceTLS)
 		if err != nil {
 			return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
 

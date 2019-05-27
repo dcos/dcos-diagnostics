@@ -29,6 +29,7 @@ func testCfg() *config.Config {
 
 	return &config.Config{
 		FlagRole:                           "master",
+		FlagHostname:                       "master-0",
 		FlagDiagnosticsBundleDir:           diagnosticsBundleDir,
 		FlagPort:                           1050,
 		FlagMasterPort:                     1050,

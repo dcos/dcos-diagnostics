@@ -1,5 +1,6 @@
 {
   "role": "master",
+  "hostname": "master-0",
   "pull": true,
   "diagnostics-bundle-dir": "diag-bundles",
   "endpoint-config": ["1", "2"],

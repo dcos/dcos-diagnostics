@@ -31,6 +31,7 @@ func Test_initConfig(t *testing.T) {
 
 	expected := &config.Config{
 		FlagRole:                       "master",
+		FlagHostname:                   "master-0",
 		FlagPort:                       1050,
 		FlagPull:                       true,
 		FlagMasterPort:                 1050,
@@ -61,6 +62,7 @@ func Test_initConfig_multiple_endpints_configs(t *testing.T) {
 
 	expected := &config.Config{
 		FlagRole:                       "master",
+		FlagHostname:                   "master-0",
 		FlagPort:                       1050,
 		FlagPull:                       true,
 		FlagMasterPort:                 1050,

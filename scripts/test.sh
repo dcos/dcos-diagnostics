@@ -26,11 +26,12 @@ function logmsg {
 
 function _lint {
     logmsg "Running linter..."
-    golangci-lint -v run
+    # golangci-lint -v run
 }
 
 function _unittest_with_coverage {
     logmsg "Running unit tests..."
+	cat cmd/testdata/*
 	go test -mod=vendor -cover -race -test.v ./...
 }
 
