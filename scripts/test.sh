@@ -32,6 +32,7 @@ function _lint {
 function _unittest_with_coverage {
     logmsg "Running unit tests..."
 	cat cmd/testdata/*
+	env
 	go test -mod=vendor -cover -race -test.v ./...
 }
 

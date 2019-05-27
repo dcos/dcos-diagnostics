@@ -15,6 +15,9 @@
 package cmd
 
 import (
+	jwtt "github.com/spf13/jwalterweatherman"
+	"github.com/stretchr/testify/require"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -23,9 +26,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const hostnameEnvVarName = "HOSTNAME"
+
+
 func Test_initConfig(t *testing.T) {
+	h := os.Getenv(hostnameEnvVarName)
+	require.NoError(t, os.Unsetenv(hostnameEnvVarName), "remove hostname env to not override hostname from config file")
+	defer func() {
+		_ = os.Setenv(hostnameEnvVarName, h)
+	}()
+
 	cfgFile = filepath.Join("testdata", "dcos-diagnostics-config.json")
 	defer func() { cfgFile = "" }()
+
+	jwtt.SetStdoutThreshold(jwtt.LevelTrace)
 
 	initConfig()
 
@@ -55,8 +69,16 @@ func Test_initConfig(t *testing.T) {
 }
 
 func Test_initConfig_multiple_endpints_configs(t *testing.T) {
+	h := os.Getenv(hostnameEnvVarName)
+	require.NoError(t, os.Unsetenv(hostnameEnvVarName), "remove hostname env to not override hostname from config file")
+	defer func() {
+		_ = os.Setenv(hostnameEnvVarName, h)
+	}()
+
 	cfgFile = filepath.Join("testdata", "dcos-diagnostics-config-multiple-endpoints-configs.json")
 	defer func() { cfgFile = "" }()
+
+	jwtt.SetStdoutThreshold(jwtt.LevelTrace)
 
 	initConfig()
 
