@@ -326,42 +326,6 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDone(t *testing.T) {
 		`{"code":404,"error":"bundle not found: could not stat data file bundle: `)
 }
 
-func TestIfGetReturns500WhenStateCouldNotBeUpdated(t *testing.T) {
-	t.Parallel()
-
-	workdir, err := ioutil.TempDir("", "work-dir")
-	defer os.RemoveAll(workdir)
-	require.NoError(t, err)
-	bundleWorkDir := filepath.Join(workdir, "bundle")
-	err = os.Mkdir(bundleWorkDir, dirPerm)
-	require.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
-		[]byte(`{
-		"id": "bundle",
-		"status": "Done",
-		"started_at":"1991-05-21T00:00:00Z",
-		"stopped_at":"2019-05-21T00:00:00Z" }`), 0400)
-	require.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName),
-		[]byte(`OK`), filePerm)
-	require.NoError(t, err)
-
-	bh := NewBundleHandler(workdir, nil, time.Millisecond)
-
-	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
-	require.NoError(t, err)
-
-	router := mux.NewRouter()
-	router.HandleFunc(bundleEndpoint, bh.Get)
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-
-	assert.Contains(t, rr.Body.String(),
-		`{"code":404,"error":"bundle not found: could not update state file bundle: `)
-}
-
 func TestIfGetReturns404WhenBundleStateIsNotJson(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
@@ -519,42 +483,6 @@ func TestIfDeleteReturns404WhenBundleFileIsMissing(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not stat data file missing-data-file: `, rr.Body.String())
-}
-
-
-func TestIfDeleteReturns500WhenBundleStateCouldNotBeUpdated(t *testing.T) {
-	t.Parallel()
-	workdir, err := ioutil.TempDir("", "work-dir")
-	defer os.RemoveAll(workdir)
-	require.NoError(t, err)
-	bundleWorkDir := filepath.Join(workdir, "read-only-state-file")
-	err = os.Mkdir(bundleWorkDir, dirPerm)
-	require.NoError(t, err)
-	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
-	err = ioutil.WriteFile(stateFilePath, []byte((`{
-		"id": "bundle",
-		"status": "Done",
-		"size": 2,
-		"started_at":"1991-05-21T00:00:00Z",
-		"stopped_at":"2019-05-21T00:00:00Z" }`)), 0400)
-	require.NoError(t, err)
-	dataFilePath := filepath.Join(bundleWorkDir, dataFileName)
-	err = ioutil.WriteFile(dataFilePath, []byte((`OK`)), filePerm)
-	require.NoError(t, err)
-
-	bh := NewBundleHandler(workdir, nil, time.Millisecond)
-
-	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/read-only-state-file", nil)
-	require.NoError(t, err)
-
-	// Need to Create a router that we can pass the request through so that the vars will be added to the context
-	router := mux.NewRouter()
-	router.HandleFunc(bundleEndpoint, bh.Delete)
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":500,"error":"bundle read-only-state-file was deleted but state could not be updated: `, rr.Body.String())
 }
 
 func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
