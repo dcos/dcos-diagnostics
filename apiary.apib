@@ -13,7 +13,7 @@ Get list of all bundles and their state
 
         [
             {
-                "uui": "123e4567-e89b-12d3-a456-426655440000",
+                "id": "123e4567-e89b-12d3-a456-426655440000",
                 "started_at": "2015-08-05T08:40:51.620Z",
                 "stoped_at": "2015-08-05T08:40:51.620Z",
                 "size": 64,
@@ -21,14 +21,14 @@ Get list of all bundles and their state
             }
         ]
 
-### Create a New Bundle [PUT /report/diagnostics/{uuid}]
+### Create a New Bundle [PUT /report/diagnostics/{id}]
 
-The `LOCAL` bundle can be created at any node when dcos-diagnostics is running. 
+The `LOCAL` bundle can be created at any node when dcos-diagnostics is running.
 The special case is when user specify `REMOTE` type.
 This works only on masters and means the budnle will be creaded on selected nodes.
 
 + Parameters
-    + uuid - an identifier of a new bundle
+    + id - an identifier of a new bundle
 
 + Request (application/json)
 
@@ -41,81 +41,77 @@ This works only on masters and means the budnle will be creaded on selected node
 
     The bundle is accepted. This means master nodes is sending requests to remote nodes asking them for a bundle.
 
-    + Headers
-
-            Location: /report/diagnostics/{uuid}
-
     + Body
 
             {
-                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "id": "123e4567-e89b-12d3-a456-426655440001",
                 "started_at": "2015-08-05T08:40:51.620Z",
                 "size": 0,
                 "status": "STARTED"
             }
-            
-+ Response 200 (application/json)
 
-    Bundle with given uuid was already started
-
-    + Body
-
-            {
-                "uui": "123e4567-e89b-12d3-a456-426655440001",
-                "started_at": "2015-08-05T08:40:51.620Z",
-                "stoped_at": "2015-08-05T08:40:51.620Z",
-                "size": 64,
-                "status": "DONE"
-            }
 
 + Response 409 (application/json)
 
-    Another bundle is already in progress
-    
+    Another bundle with same {id} was already started
+
     + Body
-        
+
             {
-                "error": "another bundle is in progress",
+                "code": 409,
+                "error": "bundle 123e4567-e89b-12d3-a456-426655440001 already exists"
             }
-        
-### Delete a Bundle [DELETE /report/diagnostics/{uuid}]
+
+### Delete a Bundle [DELETE /report/diagnostics/{id}]
 
 When bundle exists and is `DONE` it delete the bundle file.
 If bundle was already `DELETED` is does not change it state.
 
 + Parameters
-    + uuid - an identifier of a new bundle
+    + id - an identifier of a new bundle
 
 + Response 200 (application/json)
 
     + Body
 
             {
-                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "id": "123e4567-e89b-12d3-a456-426655440001",
                 "started_at": "2015-08-05T08:40:51.620Z",
                 "stoped_at": "2015-08-05T08:40:51.620Z",
                 "size": 0,
                 "status": "DELETED"
             }
-            
+
 + Response 304 (application/json)
 
-    Bundle with given uuid was already deleted or canceled
-    
+    Bundle with given id was already deleted or canceled
+
     + Body
 
 + Response 404 (application/json)
 
-    Bundle with given uuid never existed
-    
+    Bundle with given id never existed
+
     + Body
-    
+
             {
-                "error": "bundle wtih {uuid} does not exist",
+                "code": 404,
+                "error": "bundle not found: could not read state file for bundle"
             }
-    
-### Cancel a Bundle [DELETE /report/diagnostics/{uuid}]
-        
+
++ Response 500 (application/json)
+
+    Bundle could not be deleted or state file could not be updated
+
+    + Body
+
+        {
+            "code":500,
+            "error":"bundle read-only-state-file was deleted but state could not be updated"
+        }
+
+### Cancel a Bundle [DELETE /report/diagnostics/{id}]
+
 When bundle is in progress (`STARTED`, `PROCESSING`) it cancel bundle creation and remove all intermidiete files.
 If bundle was already `CANCELED` is does not change it state.
 
@@ -124,7 +120,7 @@ If bundle was already `CANCELED` is does not change it state.
     + Body
 
             {
-                "uui": "123e4567-e89b-12d3-a456-426655440001",
+                "id": "123e4567-e89b-12d3-a456-426655440001",
                 "started_at": "2015-08-05T08:40:51.620Z",
                 "stoped_at": "2015-08-05T08:40:51.620Z",
                 "size": 0,
@@ -133,61 +129,71 @@ If bundle was already `CANCELED` is does not change it state.
 
 + Response 304 (application/json)
 
-    Bundle with given uuid was already deleted or canceled
-    
+    Bundle with given id was already deleted or canceled
+
     + Body
 
 + Response 404 (application/json)
 
-    Bundle with given uuid never existed
-    
+    Bundle with given id never existed
+
     + Body
-    
+
             {
-                "error": "bundle wtih {uuid} does not exist",
-            }        
+                "code": 404,
+                "error": "bundle not found: could not read state file for bundle"
+            }
 
-            
-### Get a Bundle status [GET /report/diagnostics/{uuid}]
+### Get a Bundle status [GET /report/diagnostics/{id}]
 
-Get status of a signle bundle `uuid`
+Get status of a signle bundle `id`
 
 + Parameters
-    + uuid - an identifier of a new bundle
+    + id - an identifier of a new bundle
 
 + Response 200 (application/json)
 
     + Body
 
             {
-                "uui": "123e4567-e89b-12d3-a456-426655440001",
-                "started_at": "2015-08-05T08:40:51.620Z",
-                "stoped_at": "2015-08-05T08:40:51.620Z",
-                "size": 0,
-                "status": "IN_PROGRES"
-                "content": "/system/health/v1/report/diagnostics/123e4567-e89b-12d3-a456-426655440001/file"
+               "id": "123e4567-e89b-12d3-a456-426655440001",
+               "size":494,
+               "status":"Deleted",
+               "started_at":"2015-08-05T09:40:51.62Z",
+               "stopped_at":"2015-08-05T10:40:51.62Z",
+               "errors":[
+                  "could not collect collector-1: some error"
+               ]
             }
-            
+
 + Response 404 (application/json)
 
-    Bundle with given uuid never existed
-    
-    + Headers
+    + Body
 
-            Location: /report/diagnostics
+            {
+                "code": 404,
+                "error": "bundle not found: could not read state file for bundle"
+            }
 
-### Get a Bundle file [GET /report/diagnostics/{uuid}/file]
+### Get a Bundle file [GET /report/diagnostics/{id}/file]
 
-Get content of a bundle with given `uuid`
+Get content of a bundle with given `id`
 
 + Parameters
-    + uuid - an identifier of a new bundle
+    + id - an identifier of a new bundle
 
-            
-+ Response 404 (application/json)
++ Response 200 (application/zip)
 
-    Bundle with given uuid never existed
-    
+
     + Headers
 
-            Location: /report/diagnostics
+            Last-Modified: Tue, 28 May 2019 15:43:40 GMT
+
+
++ Response 404 (application/json)
+
+    + Body
+
+            {
+                "code": 404,
+                "error": "bundle not found: could not read state file for bundle"

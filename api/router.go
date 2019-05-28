@@ -20,7 +20,7 @@ const baseRoute string = "/system/health/v1"
 const bundlesEndpoint = baseRoute + "/diagnostics"
 
 // CRUD endpoint for diagnostics bundle files
-const bundleEndpoint = bundlesEndpoint + "/{uuid}"
+const bundleEndpoint = bundlesEndpoint + "/{id}"
 
 // Endpoint to download bundle file
 const bundleFileEndpoint = bundleEndpoint + "/file"

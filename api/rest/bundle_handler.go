@@ -76,7 +76,7 @@ type BundleHandler struct {
 
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["uuid"]
+	id := vars["id"]
 
 	_, err := h.getBundleState(id)
 	if err == nil {
@@ -87,7 +87,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	bundleWorkDir := filepath.Join(h.workDir, id)
 	err = os.MkdirAll(bundleWorkDir, dirPerm)
 	if err != nil {
-		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not Create bundle %s workdir: %s", id, err))
+		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create bundle %s workdir: %s", id, err))
 		return
 	}
 
@@ -204,7 +204,7 @@ func collect(ctx context.Context, c collectors.Collector, zipWriter *zip.Writer)
 
 func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["uuid"]
+	id := vars["id"]
 
 	bundle, err := h.getBundleState(id)
 	if err != nil {
@@ -218,7 +218,7 @@ func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["uuid"]
+	id := vars["id"]
 
 	http.ServeFile(w, r, filepath.Join(h.workDir, id, dataFileName))
 }
@@ -292,7 +292,7 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 
 func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["uuid"]
+	id := vars["id"]
 	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
 
 	bundle, err := h.getBundleState(id)
