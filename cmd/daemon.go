@@ -114,19 +114,21 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 
-	timeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
-	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, util.NewHTTPClient(timeout, tr))
+	urlTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
+	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, util.NewHTTPClient(urlTimeout, tr))
 	if err != nil {
 		logrus.Fatalf("Could not init collectors properly: %s", err)
 	}
-	bundleHanlder := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors)
+
+	bundleTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobTimeoutMinutes)
+	bundleHandler := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, bundleTimeout)
 
 	// Inject dependencies used for running dcos-diagnostics.
 	dt := &api.Dt{
 		Cfg:               defaultConfig,
 		DtDCOSTools:       DCOSTools,
 		DtDiagnosticsJob:  diagnosticsJob,
-		BundleHanlder:     bundleHanlder,
+		BundleHanlder:     bundleHandler,
 		RunPullerChan:     make(chan bool),
 		RunPullerDoneChan: make(chan bool),
 		SystemdUnits:      &api.SystemdUnits{},

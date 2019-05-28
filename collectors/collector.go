@@ -16,17 +16,19 @@ import (
 type Collector interface {
 	// Name returns the Name of this collector
 	Name() string
-	// Optional returns true if Collector is not mandatory and fails should be ignored
+	// Optional returns true if Collector is not mandatory and failures should be ignored
 	Optional() bool
 	// Collect returns collected data
 	Collect(ctx context.Context) (io.ReadCloser, error)
 }
 
+// NameOptional is a struct that should be inherited by Collectors to prevent name clash with field and interface functions
 type NameOptional struct {
 	Name     string
 	Optional bool
 }
 
+// CmdCollector is a struct implementing Collector interface. It collects command output for given command configured with Cmd field
 type CmdCollector struct {
 	NameOptional
 	Cmd []string
@@ -62,6 +64,7 @@ func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 //	return units.ReadJournalOutputSince(ctx, c.UnitName, c.Duration.String())
 //}
 
+// EndpointCollector is a struct implementing Collector interface. It collects HTTP response for given URL
 type EndpointCollector struct {
 	NameOptional
 	Client *http.Client

@@ -56,20 +56,22 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collectors.Collector) BundleHandler {
+func NewBundleHandler(workDir string, collectors []collectors.Collector, timeout time.Duration) BundleHandler {
 	return BundleHandler{
-		clock:      realClock{},
-		workDir:    workDir,
-		collectors: collectors,
+		clock:                 realClock{},
+		workDir:               workDir,
+		collectors:            collectors,
+		bundleCreationTimeout: timeout,
 	}
 }
 
 // BundleHandler is a struct that collects all functions
 // responsible for diagnostics bundle lifecycle
 type BundleHandler struct {
-	clock      Clock
-	workDir    string                 // location where bundles are generated and stored
-	collectors []collectors.Collector // information what should be in the bundle
+	clock                 Clock
+	workDir               string                 // location where bundles are generated and stored
+	collectors            []collectors.Collector // information what should be in the bundle
+	bundleCreationTimeout time.Duration          // limits how long bundle creation could take
 }
 
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +111,8 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
 	}
 
-	ctx := context.Background() //TODO(janisz): Use context with deadline
+	//TODO(janisz): use context cancel function to cancel bundle creation
+	ctx, _ := context.WithTimeout(context.Background(), h.bundleCreationTimeout) //nolint:govet
 	done := make(chan []string)
 
 	go collectAll(ctx, done, dataFile, h.collectors)
