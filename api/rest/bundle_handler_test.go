@@ -648,7 +648,7 @@ func TestIfE2E_(t *testing.T) {
 			MockCollector{name: "collector-1", err: fmt.Errorf("some error")},
 			MockCollector{name: "collector-2", rc: ioutil.NopCloser(bytes.NewReader([]byte("OK")))},
 		},
-		time.Millisecond,
+		time.Second,
 	)
 	bh.clock = &MockClock{now: now}
 
