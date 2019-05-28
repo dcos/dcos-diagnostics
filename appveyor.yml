@@ -1,15 +1,13 @@
 build: off
 
-clone_folder: c:\gopath\src\github.com\dcos\dcos-diagnostics
-
 environment:
   GOPATH: c:\gopath
 
-stack: go 1.11
+stack: go 1.12
 
 before_test:
-  - go vet ./...
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
 
 test_script:
-  - go test ./... -cover
-
+  - golangci-lint run
+  - go test -mod=vendor -coverprofile=coverage.txt -covermode=atomic ./...
