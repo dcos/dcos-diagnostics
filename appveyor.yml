@@ -1,7 +1,8 @@
 build: off
 
-environment:
-  GOPATH: c:\gopath
+cache:
+  - '%LocalAppData%\go-build'
+
 
 stack: go 1.12
 
