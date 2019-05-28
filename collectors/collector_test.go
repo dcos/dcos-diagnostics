@@ -48,7 +48,7 @@ func TestCmdCollector_Collect(t *testing.T) {
 		Cmd:          []string{"unknown", "command"},
 	}
 	r, err = c.Collect(context.TODO())
-	assert.EqualError(t, err, fmt.Sprintf("exec: \"unknown\": executable file not found in $PATH"))
+	assert.Contains(t, err.Error(), "exec: \"unknown\": executable file not found")
 
 	raw, err = ioutil.ReadAll(r)
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestFileCollector_CollectNotExistingFile(t *testing.T) {
 
 	reader, err := c.Collect(context.Background())
 	assert.Nil(t, reader)
-	assert.EqualError(t, err, "could not open test: open not-existing-file: no such file or directory")
+	assert.Contains(t, err.Error(), "could not open test: open not-existing-file:")
 }
 
 func TestFileCollector_CollectContextDont(t *testing.T) {

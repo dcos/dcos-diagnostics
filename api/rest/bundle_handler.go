@@ -317,7 +317,7 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = os.Remove(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("could not Delete bundle %s: %s", id, err))
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("could not delete bundle %s: %s", id, err))
 		return
 	}
 
