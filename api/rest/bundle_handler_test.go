@@ -704,7 +704,7 @@ func TestIfE2E_(t *testing.T) {
 		router.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
-		reader, err := zip.OpenReader(filepath.Join(workdir, "bundle-0", dataFileName))
+		reader, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(len(rr.Body.Bytes())))
 		require.NoError(t, err)
 
 		require.Len(t, reader.File, 3)
