@@ -5,9 +5,5 @@ environment:
 
 stack: go 1.12
 
-before_test:
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-
 test_script:
-  - golangci-lint run
   - go test -mod=vendor -coverprofile=coverage.txt -covermode=atomic ./...
