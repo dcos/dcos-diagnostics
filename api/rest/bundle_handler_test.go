@@ -697,7 +697,6 @@ func TestIfE2E_(t *testing.T) {
 	})
 
 	t.Run("get bundle-0 file and validate it", func(t *testing.T) {
-		t.Skip()
 		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0/file", nil)
 		require.NoError(t, err)
 		rr = httptest.NewRecorder()
