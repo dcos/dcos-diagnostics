@@ -367,7 +367,7 @@ func TestIfDeleteReturns404WhenNoBundleFound(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"could not find bundle not-existing-bundle: `)
+	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not read state file for bundle not-existing-bundle: `)
 
 }
 
@@ -392,7 +392,7 @@ func TestIfDeleteReturns404WhenNoBundleStateFound(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"could not find bundle not-existing-bundle-state: `)
+	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not read state file for bundle not-existing-bundle-state: `)
 }
 
 func TestIfDeleteReturns404WhenBundleStateIsNotJson(t *testing.T) {
@@ -420,7 +420,7 @@ func TestIfDeleteReturns404WhenBundleStateIsNotJson(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"could not find bundle bundle-state-not-json: `)
+	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not unmarshal state file bundle-state-not-json: `)
 }
 
 func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
@@ -482,8 +482,8 @@ func TestIfDeleteReturns500WhenBundleCouldNotBeDeleted(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":500,"error":"could not delete bundle missing-data-file: `, rr.Body.String())
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not stat data file missing-data-file: `, rr.Body.String())
 }
 
 func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {

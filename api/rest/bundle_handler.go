@@ -291,25 +291,16 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["uuid"]
 	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
-	rawState, err := ioutil.ReadFile(stateFilePath)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Errorf("could not find bundle %s: %s", id, err))
-		return
-	}
 
-	bundle := Bundle{
-		ID:     id,
-		Status: Unknown,
-	}
-	err = json.Unmarshal(rawState, &bundle)
+	bundle, err := h.getBundleState(id)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Errorf("could not find bundle %s: %s", id, err))
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle not found: %s", err))
 		return
 	}
 
 	if bundle.Status == Deleted || bundle.Status == Canceled {
 		w.WriteHeader(http.StatusNotModified)
-		write(w, rawState)
+		write(w, jsonMarshal(bundle))
 		return
 	}
 
