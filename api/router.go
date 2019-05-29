@@ -13,10 +13,11 @@ import (
 )
 
 // baseRoute a base dcos-diagnostics endpoint location.
-// See: https://github.com/dcos/dcos/blob/5108a310d33084e852b6a9d6f122c02b861e4b97/packages/adminrouter/extra/src/docs/api/nginx.agent.yaml#L56-L62
+// We should not change this endpoint since it's exposed by adminoruter
+// see: https://github.com/dcos/dcos/blob/1.13.1/packages/adminrouter/extra/src/docs/api/nginx.agent.yaml#L56-L62
 const baseRoute string = "/system/health/v1"
 
-// Edpoint for listing all bundles
+// Endpoint for listing all bundles
 const bundlesEndpoint = baseRoute + "/diagnostics"
 
 // CRUD endpoint for diagnostics bundle files
@@ -97,7 +98,7 @@ func getRoutes(dt *Dt) []routeHandler {
 		monitoringResponse: dt.MR,
 	}
 
-	bh := dt.BundleHanlder
+	bh := dt.BundleHandler
 
 	routes := []routeHandler{
 		{

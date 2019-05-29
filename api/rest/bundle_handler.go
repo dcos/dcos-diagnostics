@@ -124,9 +124,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		case bundle.Errors = <-done:
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
-			newBundleStatus := jsonMarshal(bundle)
-			e := ioutil.WriteFile(stateFilePath, newBundleStatus, filePerm)
-			if e != nil {
+			if e := ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm); e != nil {
 				logrus.WithError(e).Errorf("Could not update state file %s", id)
 			}
 		}
@@ -244,9 +242,7 @@ func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	body := jsonMarshal(bundles)
-
-	write(w, body)
+	write(w, jsonMarshal(bundles))
 }
 
 //TODO(janisz): Add caching to this function

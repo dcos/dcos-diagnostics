@@ -74,7 +74,7 @@ type Dt struct {
 	Cfg               *config.Config
 	DtDCOSTools       dcos.Tooler
 	DtDiagnosticsJob  *DiagnosticsJob
-	BundleHanlder     rest.BundleHandler
+	BundleHandler     rest.BundleHandler
 	RunPullerChan     chan bool
 	RunPullerDoneChan chan bool
 	SystemdUnits      *SystemdUnits

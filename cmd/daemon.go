@@ -128,7 +128,7 @@ func startDiagnosticsDaemon() {
 		Cfg:               defaultConfig,
 		DtDCOSTools:       DCOSTools,
 		DtDiagnosticsJob:  diagnosticsJob,
-		BundleHanlder:     bundleHandler,
+		BundleHandler:     bundleHandler,
 		RunPullerChan:     make(chan bool),
 		RunPullerDoneChan: make(chan bool),
 		SystemdUnits:      &api.SystemdUnits{},
