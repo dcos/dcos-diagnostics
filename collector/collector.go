@@ -1,4 +1,4 @@
-package collectors
+package collector
 
 import (
 	"bytes"
@@ -22,30 +22,30 @@ type Collector interface {
 	Collect(ctx context.Context) (io.ReadCloser, error)
 }
 
-// CmdCollector is a struct implementing Collector interface. It collects command output for given command configured with Cmd field
-type CmdCollector struct {
+// Cmd is a struct implementing Collector interface. It collects command output for given command configured with Cmd field
+type Cmd struct {
 	name     string
 	optional bool
 	cmd      []string
 }
 
-func NewCmdCollector(name string, optional bool, cmd []string) *CmdCollector {
-	return &CmdCollector{
+func NewCmd(name string, optional bool, cmd []string) *Cmd {
+	return &Cmd{
 		name:     name,
 		optional: optional,
 		cmd:      cmd,
 	}
 }
 
-func (c CmdCollector) Name() string {
+func (c Cmd) Name() string {
 	return c.name
 }
 
-func (c CmdCollector) Optional() bool {
+func (c Cmd) Optional() bool {
 	return c.optional
 }
 
-func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c Cmd) Collect(ctx context.Context) (io.ReadCloser, error) {
 	cmd := exec.CommandContext(ctx, c.cmd[0], c.cmd[1:]...)
 	output, err := cmd.CombinedOutput()
 	return ioutil.NopCloser(bytes.NewReader(output)), err
@@ -53,30 +53,30 @@ func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 
 // TODO(janisz): Make use of this code instead of calling dcos-diagnostics for units data https://jira.mesosphere.com/browse/DCOS_OSS-5223
 // See: https://github.com/dcos/dcos-diagnostics/blob/3734e2e03644449500427fb916289c4007dc5106/api/providers.go#L96-L103
-//type SystemdCollector struct {
+//type Systemd struct {
 //	name        string
 //	unitName string
 //	duration time.Duration
 //}
 //
-//func (c SystemdCollector) Name() string {
+//func (c Systemd) Name() string {
 //	return c.name
 //}
 //
-//func (c SystemdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
+//func (c Systemd) Collect(ctx context.Context) (io.ReadCloser, error) {
 //	return units.ReadJournalOutputSince(ctx, c.unitName, c.duration.String())
 //}
 
-// EndpointCollector is a struct implementing Collector interface. It collects HTTP response for given url
-type EndpointCollector struct {
+// Endpoint is a struct implementing Collector interface. It collects HTTP response for given url
+type Endpoint struct {
 	name     string
 	optional bool
 	client   *http.Client
 	url      string
 }
 
-func NewEndpointCollector(name string, optional bool, url string, client *http.Client) *EndpointCollector {
-	return &EndpointCollector{
+func NewEndpoint(name string, optional bool, url string, client *http.Client) *Endpoint {
+	return &Endpoint{
 		name:     name,
 		optional: optional,
 		url:      url,
@@ -84,15 +84,15 @@ func NewEndpointCollector(name string, optional bool, url string, client *http.C
 	}
 }
 
-func (c EndpointCollector) Name() string {
+func (c Endpoint) Name() string {
 	return c.name
 }
 
-func (c EndpointCollector) Optional() bool {
+func (c Endpoint) Optional() bool {
 	return c.optional
 }
 
-func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c Endpoint) Collect(ctx context.Context) (io.ReadCloser, error) {
 	url := c.url
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -121,29 +121,29 @@ func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 	return resp.Body, err
 }
 
-type FileCollector struct {
+type File struct {
 	name     string
 	optional bool
 	filePath string
 }
 
-func NewFileCollector(name string, optional bool, filePath string) *FileCollector {
-	return &FileCollector{
+func NewFile(name string, optional bool, filePath string) *File {
+	return &File{
 		name:     name,
 		optional: optional,
 		filePath: filePath,
 	}
 }
 
-func (c FileCollector) Name() string {
+func (c File) Name() string {
 	return c.name
 }
 
-func (c FileCollector) Optional() bool {
+func (c File) Optional() bool {
 	return c.optional
 }
 
-func (c FileCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c File) Collect(ctx context.Context) (io.ReadCloser, error) {
 	r, err := os.Open(c.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s: %s", c.Name(), err)

@@ -14,14 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dcos/dcos-diagnostics/collectors"
+	"github.com/dcos/dcos-diagnostics/collector"
 
 	"github.com/gorilla/mux"
-
 	"github.com/sirupsen/logrus"
 )
 
-// work dir contains only directories, each dir is created for single bundle (id is its name) and should contains:
+// work dir contains only directories, each dir is created for single bundle (id is its name) and should contain:
 const (
 	stateFileName = "state.json" // file with information about diagnostics run
 	dataFileName  = "file.zip"   // data gathered by diagnostics
@@ -55,7 +54,7 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collectors.Collector, timeout time.Duration) BundleHandler {
+func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) BundleHandler {
 	return BundleHandler{
 		clock:                 realClock{},
 		workDir:               workDir,
@@ -68,9 +67,9 @@ func NewBundleHandler(workDir string, collectors []collectors.Collector, timeout
 // responsible for diagnostics bundle lifecycle
 type BundleHandler struct {
 	clock                 Clock
-	workDir               string                 // location where bundles are generated and stored
-	collectors            []collectors.Collector // information what should be in the bundle
-	bundleCreationTimeout time.Duration          // limits how long bundle creation could take
+	workDir               string                // location where bundles are generated and stored
+	collectors            []collector.Collector // information what should be in the bundle
+	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
 }
 
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +131,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	write(w, bundleStatus)
 }
 
-func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collectors.Collector) {
+func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collector.Collector) {
 	zipWriter := zip.NewWriter(dataFile)
 	var errors []string
 	// summaryReport is a log of a diagnostics job
@@ -181,7 +180,7 @@ func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteClos
 	done <- errors
 }
 
-func collect(ctx context.Context, c collectors.Collector, zipWriter *zip.Writer) error {
+func collect(ctx context.Context, c collector.Collector, zipWriter *zip.Writer) error {
 	rc, err := c.Collect(ctx)
 	if err != nil {
 		return fmt.Errorf("could not collect %s: %s", c.Name(), err)
@@ -235,7 +234,7 @@ func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 
 		bundle, err := h.getBundleState(id.Name())
 		if err != nil {
-			logrus.WithField("ID", id.Name()).WithError(err).Warn("There is a problem with bundle")
+			logrus.WithField("ID", id.Name()).WithError(err).Warn("There is a problem with the bundle")
 		}
 		bundles = append(bundles, bundle)
 

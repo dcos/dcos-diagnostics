@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dcos/dcos-diagnostics/collectors"
+	"github.com/dcos/dcos-diagnostics/collector"
 
 	"github.com/gorilla/mux"
 
@@ -643,7 +643,7 @@ func TestIfE2E_(t *testing.T) {
 
 	bh := NewBundleHandler(
 		workdir,
-		[]collectors.Collector{
+		[]collector.Collector{
 			MockCollector{name: "collector-1", err: fmt.Errorf("some error")},
 			MockCollector{name: "collector-2", rc: ioutil.NopCloser(bytes.NewReader([]byte("OK")))},
 		},

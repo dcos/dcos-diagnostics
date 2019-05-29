@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dcos/dcos-diagnostics/collectors"
+	"github.com/dcos/dcos-diagnostics/collector"
 	"github.com/dcos/dcos-diagnostics/util"
 
 	"github.com/dcos/dcos-diagnostics/config"
@@ -119,12 +119,12 @@ func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tooler) (internalC
 	}, nil
 }
 
-func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) ([]collectors.Collector, error) {
+func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) ([]collector.Collector, error) {
 	providers, err := loadProviders(cfg, tools)
 	if err != nil {
 		return nil, fmt.Errorf("could not init bundle handler: %s", err)
 	}
-	var coll []collectors.Collector
+	var collectors []collector.Collector
 
 	role, err := tools.GetNodeRole()
 	if err != nil {
@@ -148,8 +148,8 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 
 		}
 
-		c := collectors.NewEndpointCollector(fileName, endpoint.Optional, url, client)
-		coll = append(coll, c)
+		c := collector.NewEndpoint(fileName, endpoint.Optional, url, client)
+		collectors = append(collectors, c)
 	}
 
 	// trim left "/" and replace all slashes with underscores.
@@ -159,8 +159,8 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		}
 
 		key := strings.Replace(strings.TrimLeft(fileProvider.Location, "/"), "/", "_", -1)
-		c := collectors.NewFileCollector(key, fileProvider.Optional, fileProvider.Location)
-		coll = append(coll, c)
+		c := collector.NewFile(key, fileProvider.Optional, fileProvider.Location)
+		collectors = append(collectors, c)
 	}
 
 	// sanitize command to use as filename
@@ -172,12 +172,12 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		cmdWithArgs := strings.Join(commandProvider.Command, "_")
 		trimmedCmdWithArgs := strings.Replace(cmdWithArgs, "/", "", -1)
 		key := fmt.Sprintf("%s.output", trimmedCmdWithArgs)
-		c := collectors.NewCmdCollector(key, commandProvider.Optional, commandProvider.Command)
-		coll = append(coll, c)
+		c := collector.NewCmd(key, commandProvider.Optional, commandProvider.Command)
+		collectors = append(collectors, c)
 
 	}
 
 	//TODO(janisz): Setup systemd units https://jira.mesosphere.com/browse/DCOS_OSS-5223
 
-	return coll, nil
+	return collectors, nil
 }

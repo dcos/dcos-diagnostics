@@ -1,4 +1,4 @@
-package collectors
+package collector
 
 import (
 	"context"
@@ -14,25 +14,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCmdCollectorIsCollector(t *testing.T) {
-	assert.Implements(t, (*Collector)(nil), new(CmdCollector))
+func TestCmdIsCollector(t *testing.T) {
+	assert.Implements(t, (*Collector)(nil), new(Cmd))
 }
 
-func TestCmdCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", NewCmdCollector(
+func TestCmd_Name(t *testing.T) {
+	assert.Equal(t, "test", NewCmd(
 		"test",
 		false,
 		nil,
 	).Name())
 }
 
-func TestCmdCollector_Optional(t *testing.T) {
-	assert.False(t, NewCmdCollector("test", false, nil).Optional())
-	assert.True(t, NewCmdCollector("test", true, nil).Optional())
+func TestCmd_Optional(t *testing.T) {
+	assert.False(t, NewCmd("test", false, nil).Optional())
+	assert.True(t, NewCmd("test", true, nil).Optional())
 }
 
-func TestCmdCollector_Collect(t *testing.T) {
-	c := NewCmdCollector(
+func TestCmd_Collect(t *testing.T) {
+	c := NewCmd(
 		"echo",
 		false,
 		[]string{"echo", "OK"},
@@ -46,7 +46,7 @@ func TestCmdCollector_Collect(t *testing.T) {
 
 	assert.Equal(t, "OK\n", string(raw))
 
-	c = NewCmdCollector(
+	c = NewCmd(
 		"unknown",
 		false,
 		[]string{"unknown", "command"},
@@ -60,24 +60,24 @@ func TestCmdCollector_Collect(t *testing.T) {
 	assert.Empty(t, string(raw))
 }
 
-func TestEndpointCollectorIsCollector(t *testing.T) {
-	assert.Implements(t, (*Collector)(nil), new(EndpointCollector))
+func TestEndpointIsCollector(t *testing.T) {
+	assert.Implements(t, (*Collector)(nil), new(Endpoint))
 }
 
-func TestEndpointCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", NewEndpointCollector("test", false, "", nil).Name())
+func TestEndpoint_Name(t *testing.T) {
+	assert.Equal(t, "test", NewEndpoint("test", false, "", nil).Name())
 }
 
-func TestEndpointCollector_Optional(t *testing.T) {
-	assert.False(t, NewEndpointCollector("test", false, "", nil).Optional())
-	assert.True(t, NewEndpointCollector("test", true, "", nil).Optional())
+func TestEndpoint_Optional(t *testing.T) {
+	assert.False(t, NewEndpoint("test", false, "", nil).Optional())
+	assert.True(t, NewEndpoint("test", true, "", nil).Optional())
 }
 
-func TestEndpointCollector_Collect(t *testing.T) {
+func TestEndpoint_Collect(t *testing.T) {
 	server, _ := stubServer("/ping", "OK")
 	defer server.Close()
 
-	c := NewEndpointCollector(
+	c := NewEndpoint(
 		"ping",
 		false,
 		server.URL+"/ping",
@@ -92,7 +92,7 @@ func TestEndpointCollector_Collect(t *testing.T) {
 
 	assert.Equal(t, "OK", string(raw))
 
-	c = NewEndpointCollector(
+	c = NewEndpoint(
 		"test",
 		false,
 		server.URL+"/test",
@@ -103,11 +103,11 @@ func TestEndpointCollector_Collect(t *testing.T) {
 	assert.EqualError(t, err, fmt.Sprintf("unable to fetch %s. Return code 404. Body: 404 page not found\n", server.URL+"/test"))
 }
 
-func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
+func TestEndpoint_CollectShouldReturnErrorWhen404(t *testing.T) {
 	server, _ := stubServer("/ping", "OK")
 	defer server.Close()
 
-	c := NewEndpointCollector(
+	c := NewEndpoint(
 		"test",
 		false,
 		server.URL+"/test",
@@ -119,9 +119,9 @@ func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
 	assert.EqualError(t, err, fmt.Sprintf("unable to fetch %s. Return code 404. Body: 404 page not found\n", server.URL+"/test"))
 }
 
-func TestEndpointCollector_CollectShouldReturnErroronTimeout(t *testing.T) {
+func TestEndpoint_CollectShouldReturnErroronTimeout(t *testing.T) {
 	http.DefaultClient.Timeout = time.Nanosecond
-	c := NewEndpointCollector(
+	c := NewEndpoint(
 		"test",
 		false,
 		"http://192.0.2.0/test",
@@ -133,9 +133,9 @@ func TestEndpointCollector_CollectShouldReturnErroronTimeout(t *testing.T) {
 	assert.EqualError(t, err, "could not fetch url http://192.0.2.0/test: Get http://192.0.2.0/test: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")
 }
 
-func TestEndpointCollector_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
+func TestEndpoint_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
 	http.DefaultClient.Timeout = time.Nanosecond
-	c := NewEndpointCollector(
+	c := NewEndpoint(
 		"test",
 		false,
 		"invalid url",
@@ -171,31 +171,31 @@ func mockServer(handle func(w http.ResponseWriter, r *http.Request)) (*httptest.
 	return server, transport
 }
 
-func TestFileCollectorIsCollector(t *testing.T) {
-	assert.Implements(t, (*Collector)(nil), new(FileCollector))
+func TestFileIsCollector(t *testing.T) {
+	assert.Implements(t, (*Collector)(nil), new(File))
 }
 
-func TestFileCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", NewFileCollector(
+func TestFile_Name(t *testing.T) {
+	assert.Equal(t, "test", NewFile(
 		"test",
 		false,
 		"",
 	).Name())
 }
 
-func TestFileCollector_Optional(t *testing.T) {
-	assert.False(t, NewFileCollector("test", false, "").Optional())
-	assert.True(t, NewFileCollector("test", true, "").Optional())
+func TestFile_Optional(t *testing.T) {
+	assert.False(t, NewFile("test", false, "").Optional())
+	assert.True(t, NewFile("test", true, "").Optional())
 }
 
-func TestFileCollector_Collect(t *testing.T) {
+func TestFile_Collect(t *testing.T) {
 	f, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
 
 	_, err = f.Write([]byte("OK"))
 	require.NoError(t, err)
 
-	c := NewFileCollector(
+	c := NewFile(
 		"test",
 		false,
 		f.Name(),
@@ -212,8 +212,8 @@ func TestFileCollector_Collect(t *testing.T) {
 	assert.NoError(t, reader.Close())
 }
 
-func TestFileCollector_CollectNotExistingFile(t *testing.T) {
-	c := NewFileCollector(
+func TestFile_CollectNotExistingFile(t *testing.T) {
+	c := NewFile(
 		"test",
 		false,
 		"not-existing-file",
@@ -224,14 +224,14 @@ func TestFileCollector_CollectNotExistingFile(t *testing.T) {
 	assert.Contains(t, err.Error(), "could not open test: open not-existing-file:")
 }
 
-func TestFileCollector_CollectContextDont(t *testing.T) {
+func TestFile_CollectContextDont(t *testing.T) {
 	f, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
 
 	_, err = f.Write([]byte("OK"))
 	require.NoError(t, err)
 
-	c := NewFileCollector(
+	c := NewFile(
 		"test",
 		false,
 		f.Name(),
