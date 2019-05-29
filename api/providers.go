@@ -141,7 +141,7 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		if endpoint.FileName != "" {
 			fileName = endpoint.FileName
 		}
-		//TODO(janisz): Handle socket-only endpoints e.g., dcos-diagnostics
+
 		url, err := util.UseTLSScheme(fmt.Sprintf("http://%s:%d%s", cfg.FlagHostname, endpoint.Port, endpoint.URI), cfg.FlagForceTLS)
 		if err != nil {
 			return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
@@ -177,7 +177,7 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 
 	}
 
-	//TODO(janisz): Setup systemd units
+	//TODO(janisz): Setup systemd units https://jira.mesosphere.com/browse/DCOS_OSS-5223
 
 	return coll, nil
 }

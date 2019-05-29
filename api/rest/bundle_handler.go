@@ -26,7 +26,6 @@ const (
 	stateFileName = "state.json" // file with information about diagnostics run
 	dataFileName  = "file.zip"   // data gathered by diagnostics
 
-	//TODO(janisz): Think about removing/replacing summary files with something more structured
 	summaryErrorsReportFileName = "summaryErrorsReport.txt" // error log in bundle
 	summaryReportFileName       = "summaryReport.txt"       // error log in bundle
 
@@ -111,7 +110,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
 	}
 
-	//TODO(janisz): use context cancel function to cancel bundle creation
+	//TODO(janisz): use context cancel function to cancel bundle creation https://jira.mesosphere.com/browse/DCOS_OSS-5222
 	ctx, _ := context.WithTimeout(context.Background(), h.bundleCreationTimeout) //nolint:govet
 	done := make(chan []string)
 
@@ -302,7 +301,7 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO(janisz): Handle Canceled Status
+	//TODO(janisz): Handle Canceled Status https://jira.mesosphere.com/browse/DCOS_OSS-5222
 
 	err = os.Remove(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {

@@ -63,7 +63,6 @@ func (st *Tools) GetNodeRole() (string, error) {
 
 // GetMesosNodeID return a mesos node id.
 func (st *Tools) GetMesosNodeID() (string, error) {
-	// TODO(janisz): We need to decide if we need a context
 	return st.NodeInfo.MesosID(context.TODO())
 }
 

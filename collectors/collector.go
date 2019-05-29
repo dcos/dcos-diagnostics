@@ -51,7 +51,7 @@ func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewReader(output)), err
 }
 
-// TODO(janisz): Make use of this code instead of calling dcos-diagnostics for units data
+// TODO(janisz): Make use of this code instead of calling dcos-diagnostics for units data https://jira.mesosphere.com/browse/DCOS_OSS-5223
 // See: https://github.com/dcos/dcos-diagnostics/blob/3734e2e03644449500427fb916289c4007dc5106/api/providers.go#L96-L103
 //type SystemdCollector struct {
 //	name        string
