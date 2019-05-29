@@ -19,21 +19,24 @@ func TestCmdCollectorIsCollector(t *testing.T) {
 }
 
 func TestCmdCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", CmdCollector{
-		NameOptional: NameOptional{Name: "test"},
-	}.Name())
+	assert.Equal(t, "test", NewCmdCollector(
+		"test",
+		false,
+		nil,
+	).Name())
 }
 
 func TestCmdCollector_Optional(t *testing.T) {
-	assert.False(t, CmdCollector{NameOptional: NameOptional{Name: "test"}}.Optional())
-	assert.True(t, CmdCollector{NameOptional: NameOptional{Name: "test", Optional: true}}.Optional())
+	assert.False(t, NewCmdCollector("test", false, nil).Optional())
+	assert.True(t, NewCmdCollector("test", true, nil).Optional())
 }
 
 func TestCmdCollector_Collect(t *testing.T) {
-	c := CmdCollector{
-		NameOptional: NameOptional{Name: "echo"},
-		Cmd:          []string{"echo", "OK"},
-	}
+	c := NewCmdCollector(
+		"echo",
+		false,
+		[]string{"echo", "OK"},
+	)
 	r, err := c.Collect(context.TODO())
 
 	require.NoError(t, err)
@@ -43,10 +46,11 @@ func TestCmdCollector_Collect(t *testing.T) {
 
 	assert.Equal(t, "OK\n", string(raw))
 
-	c = CmdCollector{
-		NameOptional: NameOptional{Name: "unknown"},
-		Cmd:          []string{"unknown", "command"},
-	}
+	c = NewCmdCollector(
+		"unknown",
+		false,
+		[]string{"unknown", "command"},
+	)
 	r, err = c.Collect(context.TODO())
 	assert.Contains(t, err.Error(), "exec: \"unknown\": executable file not found")
 
@@ -61,23 +65,24 @@ func TestEndpointCollectorIsCollector(t *testing.T) {
 }
 
 func TestEndpointCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", EndpointCollector{NameOptional: NameOptional{Name: "test"}}.Name())
+	assert.Equal(t, "test", NewEndpointCollector("test", false, "", nil).Name())
 }
 
 func TestEndpointCollector_Optional(t *testing.T) {
-	assert.False(t, EndpointCollector{NameOptional: NameOptional{Name: "test"}}.Optional())
-	assert.True(t, EndpointCollector{NameOptional: NameOptional{Name: "test", Optional: true}}.Optional())
+	assert.False(t, NewEndpointCollector("test", false, "", nil).Optional())
+	assert.True(t, NewEndpointCollector("test", true, "", nil).Optional())
 }
 
 func TestEndpointCollector_Collect(t *testing.T) {
 	server, _ := stubServer("/ping", "OK")
 	defer server.Close()
 
-	c := EndpointCollector{
-		NameOptional: NameOptional{Name: "ping"},
-		URL:          server.URL + "/ping",
-		Client:       http.DefaultClient,
-	}
+	c := NewEndpointCollector(
+		"ping",
+		false,
+		server.URL+"/ping",
+		http.DefaultClient,
+	)
 	r, err := c.Collect(context.TODO())
 
 	require.NoError(t, err)
@@ -87,11 +92,12 @@ func TestEndpointCollector_Collect(t *testing.T) {
 
 	assert.Equal(t, "OK", string(raw))
 
-	c = EndpointCollector{
-		NameOptional: NameOptional{Name: "test"},
-		URL:          server.URL + "/test",
-		Client:       http.DefaultClient,
-	}
+	c = NewEndpointCollector(
+		"test",
+		false,
+		server.URL+"/test",
+		http.DefaultClient,
+	)
 	r, err = c.Collect(context.TODO())
 
 	assert.EqualError(t, err, fmt.Sprintf("unable to fetch %s. Return code 404. Body: 404 page not found\n", server.URL+"/test"))
@@ -101,11 +107,12 @@ func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
 	server, _ := stubServer("/ping", "OK")
 	defer server.Close()
 
-	c := EndpointCollector{
-		NameOptional: NameOptional{Name: "test"},
-		URL:          server.URL + "/test",
-		Client:       http.DefaultClient,
-	}
+	c := NewEndpointCollector(
+		"test",
+		false,
+		server.URL+"/test",
+		http.DefaultClient,
+	)
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
@@ -113,25 +120,27 @@ func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
 }
 
 func TestEndpointCollector_CollectShouldReturnErrorWhenNoServer(t *testing.T) {
-	http.DefaultClient.Timeout = time.Millisecond
-	c := EndpointCollector{
-		NameOptional: NameOptional{Name: "test"},
-		URL:          "http://192.0.2.0/test",
-		Client:       http.DefaultClient,
-	}
+	http.DefaultClient.Timeout = time.Second
+	c := NewEndpointCollector(
+		"test",
+		false,
+		"http://192.0.2.0/test",
+		http.DefaultClient,
+	)
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
-	assert.EqualError(t, err, "could not fetch url http://192.0.2.0/test: Get http://192.0.2.0/test: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")
+	assert.EqualError(t, err, "could not fetch url http://192.0.2.0/test: Get http://192.0.2.0/test: dial tcp 192.0.2.0:80: connect: network is unreachable")
 }
 
 func TestEndpointCollector_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
 	http.DefaultClient.Timeout = time.Millisecond
-	c := EndpointCollector{
-		NameOptional: NameOptional{Name: "test"},
-		URL:          "invalid url",
-		Client:       http.DefaultClient,
-	}
+	c := NewEndpointCollector(
+		"test",
+		false,
+		"invalid url",
+		http.DefaultClient,
+	)
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
@@ -167,14 +176,16 @@ func TestFileCollectorIsCollector(t *testing.T) {
 }
 
 func TestFileCollector_Name(t *testing.T) {
-	assert.Equal(t, "test", FileCollector{
-		NameOptional: NameOptional{Name: "test"},
-	}.Name())
+	assert.Equal(t, "test", NewFileCollector(
+		"test",
+		false,
+		"",
+	).Name())
 }
 
 func TestFileCollector_Optional(t *testing.T) {
-	assert.False(t, FileCollector{NameOptional: NameOptional{Name: "test"}}.Optional())
-	assert.True(t, FileCollector{NameOptional: NameOptional{Name: "test", Optional: true}}.Optional())
+	assert.False(t, NewFileCollector("test", false, "").Optional())
+	assert.True(t, NewFileCollector("test", true, "").Optional())
 }
 
 func TestFileCollector_Collect(t *testing.T) {
@@ -184,10 +195,11 @@ func TestFileCollector_Collect(t *testing.T) {
 	_, err = f.Write([]byte("OK"))
 	require.NoError(t, err)
 
-	c := FileCollector{
-		NameOptional: NameOptional{Name: "test"},
-		FilePath:     f.Name(),
-	}
+	c := NewFileCollector(
+		"test",
+		false,
+		f.Name(),
+	)
 
 	reader, err := c.Collect(context.Background())
 	assert.NoError(t, err)
@@ -201,10 +213,11 @@ func TestFileCollector_Collect(t *testing.T) {
 }
 
 func TestFileCollector_CollectNotExistingFile(t *testing.T) {
-	c := FileCollector{
-		NameOptional: NameOptional{Name: "test"},
-		FilePath:     "not-existing-file",
-	}
+	c := NewFileCollector(
+		"test",
+		false,
+		"not-existing-file",
+	)
 
 	reader, err := c.Collect(context.Background())
 	assert.Nil(t, reader)
@@ -218,10 +231,11 @@ func TestFileCollector_CollectContextDont(t *testing.T) {
 	_, err = f.Write([]byte("OK"))
 	require.NoError(t, err)
 
-	c := FileCollector{
-		NameOptional: NameOptional{Name: "test"},
-		FilePath:     f.Name(),
-	}
+	c := NewFileCollector(
+		"test",
+		false,
+		f.Name(),
+	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()

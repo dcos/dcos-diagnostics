@@ -22,28 +22,31 @@ type Collector interface {
 	Collect(ctx context.Context) (io.ReadCloser, error)
 }
 
-// NameOptional is a struct that should be inherited by Collectors to prevent name clash with field and interface functions
-type NameOptional struct {
-	Name     string
-	Optional bool
-}
-
 // CmdCollector is a struct implementing Collector interface. It collects command output for given command configured with Cmd field
 type CmdCollector struct {
-	NameOptional
-	Cmd []string
+	name     string
+	optional bool
+	cmd      []string
+}
+
+func NewCmdCollector(name string, optional bool, cmd []string) *CmdCollector {
+	return &CmdCollector{
+		name:     name,
+		optional: optional,
+		cmd:      cmd,
+	}
 }
 
 func (c CmdCollector) Name() string {
-	return c.NameOptional.Name
+	return c.name
 }
 
 func (c CmdCollector) Optional() bool {
-	return c.NameOptional.Optional
+	return c.optional
 }
 
 func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	cmd := exec.CommandContext(ctx, c.Cmd[0], c.Cmd[1:]...)
+	cmd := exec.CommandContext(ctx, c.cmd[0], c.cmd[1:]...)
 	output, err := cmd.CombinedOutput()
 	return ioutil.NopCloser(bytes.NewReader(output)), err
 }
@@ -51,43 +54,53 @@ func (c CmdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 // TODO(janisz): Make use of this code instead of calling dcos-diagnostics for units data
 // See: https://github.com/dcos/dcos-diagnostics/blob/3734e2e03644449500427fb916289c4007dc5106/api/providers.go#L96-L103
 //type SystemdCollector struct {
-//	N        string
-//	UnitName string
-//	Duration time.Duration
+//	name        string
+//	unitName string
+//	duration time.Duration
 //}
 //
 //func (c SystemdCollector) Name() string {
-//	return c.N
+//	return c.name
 //}
 //
 //func (c SystemdCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-//	return units.ReadJournalOutputSince(ctx, c.UnitName, c.Duration.String())
+//	return units.ReadJournalOutputSince(ctx, c.unitName, c.duration.String())
 //}
 
-// EndpointCollector is a struct implementing Collector interface. It collects HTTP response for given URL
+// EndpointCollector is a struct implementing Collector interface. It collects HTTP response for given url
 type EndpointCollector struct {
-	NameOptional
-	Client *http.Client
-	URL    string
+	name     string
+	optional bool
+	client   *http.Client
+	url      string
+}
+
+func NewEndpointCollector(name string, optional bool, url string, client *http.Client) *EndpointCollector {
+	return &EndpointCollector{
+		name:     name,
+		optional: optional,
+		url:      url,
+		client:   client,
+	}
 }
 
 func (c EndpointCollector) Name() string {
-	return c.NameOptional.Name
+	return c.name
 }
 
 func (c EndpointCollector) Optional() bool {
-	return c.NameOptional.Optional
+	return c.optional
 }
 
 func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	url := c.URL
+	url := c.url
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a new HTTP request: %s", err)
 	}
 	request = request.WithContext(ctx)
 
-	resp, err := c.Client.Do(request)
+	resp, err := c.client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch url %s: %s", url, err)
 	}
@@ -109,20 +122,29 @@ func (c EndpointCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 }
 
 type FileCollector struct {
-	NameOptional
-	FilePath string
+	name     string
+	optional bool
+	filePath string
+}
+
+func NewFileCollector(name string, optional bool, filePath string) *FileCollector {
+	return &FileCollector{
+		name:     name,
+		optional: optional,
+		filePath: filePath,
+	}
 }
 
 func (c FileCollector) Name() string {
-	return c.NameOptional.Name
+	return c.name
 }
 
 func (c FileCollector) Optional() bool {
-	return c.NameOptional.Optional
+	return c.optional
 }
 
 func (c FileCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	r, err := os.Open(c.FilePath)
+	r, err := os.Open(c.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s: %s", c.Name(), err)
 	}

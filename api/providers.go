@@ -148,14 +148,7 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 
 		}
 
-		c := collectors.EndpointCollector{
-			NameOptional: collectors.NameOptional{
-				Name:     fileName,
-				Optional: endpoint.Optional,
-			},
-			URL:    url,
-			Client: client, //TODO(janisz): Check if we can use default client
-		}
+		c := collectors.NewEndpointCollector(fileName, endpoint.Optional, url, client)
 		coll = append(coll, c)
 	}
 
@@ -166,13 +159,7 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		}
 
 		key := strings.Replace(strings.TrimLeft(fileProvider.Location, "/"), "/", "_", -1)
-		c := collectors.FileCollector{
-			NameOptional: collectors.NameOptional{
-				Name:     key,
-				Optional: fileProvider.Optional,
-			},
-			FilePath: fileProvider.Location,
-		}
+		c := collectors.NewFileCollector(key, fileProvider.Optional, fileProvider.Location)
 		coll = append(coll, c)
 	}
 
@@ -185,13 +172,7 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		cmdWithArgs := strings.Join(commandProvider.Command, "_")
 		trimmedCmdWithArgs := strings.Replace(cmdWithArgs, "/", "", -1)
 		key := fmt.Sprintf("%s.output", trimmedCmdWithArgs)
-		c := collectors.CmdCollector{
-			NameOptional: collectors.NameOptional{
-				Name:     key,
-				Optional: commandProvider.Optional,
-			},
-			Cmd: commandProvider.Command,
-		}
+		c := collectors.NewCmdCollector(key, commandProvider.Optional, commandProvider.Command)
 		coll = append(coll, c)
 
 	}
