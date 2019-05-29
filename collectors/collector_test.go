@@ -119,8 +119,8 @@ func TestEndpointCollector_CollectShouldReturnErrorWhen404(t *testing.T) {
 	assert.EqualError(t, err, fmt.Sprintf("unable to fetch %s. Return code 404. Body: 404 page not found\n", server.URL+"/test"))
 }
 
-func TestEndpointCollector_CollectShouldReturnErrorWhenNoServer(t *testing.T) {
-	http.DefaultClient.Timeout = time.Second
+func TestEndpointCollector_CollectShouldReturnErroronTimeout(t *testing.T) {
+	http.DefaultClient.Timeout = time.Nanosecond
 	c := NewEndpointCollector(
 		"test",
 		false,
@@ -130,11 +130,11 @@ func TestEndpointCollector_CollectShouldReturnErrorWhenNoServer(t *testing.T) {
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
-	assert.EqualError(t, err, "could not fetch url http://192.0.2.0/test: Get http://192.0.2.0/test: dial tcp 192.0.2.0:80: connect: network is unreachable")
+	assert.EqualError(t, err, "could not fetch url http://192.0.2.0/test: Get http://192.0.2.0/test: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")
 }
 
 func TestEndpointCollector_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
-	http.DefaultClient.Timeout = time.Millisecond
+	http.DefaultClient.Timeout = time.Nanosecond
 	c := NewEndpointCollector(
 		"test",
 		false,

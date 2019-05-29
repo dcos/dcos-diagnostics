@@ -245,7 +245,6 @@ func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 	write(w, jsonMarshal(bundles))
 }
 
-//TODO(janisz): Add caching to this function
 func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 	bundle := Bundle{
 		ID:     id,
