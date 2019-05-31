@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/dcos/dcos-diagnostics/units"
 )
 
 // Collector is the interface to abstract data collection from different sources
@@ -51,21 +53,40 @@ func (c Cmd) Collect(ctx context.Context) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewReader(output)), err
 }
 
-// TODO(janisz): Make use of this code instead of calling dcos-diagnostics for units data https://jira.mesosphere.com/browse/DCOS_OSS-5223
-// See: https://github.com/dcos/dcos-diagnostics/blob/3734e2e03644449500427fb916289c4007dc5106/api/providers.go#L96-L103
-//type Systemd struct {
-//	name        string
-//	unitName string
-//	duration time.Duration
-//}
-//
-//func (c Systemd) Name() string {
-//	return c.name
-//}
-//
-//func (c Systemd) Collect(ctx context.Context) (io.ReadCloser, error) {
-//	return units.ReadJournalOutputSince(ctx, c.unitName, c.duration.String())
-//}
+// Systemd is a struct implementing Collector interface. It collects journal logs for given unit
+type Systemd struct {
+	name     string
+	optional bool
+	unitName string
+	duration time.Duration
+}
+
+func NewSystemd(name string, optional bool, unitName string, duration time.Duration) *Systemd {
+	return &Systemd{
+		name:     name,
+		optional: optional,
+		unitName: unitName,
+		duration: duration,
+	}
+}
+
+func (c Systemd) Name() string {
+	return c.name
+}
+
+func (c Systemd) Optional() bool {
+	return c.optional
+}
+
+func (c Systemd) Collect(ctx context.Context) (io.ReadCloser, error) {
+	rc, err := units.ReadJournalOutputSince(ctx, c.unitName, c.duration)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not read %s logs from journal: %s", c.unitName, err)
+	}
+
+	return rc, err
+}
 
 // Endpoint is a struct implementing Collector interface. It collects HTTP response for given url
 type Endpoint struct {

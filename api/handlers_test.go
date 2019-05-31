@@ -35,6 +35,7 @@ func testCfg() *config.Config {
 		FlagMasterPort:                     1050,
 		FlagDiagnosticsJobTimeoutMinutes:   1,
 		FlagDiagnosticsBundleFetchersCount: 3,
+		FlagDiagnosticsBundleUnitsLogsSinceString: "24h",
 	}
 }
 

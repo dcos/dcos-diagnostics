@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -58,6 +59,48 @@ func TestCmd_Collect(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Empty(t, string(raw))
+}
+
+
+func TestSystemdIsCollector(t *testing.T) {
+	assert.Implements(t, (*Collector)(nil), new(Systemd))
+}
+
+func TestSystemd_Name(t *testing.T) {
+	assert.Equal(t, "test", NewSystemd(
+		"test",
+		false,
+		"systemd",
+		time.Minute,
+	).Name())
+}
+
+func TestSystemd_Optional(t *testing.T) {
+	assert.False(t, NewSystemd("test", false, "systemd", time.Minute).Optional())
+	assert.True(t, NewSystemd("test", true, "systemd", time.Minute).Optional())
+}
+
+func TestSystemd_Collect(t *testing.T) {
+	path, err := exec.LookPath("journalctl")
+	if err != nil {
+		t.Skipf("SKIPPING: Could not find journalctl: %s", err)
+	}
+	t.Log("journalctl exists in ", path)
+
+	c := NewSystemd(
+		"test",
+		false,
+		"systemd-journald.service",
+		100 * time.Hour,
+	)
+	r, err := c.Collect(context.TODO())
+
+	require.NoError(t, err)
+
+	raw, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+
+	assert.Contains(t, string(raw), "Journal started")
 }
 
 func TestEndpointIsCollector(t *testing.T) {

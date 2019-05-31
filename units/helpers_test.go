@@ -17,7 +17,7 @@ func TestReadJournalOutputSince_Windows(t *testing.T) {
 		t.Skip()
 	}
 
-	r, err := ReadJournalOutputSince(context.TODO(), "", "")
+	r, err := ReadJournalOutputSince(context.TODO(), "", time.Minute)
 	assert.Nil(t, r)
 	assert.EqualError(t, err, "there is no journal on Windows")
 }
@@ -30,7 +30,7 @@ func TestReadJournalOutputSince_Linux(t *testing.T) {
 	ctxDeadline := time.Now().Add(1 * time.Hour) // this test shouldn't take longer than an hour, should it?
 	ctx, cancel := context.WithDeadline(context.Background(), ctxDeadline)
 	defer cancel()
-	r, err := ReadJournalOutputSince(ctx, "not-existing.service", "")
+	r, err := ReadJournalOutputSince(ctx, "not-existing.service", time.Minute)
 	require.NoError(t, err)
 
 	data, err := ioutil.ReadAll(r)

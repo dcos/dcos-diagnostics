@@ -973,7 +973,11 @@ func (j *DiagnosticsJob) dispatchLogs(ctx context.Context, provider, entity stri
 			return r, errors.New("Only DC/OS systemd units are available")
 		}
 		logrus.Debugf("dispatching a Unit %s", entity)
-		return units.ReadJournalOutputSince(ctx, entity, j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
+		duration, err := time.ParseDuration(j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
+		if err != nil {
+			return r, fmt.Errorf("error parsing '%s': %s", j.Cfg.FlagDiagnosticsBundleUnitsLogsSinceString, err.Error())
+		}
+		return units.ReadJournalOutputSince(ctx, entity, duration)
 	}
 
 	if provider == "files" {
