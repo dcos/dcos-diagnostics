@@ -20,15 +20,18 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/dcos/dcos-diagnostics/api"
+	"github.com/dcos/dcos-diagnostics/api/rest"
+	"github.com/dcos/dcos-diagnostics/util"
+
 	diagDcos "github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -47,56 +50,6 @@ var daemonCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		startDiagnosticsDaemon()
 	},
-}
-
-func init() {
-	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagCACertFile, "ca-cert", defaultConfig.FlagCACertFile,
-		"Use certificate authority.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagPort, "port", diagnosticsTCPPort,
-		"Web server TCP port.")
-	daemonCmd.PersistentFlags().BoolVar(&defaultConfig.FlagDisableUnixSocket, "no-unix-socket",
-		defaultConfig.FlagDisableUnixSocket, "Disable use unix socket provided by systemd activation.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagMasterPort, "master-port", diagnosticsTCPPort,
-		"Use TCP port to connect to masters.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagAgentPort, "agent-port", diagnosticsTCPPort,
-		"Use TCP port to connect to agents.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagCommandExecTimeoutSec, "command-exec-timeout",
-		120, "Set command executing timeout")
-	daemonCmd.PersistentFlags().BoolVar(&defaultConfig.FlagPull, "pull", defaultConfig.FlagPull,
-		"Try to pull runner from DC/OS hosts.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagPullInterval, "pull-interval", 60,
-		"Set pull interval in seconds.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagPullTimeoutSec, "pull-timeout", 3,
-		"Set pull timeout.")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagUpdateHealthReportInterval, "health-update-interval",
-		60,
-		"Set update health interval in seconds.")
-	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagExhibitorClusterStatusURL, "exhibitor-url", exhibitorURL,
-		"Use Exhibitor URL to discover master nodes.")
-	daemonCmd.PersistentFlags().BoolVar(&defaultConfig.FlagForceTLS, "force-tls", defaultConfig.FlagForceTLS,
-		"Use HTTPS to do all requests.")
-	daemonCmd.PersistentFlags().BoolVar(&defaultConfig.FlagDebug, "debug", defaultConfig.FlagDebug,
-		"Enable pprof debugging endpoints.")
-	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagIAMConfig, "iam-config",
-		defaultConfig.FlagIAMConfig, "A path to identity and access management config")
-	// diagnostics job flags
-	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleDir,
-		"diagnostics-bundle-dir", diagnosticsBundleDir, "Set a path to store diagnostic bundles")
-	daemonCmd.PersistentFlags().StringSliceVar(&defaultConfig.FlagDiagnosticsBundleEndpointsConfigFiles,
-		"endpoint-config", []string{diagnosticsEndpointConfig},
-		"Use endpoints_config.json")
-	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleUnitsLogsSinceString,
-		"diagnostics-units-since", "24h", "Collect systemd units logs since")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsJobTimeoutMinutes,
-		"diagnostics-job-timeout", 720,
-		"Set a global diagnostics job timeout")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes,
-		"diagnostics-url-timeout", 2,
-		"Set a local timeout for every single GET request to a log endpoint")
-	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsBundleFetchersCount,
-		"fetchers-count", 1,
-		"Set a number of concurrent fetchers gathering nodes logs")
-	RootCmd.AddCommand(daemonCmd)
 }
 
 func startDiagnosticsDaemon() {
@@ -161,11 +114,21 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 
+	urlTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes)
+	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, util.NewHTTPClient(urlTimeout, tr))
+	if err != nil {
+		logrus.Fatalf("Could not init collectors properly: %s", err)
+	}
+
+	bundleTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobTimeoutMinutes)
+	bundleHandler := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, bundleTimeout)
+
 	// Inject dependencies used for running dcos-diagnostics.
 	dt := &api.Dt{
 		Cfg:               defaultConfig,
 		DtDCOSTools:       DCOSTools,
 		DtDiagnosticsJob:  diagnosticsJob,
+		BundleHandler:     bundleHandler,
 		RunPullerChan:     make(chan bool),
 		RunPullerDoneChan: make(chan bool),
 		SystemdUnits:      &api.SystemdUnits{},

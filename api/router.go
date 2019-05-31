@@ -13,7 +13,18 @@ import (
 )
 
 // baseRoute a base dcos-diagnostics endpoint location.
+// We should not change this endpoint since it's exposed by adminoruter
+// see: https://github.com/dcos/dcos/blob/1.13.1/packages/adminrouter/extra/src/docs/api/nginx.agent.yaml#L56-L62
 const baseRoute string = "/system/health/v1"
+
+// Endpoint for listing all bundles
+const bundlesEndpoint = baseRoute + "/diagnostics"
+
+// CRUD endpoint for diagnostics bundle files
+const bundleEndpoint = bundlesEndpoint + "/{id}"
+
+// Endpoint to download bundle file
+const bundleFileEndpoint = bundleEndpoint + "/file"
 
 type routeHandler struct {
 	url                 string
@@ -86,6 +97,9 @@ func getRoutes(dt *Dt) []routeHandler {
 		systemdUnits:       dt.SystemdUnits,
 		monitoringResponse: dt.MR,
 	}
+
+	bh := dt.BundleHandler
+
 	routes := []routeHandler{
 		{
 			// /system/health/v1
@@ -177,6 +191,34 @@ func getRoutes(dt *Dt) []routeHandler {
 			},
 			gzip: true,
 		},
+		//---------------------------------------------------------------------
+		// 					V2 REST API for bundles CRUD
+		{
+			url:     bundleEndpoint,
+			handler: bh.Create,
+			methods: []string{"PUT"},
+		},
+		{
+			url:     bundleEndpoint,
+			handler: bh.Delete,
+			methods: []string{"DELETE"},
+		},
+		{
+			url:     bundlesEndpoint,
+			handler: bh.List,
+			methods: []string{"GET"},
+		},
+		{
+			url:     bundleEndpoint,
+			handler: bh.Get,
+			methods: []string{"GET"},
+		},
+		{
+			url:     bundleFileEndpoint,
+			handler: bh.GetFile,
+			methods: []string{"GET"},
+		},
+		//---------------------------------------------------------------------
 		{
 			// /system/health/v1/report/diagnostics
 			url:     baseRoute + "/report/diagnostics/create",

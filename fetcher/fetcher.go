@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// EndpointRequest is a struct passed to Fetcher with information about URL to be fetched
+// EndpointRequest is a struct passed to Fetcher with information about url to be fetched
 type EndpointRequest struct {
 	URL      string
 	Node     dcos.Node

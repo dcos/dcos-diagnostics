@@ -1,15 +1,10 @@
 build: off
 
-clone_folder: c:\gopath\src\github.com\dcos\dcos-diagnostics
+cache:
+  - '%LocalAppData%\go-build'
 
-environment:
-  GOPATH: c:\gopath
 
-stack: go 1.11
-
-before_test:
-  - go vet ./...
+stack: go 1.12
 
 test_script:
-  - go test ./... -cover
-
+  - go test -mod=vendor -coverprofile=coverage.txt -covermode=atomic ./...

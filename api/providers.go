@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
+
+	"github.com/dcos/dcos-diagnostics/collector"
+	"github.com/dcos/dcos-diagnostics/util"
 
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
@@ -112,4 +117,67 @@ func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tooler) (internalC
 	return LogProviders{
 		HTTPEndpoints: httpEndpoints,
 	}, nil
+}
+
+func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) ([]collector.Collector, error) {
+	providers, err := loadProviders(cfg, tools)
+	if err != nil {
+		return nil, fmt.Errorf("could not init bundle handler: %s", err)
+	}
+	var collectors []collector.Collector
+
+	role, err := tools.GetNodeRole()
+	if err != nil {
+		return nil, fmt.Errorf("could not get role: %s", err)
+	}
+
+	// set filename if not set, some endpoints might be named e.g., after corresponding unit
+	for _, endpoint := range providers.HTTPEndpoints {
+		if !roleMatched(role, endpoint.Role) {
+			continue
+		}
+
+		fileName := fmt.Sprintf("%d-%s.json", endpoint.Port, util.SanitizeString(endpoint.URI))
+		if endpoint.FileName != "" {
+			fileName = endpoint.FileName
+		}
+
+		url, err := util.UseTLSScheme(fmt.Sprintf("http://%s:%d%s", cfg.FlagHostname, endpoint.Port, endpoint.URI), cfg.FlagForceTLS)
+		if err != nil {
+			return nil, fmt.Errorf("could not initialize internal log providers: %s", err)
+
+		}
+
+		c := collector.NewEndpoint(fileName, endpoint.Optional, url, client)
+		collectors = append(collectors, c)
+	}
+
+	// trim left "/" and replace all slashes with underscores.
+	for _, fileProvider := range providers.LocalFiles {
+		if !roleMatched(role, fileProvider.Role) {
+			continue
+		}
+
+		key := strings.Replace(strings.TrimLeft(fileProvider.Location, "/"), "/", "_", -1)
+		c := collector.NewFile(key, fileProvider.Optional, fileProvider.Location)
+		collectors = append(collectors, c)
+	}
+
+	// sanitize command to use as filename
+	for _, commandProvider := range providers.LocalCommands {
+		if !roleMatched(role, commandProvider.Role) {
+			continue
+		}
+
+		cmdWithArgs := strings.Join(commandProvider.Command, "_")
+		trimmedCmdWithArgs := strings.Replace(cmdWithArgs, "/", "", -1)
+		key := fmt.Sprintf("%s.output", trimmedCmdWithArgs)
+		c := collector.NewCmd(key, commandProvider.Optional, commandProvider.Command)
+		collectors = append(collectors, c)
+
+	}
+
+	//TODO(janisz): Setup systemd units https://jira.mesosphere.com/browse/DCOS_OSS-5223
+
+	return collectors, nil
 }
