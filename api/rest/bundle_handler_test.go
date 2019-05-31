@@ -320,13 +320,15 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDone(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
-	assert.Contains(t, rr.Body.String(),
-		`{"code":404,"error":"bundle not found: could not stat data file bundle: `)
+	assert.Contains(t,
+		rr.Body.String(),
+		`{"id":"bundle","status":"Unknown","started_at":"1991-05-21T00:00:00Z","stopped_at":"2019-05-21T00:00:00Z","errors":["could not stat data file bundle: `,
+	)
 }
 
-func TestIfGetReturns404WhenBundleStateIsNotJson(t *testing.T) {
+func TestIfGetReturns500WhenBundleStateIsNotJson(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
 	defer os.RemoveAll(workdir)
@@ -347,8 +349,19 @@ func TestIfGetReturns404WhenBundleStateIsNotJson(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not unmarshal state file bundle-state-not-json:`)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.JSONEq(t,
+		`{
+   			"id":"bundle-state-not-json",
+			"status":"Unknown",
+   			"started_at":"0001-01-01T00:00:00Z",
+   			"stopped_at":"0001-01-01T00:00:00Z",
+   			"errors":[
+      			"could not unmarshal state file bundle-state-not-json: invalid character 'i' looking for beginning of value"
+   			]
+		}`,
+		rr.Body.String(),
+	)
 }
 
 func TestIfDeleteReturns404WhenNoBundleFound(t *testing.T) {
@@ -366,11 +379,11 @@ func TestIfDeleteReturns404WhenNoBundleFound(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not read state file for bundle not-existing-bundle: `)
+	assert.Equal(t, rr.Body.String(), "404 page not found\n")
 
 }
 
-func TestIfDeleteReturns404WhenNoBundleStateFound(t *testing.T) {
+func TestIfDeleteReturns500WhenNoBundleStateFound(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
 	defer os.RemoveAll(workdir)
@@ -390,11 +403,14 @@ func TestIfDeleteReturns404WhenNoBundleStateFound(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not read state file for bundle not-existing-bundle-state: `)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t,
+		rr.Body.String(),
+		`{"id":"not-existing-bundle-state","status":"Unknown","started_at":"0001-01-01T00:00:00Z","stopped_at":"0001-01-01T00:00:00Z","errors":["could not read state file for bundle not-existing-bundle-state:`,
+	)
 }
 
-func TestIfDeleteReturns404WhenBundleStateIsNotJson(t *testing.T) {
+func TestIfDeleteReturns500WhenBundleStateIsNotJson(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
 	defer os.RemoveAll(workdir)
@@ -418,8 +434,19 @@ func TestIfDeleteReturns404WhenBundleStateIsNotJson(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not unmarshal state file bundle-state-not-json: `)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.JSONEq(t,
+		`{
+   			"id":"bundle-state-not-json",
+   			"status":"Unknown",
+   			"started_at":"0001-01-01T00:00:00Z",
+   			"stopped_at":"0001-01-01T00:00:00Z",
+   			"errors":[
+      			"could not unmarshal state file bundle-state-not-json: invalid character 'i' looking for beginning of value"
+   			]
+		}`,
+		rr.Body.String(),
+	)
 }
 
 func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
@@ -454,7 +481,7 @@ func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
 	assert.JSONEq(t, bundleState, rr.Body.String())
 }
 
-func TestIfDeleteReturns404WhenBundleFileIsMissing(t *testing.T) {
+func TestIfDeleteReturns500WhenBundleFileIsMissing(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
 	defer os.RemoveAll(workdir)
@@ -481,8 +508,12 @@ func TestIfDeleteReturns404WhenBundleFileIsMissing(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), `{"code":404,"error":"bundle not found: could not stat data file missing-data-file: `, rr.Body.String())
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t,
+		rr.Body.String(),
+		`{"id":"bundle","status":"Unknown","started_at":"1991-05-21T00:00:00Z","stopped_at":"2019-05-21T00:00:00Z","errors":["could not stat data file missing-data-file: `,
+		rr.Body.String(),
+	)
 }
 
 func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
@@ -652,16 +683,29 @@ func TestIfE2E_(t *testing.T) {
 	bh.clock = &MockClock{now: now}
 
 	router := mux.NewRouter()
+	router.HandleFunc(bundlesEndpoint, bh.List).Methods(http.MethodGet)
 	router.HandleFunc(bundleEndpoint, bh.Create).Methods(http.MethodPut)
 	router.HandleFunc(bundleEndpoint, bh.Get).Methods(http.MethodGet)
 	router.HandleFunc(bundleEndpoint, bh.Delete).Methods(http.MethodDelete)
 	router.HandleFunc(bundleFileEndpoint, bh.GetFile).Methods(http.MethodGet)
-	rr := httptest.NewRecorder()
+
+	t.Run("get status of not existing bundle-0", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Equal(t, "404 page not found\n", rr.Body.String())
+	})
 
 	t.Run("create bundle-0", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
 
+		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -673,10 +717,12 @@ func TestIfE2E_(t *testing.T) {
 	})
 
 	t.Run("get bundle-0 status", func(t *testing.T) {
+		var rr *httptest.ResponseRecorder
 		for { // busy wait for bundle
 			time.Sleep(time.Millisecond)
 			req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
 			require.NoError(t, err)
+
 			rr = httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
 
@@ -699,7 +745,7 @@ func TestIfE2E_(t *testing.T) {
 	t.Run("get bundle-0 file and validate it", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0/file", nil)
 		require.NoError(t, err)
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -738,7 +784,7 @@ func TestIfE2E_(t *testing.T) {
 	t.Run("delete bundle-0", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
 		require.NoError(t, err)
@@ -753,22 +799,22 @@ func TestIfE2E_(t *testing.T) {
 		})), rr.Body.String())
 	})
 
-	t.Run("get deleted status of bundle-0", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+	t.Run("list bundles", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 		require.NoError(t, err)
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.JSONEq(t, string(jsonMarshal(Bundle{
+		assert.JSONEq(t, string(jsonMarshal([]Bundle{{
 			ID:      "bundle-0",
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
 			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
-		})), rr.Body.String())
+		}})), rr.Body.String())
 	})
 }
 

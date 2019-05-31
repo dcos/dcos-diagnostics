@@ -62,6 +62,17 @@ This works only on masters and means the budnle will be creaded on selected node
                 "error": "bundle 123e4567-e89b-12d3-a456-426655440001 already exists"
             }
 
++ Response 507 (application/json)
+
+    There is a problem with storage
+
+    + Body
+
+            {
+                "code": 507,
+                "error": "could not create bundle 123e4567-e89b-12d3-a456-426655440001 workdir"
+            }
+
 ### Delete a Bundle [DELETE /report/diagnostics/{id}]
 
 When bundle exists and is `DONE` it delete the bundle file.
@@ -94,23 +105,27 @@ If bundle was already `DELETED` is does not change it state.
 
     + Body
 
-            {
-                "code": 404,
-                "error": "bundle not found: could not read state file for bundle"
-            }
+            404 page not found
 
 + Response 500 (application/json)
 
-    Bundle could not be deleted or state file could not be updated
+    Bundle could not be read
 
     + Body
 
-        {
-            "code":500,
-            "error":"bundle read-only-state-file was deleted but state could not be updated"
-        }
+            {
+            "id":"bundle-state-not-json",
+            "status":"Unknown",
+            "started_at":"0001-01-01T00:00:00Z",
+            "stopped_at":"0001-01-01T00:00:00Z",
+            "errors":[
+                "could not unmarshal state file bundle-state-not-json: invalid character 'i' looking for beginning of value"
+            ]
+            }
 
-### Cancel a Bundle [DELETE /report/diagnostics/{id}]
+### Cancel a Bundle (NOT IMPLEMENTED) [DELETE /report/diagnostics/{id}]
+
+This method is not implemented, see: [DCOS_OSS-5222](https://jira.mesosphere.com/browse/DCOS_OSS-5222)
 
 When bundle is in progress (`STARTED`, `PROCESSING`) it cancel bundle creation and remove all intermidiete files.
 If bundle was already `CANCELED` is does not change it state.
@@ -119,13 +134,13 @@ If bundle was already `CANCELED` is does not change it state.
 
     + Body
 
-            {
+                {
                 "id": "123e4567-e89b-12d3-a456-426655440001",
                 "started_at": "2015-08-05T08:40:51.620Z",
                 "stoped_at": "2015-08-05T08:40:51.620Z",
                 "size": 0,
                 "status": "CANCELED"
-            }
+                }
 
 + Response 304 (application/json)
 
@@ -139,10 +154,7 @@ If bundle was already `CANCELED` is does not change it state.
 
     + Body
 
-            {
-                "code": 404,
-                "error": "bundle not found: could not read state file for bundle"
-            }
+            404 page not found
 
 ### Get a Bundle status [GET /report/diagnostics/{id}]
 
@@ -170,9 +182,22 @@ Get status of a signle bundle `id`
 
     + Body
 
+            404 page not found
+
++ Response 500 (application/json)
+
+    Bundle could not be read
+
+    + Body
+
             {
-                "code": 404,
-                "error": "bundle not found: could not read state file for bundle"
+            "id":"bundle-state-not-json",
+            "status":"Unknown",
+            "started_at":"0001-01-01T00:00:00Z",
+            "stopped_at":"0001-01-01T00:00:00Z",
+            "errors":[
+                "could not unmarshal state file bundle-state-not-json: invalid character 'i' looking for beginning of value"
+            ]
             }
 
 ### Get a Bundle file [GET /report/diagnostics/{id}/file]
@@ -194,6 +219,20 @@ Get content of a bundle with given `id`
 
     + Body
 
+            404 page not found
+
++ Response 500 (application/json)
+
+    Bundle could not be read
+
+    + Body
+
             {
-                "code": 404,
-                "error": "bundle not found: could not read state file for bundle"
+            "id":"bundle-state-not-json",
+            "status":"Unknown",
+            "started_at":"0001-01-01T00:00:00Z",
+            "stopped_at":"0001-01-01T00:00:00Z",
+            "errors":[
+                "could not unmarshal state file bundle-state-not-json: invalid character 'i' looking for beginning of value"
+            ]
+            }    

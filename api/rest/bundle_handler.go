@@ -76,14 +76,13 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	_, err := h.getBundleState(id)
-	if err == nil {
+	if h.bundleExists(id) {
 		writeJSONError(w, http.StatusConflict, fmt.Errorf("bundle %s already exists", id))
 		return
 	}
 
 	bundleWorkDir := filepath.Join(h.workDir, id)
-	err = os.MkdirAll(bundleWorkDir, dirPerm)
+	err := os.MkdirAll(bundleWorkDir, dirPerm)
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create bundle %s workdir: %s", id, err))
 		return
@@ -202,14 +201,19 @@ func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	bundle, err := h.getBundleState(id)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle not found: %s", err))
+	if !h.bundleExists(id) {
+		http.NotFound(w, r)
 		return
 	}
 
-	body := jsonMarshal(bundle)
-	write(w, body)
+	bundle, err := h.getBundleState(id)
+	if err != nil {
+		bundle.Errors = append(bundle.Errors, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.WithField("ID", id).WithError(err).Warn("There is a problem with the bundle")
+	}
+
+	write(w, jsonMarshal(bundle))
 }
 
 func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
@@ -283,14 +287,34 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 	return bundle, nil
 }
 
+func (h BundleHandler) bundleExists(id string) bool {
+	s, err := os.Stat(filepath.Join(h.workDir, id))
+	if os.IsNotExist(err) {
+		return false
+	}
+	if !s.IsDir() {
+		// If this is a file then it's not a valid bundle
+		return false
+	}
+	return true
+}
+
 func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
 
+	if !h.bundleExists(id) {
+		http.NotFound(w, r)
+		return
+	}
+
 	bundle, err := h.getBundleState(id)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle not found: %s", err))
+		logrus.WithField("ID", id).WithError(err).Warn("There is a problem with the bundle")
+		bundle.Errors = append(bundle.Errors, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		write(w, jsonMarshal(bundle))
 		return
 	}
 
