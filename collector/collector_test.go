@@ -60,6 +60,24 @@ func TestCmd_Collect(t *testing.T) {
 	assert.Empty(t, string(raw))
 }
 
+func TestSystemdIsCollector(t *testing.T) {
+	assert.Implements(t, (*Collector)(nil), new(Systemd))
+}
+
+func TestSystemd_Name(t *testing.T) {
+	assert.Equal(t, "test", NewSystemd(
+		"test",
+		false,
+		"systemd",
+		time.Minute,
+	).Name())
+}
+
+func TestSystemd_Optional(t *testing.T) {
+	assert.False(t, NewSystemd("test", false, "systemd", time.Minute).Optional())
+	assert.True(t, NewSystemd("test", true, "systemd", time.Minute).Optional())
+}
+
 func TestEndpointIsCollector(t *testing.T) {
 	assert.Implements(t, (*Collector)(nil), new(Endpoint))
 }
