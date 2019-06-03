@@ -15,19 +15,19 @@
 package cmd
 
 import (
-	jwtt "github.com/spf13/jwalterweatherman"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/sirupsen/logrus"
+	jwtt "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/dcos/dcos-diagnostics/config"
 )
 
 const hostnameEnvVarName = "HOSTNAME"
-
 
 func Test_initConfig(t *testing.T) {
 	h := os.Getenv(hostnameEnvVarName)

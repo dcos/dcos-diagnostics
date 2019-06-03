@@ -61,7 +61,6 @@ func TestCmd_Collect(t *testing.T) {
 	assert.Empty(t, string(raw))
 }
 
-
 func TestSystemdIsCollector(t *testing.T) {
 	assert.Implements(t, (*Collector)(nil), new(Systemd))
 }
@@ -91,7 +90,7 @@ func TestSystemd_Collect(t *testing.T) {
 		"test",
 		false,
 		"systemd-journald.service",
-		100 * time.Hour,
+		100*time.Hour,
 	)
 	r, err := c.Collect(context.TODO())
 

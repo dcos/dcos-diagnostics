@@ -2,10 +2,12 @@ package units
 
 import (
 	"context"
-	"io"
+	goio "io"
 	"time"
 
 	"github.com/dcos/dcos-log/dcos-log/journal/reader"
+
+	"github.com/dcos/dcos-diagnostics/io"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 )
 
 // ReadJournalOutputSince returns logs since given duration from journal
-func ReadJournalOutputSince(ctx context.Context, unit string, duration time.Duration) (io.ReadCloser, error) {
+func ReadJournalOutputSince(ctx context.Context, unit string, duration time.Duration) (goio.ReadCloser, error) {
 	matches := DefaultSystemdMatches(unit)
 
 	src, err := reader.NewReader(reader.NewEntryFormatter("text/plain", false), reader.OptionMatchOR(matches), reader.OptionSince(duration))
@@ -24,13 +26,10 @@ func ReadJournalOutputSince(ctx context.Context, unit string, duration time.Dura
 		return nil, err
 	}
 
-	return &TimeoutReadCloser{
-		ctx: ctx,
-		src: src,
-	}, nil
+	return io.ReadCloserWithContext(ctx, src), nil
 }
 
-// DefaultSystemdMatches returns default reader.JournalEntryMatch for a given systemd unit.
+// DefaultSystemdMatches returns default readerWithContext.JournalEntryMatch for a given systemd unit.
 func DefaultSystemdMatches(unit string) []reader.JournalEntryMatch {
 	return []reader.JournalEntryMatch{
 		{

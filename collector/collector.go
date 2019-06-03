@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
+	goio "io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"time"
 
+	"github.com/dcos/dcos-diagnostics/io"
 	"github.com/dcos/dcos-diagnostics/units"
 )
 
@@ -21,7 +22,7 @@ type Collector interface {
 	// Optional returns true if Collector is not mandatory and failures should be ignored
 	Optional() bool
 	// Collect returns collected data
-	Collect(ctx context.Context) (io.ReadCloser, error)
+	Collect(ctx context.Context) (goio.ReadCloser, error)
 }
 
 // Cmd is a struct implementing Collector interface. It collects command output for given command configured with Cmd field
@@ -47,7 +48,7 @@ func (c Cmd) Optional() bool {
 	return c.optional
 }
 
-func (c Cmd) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c Cmd) Collect(ctx context.Context) (goio.ReadCloser, error) {
 	cmd := exec.CommandContext(ctx, c.cmd[0], c.cmd[1:]...)
 	output, err := cmd.CombinedOutput()
 	return ioutil.NopCloser(bytes.NewReader(output)), err
@@ -78,7 +79,7 @@ func (c Systemd) Optional() bool {
 	return c.optional
 }
 
-func (c Systemd) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c Systemd) Collect(ctx context.Context) (goio.ReadCloser, error) {
 	rc, err := units.ReadJournalOutputSince(ctx, c.unitName, c.duration)
 
 	if err != nil {
@@ -113,7 +114,7 @@ func (c Endpoint) Optional() bool {
 	return c.optional
 }
 
-func (c Endpoint) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c Endpoint) Collect(ctx context.Context) (goio.ReadCloser, error) {
 	url := c.url
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -164,48 +165,10 @@ func (c File) Optional() bool {
 	return c.optional
 }
 
-func (c File) Collect(ctx context.Context) (io.ReadCloser, error) {
+func (c File) Collect(ctx context.Context) (goio.ReadCloser, error) {
 	r, err := os.Open(c.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s: %s", c.Name(), err)
 	}
-	return ReadCloser(ctx, r), nil
-}
-
-// ReadCloser wraps an io.ReadCloser with one that checks ctx.Done() on each Read call.
-//
-// If ctx has a deadline and if r has a `SetReadDeadline(time.Time) error` method,
-// then it is called with the deadline.
-//
-// Source : https://gist.github.com/dchapes/6c992bf3e943934462509338cd213e99
-func ReadCloser(ctx context.Context, r io.ReadCloser) io.ReadCloser {
-	if deadline, ok := ctx.Deadline(); ok {
-		type deadliner interface {
-			SetReadDeadline(time.Time) error
-		}
-		if d, ok := r.(deadliner); ok {
-			_ = d.SetReadDeadline(deadline)
-		}
-	}
-	return reader{ctx, r}
-}
-
-type reader struct {
-	ctx context.Context
-	r   io.ReadCloser
-}
-
-func (r reader) Read(p []byte) (n int, err error) {
-	if err = r.ctx.Err(); err != nil {
-		return
-	}
-	if n, err = r.r.Read(p); err != nil {
-		return
-	}
-	err = r.ctx.Err()
-	return
-}
-
-func (r reader) Close() error {
-	return r.r.Close()
+	return io.ReadCloserWithContext(ctx, r), nil
 }
