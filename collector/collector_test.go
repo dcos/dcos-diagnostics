@@ -7,12 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"os/exec"
 	"testing"
 	"time"
-
-	"github.com/coreos/go-systemd/journal"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,38 +76,6 @@ func TestSystemd_Name(t *testing.T) {
 func TestSystemd_Optional(t *testing.T) {
 	assert.False(t, NewSystemd("test", false, "systemd", time.Minute).Optional())
 	assert.True(t, NewSystemd("test", true, "systemd", time.Minute).Optional())
-}
-
-func TestSystemd_Collect(t *testing.T) {
-	if os.Getenv("TRAVIS") != "" {
-		t.Skipf("SKIPPING: We can not read from journal in Travis")
-	}
-	path, err := exec.LookPath("journalctl")
-	if err != nil {
-		t.Skipf("SKIPPING: Could not find journalctl: %s", err)
-	}
-	t.Log("journalctl exists in ", path)
-	if !journal.Enabled() {
-		t.Skipf("SKIPPING: Journal not enabled")
-	}
-
-	err = journal.Send("test message", journal.PriInfo, map[string]string{"UNIT": "test-unit"})
-	require.NoError(t, err)
-
-	c := NewSystemd(
-		"test",
-		false,
-		"test-unit",
-		time.Second,
-	)
-	r, err := c.Collect(context.TODO())
-
-	require.NoError(t, err)
-
-	raw, err := ioutil.ReadAll(r)
-	require.NoError(t, err)
-
-	assert.Contains(t, string(raw), "test message")
 }
 
 func TestEndpointIsCollector(t *testing.T) {
