@@ -17,9 +17,6 @@ func TestSystemd_Collect(t *testing.T) {
 	if os.Getenv("TRAVIS") != "" {
 		t.Skipf("SKIPPING: We can not read from journal in Travis")
 	}
-	if !journal.Enabled() {
-		t.Skipf("SKIPPING: Journal not enabled")
-	}
 
 	err := journal.Send("test message", journal.PriInfo, map[string]string{"UNIT": "test-unit"})
 	require.NoError(t, err)
