@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -81,17 +80,17 @@ func TestSystemd_Optional(t *testing.T) {
 }
 
 func TestSystemd_Collect(t *testing.T) {
-	path, err := exec.LookPath("journalctl")
+	cmd := exec.Command("systemctl", "status", "systemd-journald.service")
+	err := cmd.Run()
 	if err != nil {
-		t.Skipf("SKIPPING: Could not find journalctl: %s", err)
+		t.Skipf("SKIPPING: Could not find systemd-journald.service: %s", err)
 	}
-	t.Log("journalctl exists in ", path)
 
 	c := NewSystemd(
 		"test",
 		false,
 		"systemd-journald.service",
-		time.Duration(math.MaxInt64),
+		100*time.Hour,
 	)
 	r, err := c.Collect(context.TODO())
 
