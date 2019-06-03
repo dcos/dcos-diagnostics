@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/coreos/go-systemd/journal"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,17 +81,18 @@ func TestSystemd_Optional(t *testing.T) {
 }
 
 func TestSystemd_Collect(t *testing.T) {
-	cmd := exec.Command("systemctl", "status", "systemd-journald.service")
-	err := cmd.Run()
-	if err != nil {
-		t.Skipf("SKIPPING: Could not find systemd-journald.service: %s", err)
+	if !journal.Enabled() {
+		t.Skipf("SKIPPING: Journal not enabled")
 	}
+
+	err := journal.Send("test message", journal.PriInfo, map[string]string{"UNIT": "test-unit"})
+	require.NoError(t, err)
 
 	c := NewSystemd(
 		"test",
 		false,
-		"systemd-journald.service",
-		100*time.Hour,
+		"test-unit",
+		time.Second,
 	)
 	r, err := c.Collect(context.TODO())
 
@@ -99,7 +101,7 @@ func TestSystemd_Collect(t *testing.T) {
 	raw, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
 
-	assert.Contains(t, string(raw), "Journal started")
+	assert.Contains(t, string(raw), "test message")
 }
 
 func TestEndpointIsCollector(t *testing.T) {
