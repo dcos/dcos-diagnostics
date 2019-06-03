@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -81,11 +83,19 @@ func TestSystemd_Optional(t *testing.T) {
 }
 
 func TestSystemd_Collect(t *testing.T) {
+	if os.Getenv("TRAVIS") != "" {
+		t.Skipf("SKIPPING: We can not read from journal in Travis")
+	}
+	path, err := exec.LookPath("journalctl")
+	if err != nil {
+		t.Skipf("SKIPPING: Could not find journalctl: %s", err)
+	}
+	t.Log("journalctl exists in ", path)
 	if !journal.Enabled() {
 		t.Skipf("SKIPPING: Journal not enabled")
 	}
 
-	err := journal.Send("test message", journal.PriInfo, map[string]string{"UNIT": "test-unit"})
+	err = journal.Send("test message", journal.PriInfo, map[string]string{"UNIT": "test-unit"})
 	require.NoError(t, err)
 
 	c := NewSystemd(
