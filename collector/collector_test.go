@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -90,7 +91,7 @@ func TestSystemd_Collect(t *testing.T) {
 		"test",
 		false,
 		"systemd-journald.service",
-		100*time.Hour,
+		time.Duration(math.MaxInt64),
 	)
 	r, err := c.Collect(context.TODO())
 
