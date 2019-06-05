@@ -262,65 +262,89 @@ func (j *DiagnosticsJob) downloadFromNodes(ctx context.Context, bundleID string,
 	nodes []dcos.Node, zipWriter *zip.Writer, summaryReport *bytes.Buffer, summaryErrorsReport *bytes.Buffer) {
 
 	requests := j.getBundleRequests(bundleID, nodes, summaryReport)
-	requestFinished := make(chan fetcher.RequestStatus)
+	requestFinished := make(chan *fetcher.RequestStatus)
 
-	// send creation requests to all nodes
+	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
+
+	requestQueue := make(chan *fetcher.BundleRequest, len(requests))
 	for _, r := range requests {
-		err := r.SendCreationRequest(ctx, requestFinished)
-		if err != nil {
-			logrus.Errorf("error sending creation request to %s: %s", r.Node.IP, err)
-		}
+		requestQueue <- r
 	}
+	close(requestQueue)
 
-	// wait until all requests have reported that they're finished
-	for i := 0; i < len(requests); i++ {
-		select {
-		case <-ctx.Done():
-			return
-		case update := <-requestFinished:
-			if update.Err != nil {
-				logrus.Errorf("Bundle creation for %s resulted in error: %s", update.Request.Node.IP, update.Err)
-				updateSummaryReportBuffer("Bundle creation for "+update.Request.Node.IP+" resulted in error",
-					update.Err.Error(),
-					summaryErrorsReport)
-			} else {
-				logrus.Infof("Bundle creation for %s finished successfully", update.Request.Node.IP)
-				updateSummaryReportBuffer("Bundle creation for "+update.Request.Node.IP+" finished successfully.",
-					"",
-					summaryReport)
+	// send requests to all nodes concurrently
+	for i := 0; i < numberOfWorkers; i++ {
+		go func() {
+			for r := range requestQueue {
+				r.SendCreationRequest(ctx, requestFinished)
 			}
-		}
+		}()
 	}
-
-	// put all requests into a channel to download in parallel limited by the
-	// number of workers
-	finishedRequests := make(chan *fetcher.BundleRequest, len(requests))
-	for _, r := range requests {
-		finishedRequests <- r
-	}
-	close(finishedRequests)
 
 	// as far as I can tell zip makes no guarantees about thread safety so requests
 	// that have been downloaded will signal that through the zipQueue channel and
 	// the actual zipping happens only on this goroutine
-	zipQueue := make(chan *fetcher.BundleRequest)
-
-	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
-	logrus.Infof("all bundles have finished, downloading with %d workers", numberOfWorkers)
+	//zipQueue := make(chan *fetcher.BundleRequest)
+	zipQueue := make(chan *fetcher.RequestStatus)
 
 	for i := 0; i < numberOfWorkers; i++ {
-		go downloadBundle(ctx, finishedRequests, zipQueue)
+		go downloadWhenFinished(ctx, len(requests), requestFinished, zipQueue)
 	}
 
 	for i := 0; i < len(requests); i++ {
 		select {
 		case <-ctx.Done():
 			break
-		case request := <-zipQueue:
+		case status := <-zipQueue:
+			if status.Err != nil {
+				continue
+			}
+
+			request := status.Request
 			err := writeBundleToZip(zipWriter, request)
 			if err != nil {
 				logrus.Errorf("error writing bundle from %s to zip: %s", request.Node.IP, err)
 			}
+		}
+	}
+}
+
+func downloadWhenFinished(ctx context.Context, numRequests int, requestFinished <-chan *fetcher.RequestStatus, zipQueue chan<- *fetcher.RequestStatus) {
+	for i := 0; i < numRequests; i++ {
+		select {
+		case <-ctx.Done():
+			break
+		case status := <-requestFinished:
+			if status.Err != nil {
+				/*
+					logrus.Errorf("Bundle creation for %s resulted in error: %s", update.Request.Node.IP, update.Err)
+					updateSummaryReportBuffer("Bundle creation for "+update.Request.Node.IP+" resulted in error",
+						update.Err.Error(),
+						summaryErrorsReport)
+				*/
+			} else {
+				/*
+					logrus.Infof("Bundle creation for %s finished successfully", update.Request.Node.IP)
+					updateSummaryReportBuffer("Bundle creation for "+update.Request.Node.IP+" finished successfully.",
+						"",
+						summaryReport)
+				*/
+
+				request := status.Request
+				logrus.Infof("starting download from %s", request.Node.IP)
+
+				err := request.Download(ctx)
+				if err != nil {
+					logMsg := fmt.Sprintf("error downloading bundle from %s: %s", request.Node.IP, err)
+					logrus.Error(logMsg)
+					// also log to summary
+
+					// set status.err to signal to the zipper not to do anything
+					status.Err = err
+				}
+			}
+
+			zipQueue <- status
 		}
 	}
 }
@@ -366,7 +390,7 @@ func (j *DiagnosticsJob) getBundleRequests(bundleID string, nodes []dcos.Node, s
 
 	bundleRequests := make([]*fetcher.BundleRequest, 0, len(nodes))
 	for _, node := range nodes {
-		logMsg := fmt.Sprintf("Queueing log collection " + node.IP)
+		logMsg := fmt.Sprintf("Queueing log collection %s", node.IP)
 		updateSummaryReportBuffer(logMsg, "", summaryReport)
 		logrus.Info(logMsg)
 

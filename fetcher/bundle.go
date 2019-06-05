@@ -45,14 +45,20 @@ func NewBundleRequest(id string, node dcos.Node, client *http.Client, port int, 
 }
 
 // SendCreationRequest will send a bundle creation request to the given node
-func (b *BundleRequest) SendCreationRequest(ctx context.Context, requestFinished chan<- RequestStatus) error {
+func (b *BundleRequest) SendCreationRequest(ctx context.Context, requestFinished chan<- *RequestStatus) {
 	logrus.Infof("Sending bundle creation request to %s", b.Node.IP)
+
+	status := &RequestStatus{
+		Request: b,
+	}
 
 	url := fmt.Sprintf("http://%s:%d/system/health/v1/diagnostics/%s", b.Node.IP, b.port, b.BundleID)
 	fullURL, err := util.UseTLSScheme(url, b.forceTLS)
 
 	if err != nil {
-		return err
+		status.withErr(err)
+		requestFinished <- status
+		return
 	}
 
 	type payload struct {
@@ -63,33 +69,39 @@ func (b *BundleRequest) SendCreationRequest(ctx context.Context, requestFinished
 		Type: "LOCAL",
 	})
 	if err != nil {
-		return err
+		status.withErr(err)
+		requestFinished <- status
+		return
 	}
 
 	request, err := http.NewRequest("PUT", fullURL, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		status.withErr(err)
+		requestFinished <- status
+		return
 	}
 
 	request.WithContext(ctx)
 
 	resp, err := b.Client.Do(request)
 	if err != nil {
-		return err
+		status.withErr(err)
+		requestFinished <- status
+		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected HTTP status code received: %d", resp.StatusCode)
+		status.withErr(fmt.Errorf("unexpected HTTP status code received: %d", resp.StatusCode))
+		requestFinished <- status
+		return
 	}
 
 	// start update checker
 	go statusUpdateCheck(ctx, b, requestFinished)
-
-	return nil
 }
 
-func (b *BundleRequest) checkStatus(ctx context.Context) RequestStatus {
-	status := RequestStatus{
+func (b *BundleRequest) checkStatus(ctx context.Context) *RequestStatus {
+	status := &RequestStatus{
 		Request: b,
 	}
 
@@ -179,7 +191,13 @@ func (b *BundleRequest) Download(ctx context.Context) error {
 	}
 }
 
-func statusUpdateCheck(ctx context.Context, b *BundleRequest, statusListener chan<- RequestStatus) {
+// withErr sets the status's err field and sets it as finished
+func (s *RequestStatus) withErr(err error) {
+	s.Err = err
+	s.Finished = true
+}
+
+func statusUpdateCheck(ctx context.Context, b *BundleRequest, statusListener chan<- *RequestStatus) {
 	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
 		logrus.Infof("polling %s for bundle update", b.Node.IP)
@@ -187,7 +205,7 @@ func statusUpdateCheck(ctx context.Context, b *BundleRequest, statusListener cha
 		case <-ctx.Done():
 			logrus.Infof("request context finished, marking bundle as canceled")
 			ticker.Stop()
-			statusListener <- RequestStatus{
+			statusListener <- &RequestStatus{
 				Request:  b,
 				Finished: true,
 				Err:      fmt.Errorf("Bundle canceled"),
