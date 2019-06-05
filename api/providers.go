@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/dcos/dcos-diagnostics/collector"
 	"github.com/dcos/dcos-diagnostics/util"
@@ -81,6 +82,30 @@ func loadExternalProviders(endpointsConfgFiles []string) (externalProviders LogP
 	return externalProviders, nil
 }
 
+func loadSystemdCollectors(cfg *config.Config, DCOSTools dcos.Tooler) ([]collector.Collector, error) {
+	units, err := DCOSTools.GetUnitNames()
+	if err != nil {
+		return nil, fmt.Errorf("could not get unit names: %s", err)
+	}
+
+	units = append(units, cfg.SystemdUnits...)
+	collectors := make([]collector.Collector, 0, len(units))
+
+	duration, err := time.ParseDuration(cfg.FlagDiagnosticsBundleUnitsLogsSinceString)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing '%s': %s", cfg.FlagDiagnosticsBundleUnitsLogsSinceString, err)
+	}
+
+	for _, unit := range units {
+		collectors = append(
+			collectors,
+			collector.NewSystemd(unit, false, unit, duration),
+		)
+	}
+
+	return collectors, nil
+}
+
 func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tooler) (internalConfigProviders LogProviders, err error) {
 	units, err := DCOSTools.GetUnitNames()
 	if err != nil {
@@ -120,16 +145,34 @@ func loadInternalProviders(cfg *config.Config, DCOSTools dcos.Tooler) (internalC
 }
 
 func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) ([]collector.Collector, error) {
-	providers, err := loadProviders(cfg, tools)
+
+	collectors, err := loadSystemdCollectors(cfg, tools)
 	if err != nil {
-		return nil, fmt.Errorf("could not init bundle handler: %s", err)
+		return nil, fmt.Errorf("could load systemd collectors: %s", err)
 	}
-	var collectors []collector.Collector
+
+	// load the external providers from a cfg file
+	providers, err := loadExternalProviders(cfg.FlagDiagnosticsBundleEndpointsConfigFiles)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize external log providers: %s", err)
+	}
 
 	role, err := tools.GetNodeRole()
 	if err != nil {
 		return nil, fmt.Errorf("could not get role: %s", err)
 	}
+
+	port, err := getPullPortByRole(cfg, role)
+	if err != nil {
+		return nil, err
+	}
+
+	// add dcos-diagnostics health report.
+	providers.HTTPEndpoints = append(providers.HTTPEndpoints, HTTPProvider{
+		Port:     port,
+		URI:      baseRoute,
+		FileName: "dcos-diagnostics-health.json",
+	})
 
 	// set filename if not set, some endpoints might be named e.g., after corresponding unit
 	for _, endpoint := range providers.HTTPEndpoints {
@@ -176,8 +219,6 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		collectors = append(collectors, c)
 
 	}
-
-	//TODO(janisz): Setup systemd units https://jira.mesosphere.com/browse/DCOS_OSS-5223
 
 	return collectors, nil
 }
