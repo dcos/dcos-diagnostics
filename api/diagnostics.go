@@ -310,7 +310,7 @@ func (j *DiagnosticsJob) downloadFromNodes(ctx context.Context, bundleID string,
 	logrus.Infof("all bundles have finished, downloading with %d workers", numberOfWorkers)
 
 	for i := 0; i < numberOfWorkers; i++ {
-		go downloadBundleWhenReady(ctx, finishedRequests, zipQueue)
+		go downloadBundle(ctx, finishedRequests, zipQueue)
 	}
 
 	for i := 0; i < len(requests); i++ {
@@ -326,7 +326,7 @@ func (j *DiagnosticsJob) downloadFromNodes(ctx context.Context, bundleID string,
 	}
 }
 
-func downloadBundleWhenReady(ctx context.Context, finishedRequests <-chan *fetcher.BundleRequest, zipQueue chan<- *fetcher.BundleRequest) {
+func downloadBundle(ctx context.Context, finishedRequests <-chan *fetcher.BundleRequest, zipQueue chan<- *fetcher.BundleRequest) {
 	for request := range finishedRequests {
 		select {
 		case <-ctx.Done():
