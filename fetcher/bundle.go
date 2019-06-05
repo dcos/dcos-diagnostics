@@ -200,8 +200,6 @@ func statusUpdateCheck(ctx context.Context, b *BundleRequest, statusListener cha
 
 				// only send an update when finished
 				statusListener <- status
-			} else {
-				logrus.Infof("%s still working", b.Node.IP)
 			}
 		}
 	}

@@ -274,7 +274,6 @@ func (j *DiagnosticsJob) downloadFromNodes(ctx context.Context, bundleID string,
 
 	// wait until all requests have reported that they're finished
 	for i := 0; i < len(requests); i++ {
-		logrus.Infof("waiting for %d more responses", len(requests)-i)
 		select {
 		case <-ctx.Done():
 			return
