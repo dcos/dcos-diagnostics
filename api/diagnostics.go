@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -172,7 +171,8 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.Errors = nil
 
 	t := time.Now()
-	bundleName := fmt.Sprintf("bundle-%d-%02d-%02d-%d.zip", t.Year(), t.Month(), t.Day(), t.Unix())
+	bundleID := fmt.Sprintf("bundle-%d-%02d-%02d-%d", t.Year(), t.Month(), t.Day(), t.Unix())
+	bundleName := fmt.Sprintf("%s.zip", bundleID)
 
 	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute*time.Duration(j.Cfg.FlagDiagnosticsJobTimeoutMinutes))
 
@@ -185,7 +185,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.JobProgressPercentage = 0
 	go func() {
 		start := time.Now()
-		j.runBackgroundJob(ctx, foundNodes)
+		j.runBackgroundJob(ctx, bundleID, foundNodes)
 		duration := time.Since(start)
 		bundleCreationTimeHistogram.Observe(duration.Seconds())
 		bundleCreationTimeGauge.Set(duration.Seconds())
@@ -200,7 +200,7 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 }
 
 //
-func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node) {
+func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, bundleID string, nodes []dcos.Node) {
 	defer j.stop()
 
 	const jobFailedStatus = "Job failed"
@@ -232,55 +232,15 @@ func (j *DiagnosticsJob) runBackgroundJob(ctx context.Context, nodes []dcos.Node
 	// place a summaryErrorsReport.txt in a zip archive which should provide info what failed during the logs collection.
 	summaryErrorsReport := new(bytes.Buffer)
 
-	zips, err := j.collectDataFromNodes(ctx, nodes, summaryReport, summaryErrorsReport)
-	if err != nil {
-		logrus.WithError(err).Warn("Diagnostics job failed")
-		j.setStatus("Diagnostics job failed")
-	} else {
-		j.setStatus("Diagnostics job successfully collected all data")
-	}
-	j.setJobProgressPercentage(100)
-
-	for _, path := range zips {
-		if err = appendToZip(zipWriter, path); err != nil {
-			j.logError(err, "Could not create a bundle", summaryErrorsReport)
-		}
-		if err = os.Remove(path); err != nil {
-			j.logError(err, "Could not remove temporary file", summaryErrorsReport)
-		}
-	}
+	j.downloadFromNodes(ctx, bundleID, nodes, zipWriter, summaryReport, summaryErrorsReport)
 
 	j.flushReport(zipWriter, "summaryReport.txt", summaryReport)
 	if summaryErrorsReport.Len() > 0 {
 		j.flushReport(zipWriter, "summaryErrorsReport.txt", summaryErrorsReport)
 	}
-}
 
-func appendToZip(writer *zip.Writer, path string) error {
-	r, err := zip.OpenReader(path)
-	if err != nil {
-		return fmt.Errorf("could not open %s: %s", path, err)
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
-		}
-
-		file, err := writer.Create(f.Name)
-		if err != nil {
-			return fmt.Errorf("could not create file %s: %s", f.Name, err)
-		}
-		_, err = io.Copy(file, rc)
-		if err != nil {
-			return fmt.Errorf("could not copy file %s to zip: %s", f.Name, err)
-		}
-		rc.Close()
-	}
-
-	return nil
+	logrus.Infof("Diagnostics bundle %s successfully created", bundleID)
+	j.setStatus("Diagnostics job successfully collected all data")
 }
 
 func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, report *bytes.Buffer) {
@@ -298,118 +258,126 @@ func (j *DiagnosticsJob) flushReport(zipWriter *zip.Writer, fileName string, rep
 	}
 }
 
-func (j *DiagnosticsJob) collectDataFromNodes(ctx context.Context, nodes []dcos.Node, summaryReport *bytes.Buffer,
-	summaryErrorsReport *bytes.Buffer) ([]string, error) {
+func (j *DiagnosticsJob) downloadFromNodes(ctx context.Context, bundleID string,
+	nodes []dcos.Node, zipWriter *zip.Writer, summaryReport *bytes.Buffer, summaryErrorsReport *bytes.Buffer) {
 
-	fetchRequests := j.getEndpointsToFetch(ctx, nodes, summaryReport, summaryErrorsReport)
+	requests := j.getBundleRequests(bundleID, nodes, summaryReport)
+	requestFinished := make(chan fetcher.RequestStatus)
 
-	fetchReq := make(chan fetcher.EndpointRequest, len(fetchRequests))
-	for _, r := range fetchRequests {
-		fetchReq <- r
-	}
-	close(fetchReq)
-
-	fetchStatusUpdate := make(chan fetcher.StatusUpdate)
-	fetchResponse := make(chan fetcher.BulkResponse)
-
-	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
-	for i := 0; i < numberOfWorkers; i++ {
-		f, err := fetcher.New(j.Cfg.FlagDiagnosticsBundleDir, j.client, fetchReq, fetchStatusUpdate, fetchResponse, j.FetchPrometheusVector)
+	// send creation requests to all nodes
+	for _, r := range requests {
+		err := r.SendCreationRequest(ctx, requestFinished)
 		if err != nil {
-			return nil, fmt.Errorf("could not start fetchers: %s", err)
-		}
-		go f.Run(ctx)
-	}
-
-	j.waitForStatusUpdates(ctx, fetchStatusUpdate, len(fetchRequests), summaryReport, summaryErrorsReport)
-
-	zips, errs := gatherAllResults(fetchResponse, numberOfWorkers)
-
-	if len(errs) != 0 {
-		j.logError(fmt.Errorf("%v", errs), "failed to gather all results", summaryErrorsReport)
-	}
-
-	if ctx.Err() != nil {
-		j.logError(ctx.Err(), "job cancelled", summaryErrorsReport)
-	}
-
-	allErrors := j.getErrors()
-	if len(allErrors) != 0 {
-		return zips, fmt.Errorf("diagnostics job failed: %v", allErrors)
-	}
-	return zips, nil
-}
-
-func gatherAllResults(fetchResponse chan fetcher.BulkResponse, numberOfWorkers int) ([]string, []error) {
-	zips := make([]string, 0, numberOfWorkers)
-	var errs []error
-	for i := 0; i < numberOfWorkers; i++ {
-		result := <-fetchResponse
-		zips = append(zips, result.ZipFilePath)
-		if result.Error != nil {
-			errs = append(errs, result.Error)
+			logrus.Errorf("error sending creation request to %s: %s", r.Node.IP, err)
 		}
 	}
-	return zips, errs
-}
 
-func (j *DiagnosticsJob) waitForStatusUpdates(ctx context.Context, statusUpdates <-chan fetcher.StatusUpdate,
-	numberOfEndpointsToFetch int, summaryReport, summaryErrorsReport *bytes.Buffer) {
-	percentPerEndpoint := 100.0 / float32(numberOfEndpointsToFetch)
-	for i := 0; i < numberOfEndpointsToFetch; i++ {
+	// wait until all requests have reported that they're finished
+	for i := 0; i < len(requests); i++ {
+		logrus.Infof("waiting for %d more responses", len(requests)-i)
 		select {
 		case <-ctx.Done():
 			return
-		case status := <-statusUpdates:
-			j.incJobProgressPercentage(percentPerEndpoint)
-			e := status.Error
-			updateSummaryReportBuffer("GET "+status.URL, fmt.Sprint(e), summaryReport)
-			j.setStatus("GET " + status.URL)
-			if e != nil {
-				j.logError(e, status.URL, summaryErrorsReport)
+		case update := <-requestFinished:
+			if update.Err != nil {
+				logrus.Errorf("Bundle creation for %s resulted in error: %s", update.Request.Node.IP, update.Err)
+				updateSummaryReportBuffer("Bundle creation for "+update.Request.Node.IP+" resulted in error",
+					update.Err.Error(),
+					summaryErrorsReport)
+			} else {
+				logrus.Infof("Bundle creation for %s finished successfully", update.Request.Node.IP)
+				updateSummaryReportBuffer("Bundle creation for "+update.Request.Node.IP+" finished successfully.",
+					"",
+					summaryReport)
+			}
+		}
+	}
+
+	// put all requests into a channel to download in parallel limited by the
+	// number of workers
+	finishedRequests := make(chan *fetcher.BundleRequest, len(requests))
+	for _, r := range requests {
+		finishedRequests <- r
+	}
+	close(finishedRequests)
+
+	// as far as I can tell zip makes no guarantees about thread safety so requests
+	// that have been downloaded will signal that through the zipQueue channel and
+	// the actual zipping happens only on this goroutine
+	zipQueue := make(chan *fetcher.BundleRequest)
+
+	numberOfWorkers := j.Cfg.FlagDiagnosticsBundleFetchersCount
+	logrus.Infof("all bundles have finished, downloading with %d workers", numberOfWorkers)
+
+	for i := 0; i < numberOfWorkers; i++ {
+		go downloadBundleWhenReady(ctx, finishedRequests, zipQueue)
+	}
+
+	for i := 0; i < len(requests); i++ {
+		select {
+		case <-ctx.Done():
+			break
+		case request := <-zipQueue:
+			err := writeBundleToZip(zipWriter, request)
+			if err != nil {
+				logrus.Errorf("error writing bundle from %s to zip: %s", request.Node.IP, err)
 			}
 		}
 	}
 }
 
-func (j *DiagnosticsJob) getEndpointsToFetch(ctx context.Context, nodes []dcos.Node,
-	summaryReport, summaryErrorsReport *bytes.Buffer) []fetcher.EndpointRequest {
-	fetchRequests := make([]fetcher.EndpointRequest, 0, len(nodes)*10)
-	for _, node := range nodes {
-		updateSummaryReportBuffer("START collecting logs "+node.IP, "", summaryReport)
-		endpoints, err := j.getNodeEndpoints(node)
-		if err != nil {
-			j.logError(err, node.IP, summaryErrorsReport)
-			continue
-		}
-		for fileName, httpEndpoint := range endpoints {
-			select {
-			case <-ctx.Done():
-				return fetchRequests
-			default:
+func downloadBundleWhenReady(ctx context.Context, finishedRequests <-chan *fetcher.BundleRequest, zipQueue chan<- *fetcher.BundleRequest) {
+	for request := range finishedRequests {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+			logrus.Infof("starting download from %s", request.Node.IP)
+			err := request.Download(ctx)
+			if err == nil {
+				zipQueue <- request
+			} else {
+				logMsg := fmt.Sprintf("error downloading bundle from %s: %s", request.Node.IP, err)
+				logrus.Error(logMsg)
+				// also log to summary
 			}
-			fullURL, err := util.UseTLSScheme("http://"+node.IP+httpEndpoint.PortAndPath, j.Cfg.FlagForceTLS)
-			if err != nil {
-				j.logError(fmt.Errorf("could prepare URL: %s", err), node.IP, summaryErrorsReport)
-				continue
-			}
-			fetchRequests = append(fetchRequests, fetcher.EndpointRequest{
-				URL:      fullURL,
-				Node:     node,
-				FileName: fileName,
-				Optional: httpEndpoint.Optional,
-			})
 		}
 	}
+}
 
-	// To prevent attacking (DoS) a single host at one time
-	// shuffle list of endpoints to evenly
-	// distribute work among all nodes.
-	rand.Shuffle(len(fetchRequests), func(i, j int) {
-		fetchRequests[i], fetchRequests[j] = fetchRequests[j], fetchRequests[i]
-	})
+func writeBundleToZip(zipWriter *zip.Writer, request *fetcher.BundleRequest) error {
+	path := fmt.Sprintf("%s_%s.zip", request.Node.IP, request.Node.Role)
 
-	return fetchRequests
+	file, err := zipWriter.Create(path)
+	if err != nil {
+		return fmt.Errorf("could not create file %s: %s", path, err)
+	}
+	r := bytes.NewReader(request.Data)
+
+	_, err = io.Copy(file, r)
+	if err != nil {
+		return fmt.Errorf("could not copy file %s to zip: %s", path, err)
+	}
+
+	return nil
+}
+
+// getBundleRequests creates a buffered receive only channel for all bundle requests to each node
+func (j *DiagnosticsJob) getBundleRequests(bundleID string, nodes []dcos.Node, summaryReport *bytes.Buffer) []*fetcher.BundleRequest {
+
+	bundleRequests := make([]*fetcher.BundleRequest, 0, len(nodes))
+	for _, node := range nodes {
+		logMsg := fmt.Sprintf("Queueing log collection " + node.IP)
+		updateSummaryReportBuffer(logMsg, "", summaryReport)
+		logrus.Info(logMsg)
+
+		port, err := getPullPortByRole(j.Cfg, node.Role)
+		if err != nil {
+			logrus.Error(err)
+		}
+		bundleRequests = append(bundleRequests, fetcher.NewBundleRequest(bundleID, node, j.client, port, j.Cfg.FlagForceTLS))
+	}
+	return bundleRequests
 }
 
 func (j *DiagnosticsJob) setJobProgressPercentage(v float32) {
@@ -452,29 +420,6 @@ func (j *DiagnosticsJob) getErrors() []string {
 	j.errors.RLock()
 	defer j.errors.RUnlock()
 	return append([]string{}, j.Errors...)
-}
-
-func (j *DiagnosticsJob) getNodeEndpoints(node dcos.Node) (endpoints map[string]endpointSpec, e error) {
-	port, err := getPullPortByRole(j.Cfg, node.Role)
-	if err != nil {
-		e = fmt.Errorf("used incorrect role: %s", err)
-		return nil, e
-	}
-	url := fmt.Sprintf("http://%s:%d%s/logs", node.IP, port, baseRoute)
-	body, statusCode, err := j.DCOSTools.Get(url, time.Second*3)
-	if err != nil {
-		e := fmt.Errorf("could not get a list of logs, url: %s, status code %d: %s", url, statusCode, err)
-		return nil, e
-	}
-	if err = json.Unmarshal(body, &endpoints); err != nil {
-		e := fmt.Errorf("could not unmarshal a list of logs from %s: %s", url, err)
-		return nil, e
-	}
-	if len(endpoints) == 0 {
-		e := fmt.Errorf("no endpoints found, url %s", url)
-		return nil, e
-	}
-	return endpoints, nil
 }
 
 // delete a bundle
