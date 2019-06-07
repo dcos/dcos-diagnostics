@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 
 	"github.com/dcos/dcos-diagnostics/config"
@@ -27,15 +26,6 @@ type Client interface {
 	GetFile(ctx context.Context, node node, id string) (path string, err error)
 }
 
-type Coordinator struct {
-	client Client
-}
-
-type node struct {
-	IP   net.IP `json:"ip"`
-	Role string `json:"role"`
-}
-
 type bundleStatus struct {
 	ID   string
 	node node
@@ -51,7 +41,9 @@ type DiagnosticsClient struct {
 
 func newDiagnosticsClient(cfg *config.Config) *DiagnosticsClient {
 	return &DiagnosticsClient{
-		// TODO(br-lewis): this feels a little hacky
+		// TODO(br-lewis): this feels a little hacky, I think we can remove the
+		// dependency on config.Config and have that handled somewhere earlier in
+		// the init process
 		getPortByRole: func(role string) (int, error) {
 			switch role {
 			case dcos.AgentRole:

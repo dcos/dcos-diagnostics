@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -78,6 +79,11 @@ type BundleHandler struct {
 type createArguments struct {
 	BundleType string `json:"type"`
 	Nodes      []node `json:"nodes"`
+}
+
+type node struct {
+	IP   net.IP `json:"ip"`
+	Role string `json:"role"`
 }
 
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
