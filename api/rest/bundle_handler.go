@@ -30,6 +30,9 @@ const (
 
 	filePerm = 0600
 	dirPerm  = 0700
+
+	bundleTypeLocal  = "local"
+	bundleTypeRemote = "remote"
 )
 
 type Bundle struct {
@@ -72,6 +75,11 @@ type BundleHandler struct {
 	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
 }
 
+type createArguments struct {
+	BundleType string `json:"type"`
+	Nodes      []node `json:"nodes"`
+}
+
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -110,7 +118,34 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	//TODO(janisz): use context cancel function to cancel bundle creation https://jira.mesosphere.com/browse/DCOS_OSS-5222
 	ctx, _ := context.WithTimeout(context.Background(), h.bundleCreationTimeout) //nolint:govet
-	done := make(chan []string)
+
+	var args createArguments
+	if r.Body == nil {
+		// assume local
+		args.BundleType = bundleTypeLocal
+	} else {
+		err = json.NewDecoder(r.Body).Decode(&args)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, fmt.Errorf("could not decode JSON body: %s", err))
+			return
+		}
+	}
+
+	switch strings.ToLower(args.BundleType) {
+	case bundleTypeLocal:
+		done := make(chan []string)
+		h.createLocalBundle(ctx, &bundle, done, dataFile, stateFilePath)
+	case bundleTypeRemote:
+
+	default:
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("invalid bundle type recieved: %s", args.BundleType))
+		return
+	}
+
+	write(w, bundleStatus)
+}
+
+func (h *BundleHandler) createLocalBundle(ctx context.Context, bundle *Bundle, done chan []string, dataFile io.WriteCloser, stateFilePath string) {
 
 	go collectAll(ctx, done, dataFile, h.collectors)
 
@@ -122,12 +157,14 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
 			if e := ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm); e != nil {
-				logrus.WithError(e).Errorf("Could not update state file %s", id)
+				logrus.WithError(e).Errorf("Could not update state file %s", bundle.ID)
 			}
 		}
 	}()
+}
 
-	write(w, bundleStatus)
+func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, nodes []string, dataFile io.WriteCloser, stateFilePath string) {
+
 }
 
 func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collector.Collector) {
