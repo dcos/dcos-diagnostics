@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/collector"
+	"github.com/dcos/dcos-diagnostics/dcos"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -58,12 +59,13 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) BundleHandler {
+func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration, urlBuilder dcos.NodeURLBuilder) BundleHandler {
 	return BundleHandler{
 		clock:                 realClock{},
 		workDir:               workDir,
 		collectors:            collectors,
 		bundleCreationTimeout: timeout,
+		urlBuilder:            urlBuilder,
 	}
 }
 
@@ -74,6 +76,7 @@ type BundleHandler struct {
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
 	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
+	urlBuilder            dcos.NodeURLBuilder
 }
 
 type createArguments struct {
