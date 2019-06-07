@@ -9,21 +9,19 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/dcos/dcos-diagnostics/config"
-	"github.com/dcos/dcos-diagnostics/dcos"
-	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/sirupsen/logrus"
 )
 
 // Client is an interface that can talk with dcos-diagnostics REST API and manipulate remote bundles
 type Client interface {
-	// Create ask node ip to start bundle creation process with given id
-	Create(ctx context.Context, node node, id string) (*Bundle, error)
-	// Status returns status of bundle with given id on node with given ip
-	Status(ctx context.Context, node node, id string) (*Bundle, error)
-	// GetFile downloads bundle file of bundle with given id from node with given ip and save it to local filesystem.
-	// It returns path where file is stored or error if there were a problem.
-	GetFile(ctx context.Context, node node, id string) (path string, err error)
+	// Create ask node url to start bundle creation process with given id
+	Create(ctx context.Context, node string, id string) (*Bundle, error)
+	// Status returns status of bundle with given id on node at the given url
+	Status(ctx context.Context, node string, id string) (*Bundle, error)
+	// GetFile downloads bundle file of bundle with given id from node at the given
+	// url and save it to local filesystem. It returns path where file is stored or
+	// error if there were a problem.
+	GetFile(ctx context.Context, node string, id string) (path string, err error)
 }
 
 type bundleStatus struct {
@@ -34,43 +32,18 @@ type bundleStatus struct {
 }
 
 type DiagnosticsClient struct {
-	client        *http.Client
-	forceTLS      bool
-	getPortByRole func(role string) (int, error)
+	client   *http.Client
+	forceTLS bool
 }
 
-func newDiagnosticsClient(cfg *config.Config) *DiagnosticsClient {
-	return &DiagnosticsClient{
-		// TODO(br-lewis): this feels a little hacky, I think we can remove the
-		// dependency on config.Config and have that handled somewhere earlier in
-		// the init process
-		getPortByRole: func(role string) (int, error) {
-			switch role {
-			case dcos.AgentRole:
-				fallthrough
-			case dcos.AgentPublicRole:
-				return cfg.FlagAgentPort, nil
-			case dcos.MasterRole:
-				return cfg.FlagMasterPort, nil
-			default:
-				return 0, fmt.Errorf("incorrect role given %s", role)
-			}
-		},
-	}
+func newDiagnosticsClient() *DiagnosticsClient {
+	return &DiagnosticsClient{}
 }
 
-func (d *DiagnosticsClient) Create(ctx context.Context, node node, id string) (*Bundle, error) {
-	logrus.WithField("bundle", id).WithField("node", node.IP).Info("sending bundle creation request")
+func (d *DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
+	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
 
-	port, err := d.getPortByRole(node.Role)
-	if err != nil {
-		return nil, err
-	}
-	url := fmt.Sprintf("http://%s:%d/system/health/v1/diagnostics/%s", node.IP, port, id)
-	fullURL, err := util.UseTLSScheme(url, d.forceTLS)
-	if err != nil {
-		return nil, err
-	}
+	logrus.WithField("bundle", id).WithField("url", url).Info("sending bundle creation request")
 
 	type payload struct {
 		Type string `json:"type"`
@@ -83,7 +56,7 @@ func (d *DiagnosticsClient) Create(ctx context.Context, node node, id string) (*
 		return nil, err
 	}
 
-	request, err := http.NewRequest(http.MethodPut, fullURL, bytes.NewBuffer(body))
+	request, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -109,20 +82,12 @@ func (d *DiagnosticsClient) Create(ctx context.Context, node node, id string) (*
 	return &bundle, nil
 }
 
-func (d *DiagnosticsClient) Status(ctx context.Context, node node, id string) (*Bundle, error) {
-	logrus.WithField("bundle", id).WithField("node", node.IP).Info("checking status of bundle")
+func (d *DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
+	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
 
-	port, err := d.getPortByRole(node.Role)
-	if err != nil {
-		return nil, err
-	}
-	url := fmt.Sprintf("http://%s:%d/system/health/v1/diagnostics/%s", node.IP, port, id)
-	fullURL, err := util.UseTLSScheme(url, d.forceTLS)
-	if err != nil {
-		return nil, err
-	}
+	logrus.WithField("bundle", id).WithField("url", url).Info("checking status of bundle")
 
-	request, err := http.NewRequest(http.MethodGet, fullURL, nil)
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +106,7 @@ func (d *DiagnosticsClient) Status(ctx context.Context, node node, id string) (*
 		bundle.Status = Unknown
 		return &bundle, nil
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received unexpected status code from %s: %d", node.IP, resp.StatusCode)
+		return nil, fmt.Errorf("received unexpected status code from %s: %d", url, resp.StatusCode)
 	}
 	err = json.NewDecoder(resp.Body).Decode(&bundle)
 	if err != nil {
@@ -151,21 +116,12 @@ func (d *DiagnosticsClient) Status(ctx context.Context, node node, id string) (*
 	return &bundle, nil
 }
 
-func (d *DiagnosticsClient) GetFile(ctx context.Context, node node, id string) (string, error) {
-	logrus.Infof("downloading bundle %s from node %s", id, node.IP)
+func (d *DiagnosticsClient) GetFile(ctx context.Context, node string, id string) (string, error) {
+	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s/file", node, id)
 
-	port, err := d.getPortByRole(node.Role)
-	if err != nil {
-		return "", err
-	}
+	logrus.WithField("bundle", id).WithField("url", url).Info("downloading local bundle from node")
 
-	url := fmt.Sprintf("http://%s:%d/system/health/v1/diagnostics/%s/file", node.IP, port, id)
-	fullURL, err := util.UseTLSScheme(url, d.forceTLS)
-	if err != nil {
-		return "", nil
-	}
-
-	request, err := http.NewRequest(http.MethodGet, fullURL, nil)
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -177,12 +133,13 @@ func (d *DiagnosticsClient) GetFile(ctx context.Context, node node, id string) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("bundle %s not know to node %s", id, node.IP)
+		return "", fmt.Errorf("bundle %s not known to node %s", id, url)
 	} else if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("received unexpected status %d", resp.StatusCode)
 	}
 
-	destinationName := fmt.Sprintf("%s-%s.zip", id, node.IP)
+	// the '*' will be swapped out with a random string by ioutil.TempFile
+	destinationName := fmt.Sprintf("bundle-%s-*.zip", id)
 	// This will use the default temp directory from os.TempDir
 	destinationFile, err := ioutil.TempFile("", destinationName)
 	if err != nil {

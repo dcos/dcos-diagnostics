@@ -145,7 +145,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		done := make(chan []string)
 		h.createLocalBundle(ctx, &bundle, done, dataFile, stateFilePath)
 	case bundleTypeRemote:
-
+		h.createRemoteBundle(ctx, &bundle, args.Nodes, dataFile, stateFilePath)
 	default:
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("invalid bundle type recieved: %s", args.BundleType))
 		return
@@ -172,7 +172,16 @@ func (h *BundleHandler) createLocalBundle(ctx context.Context, bundle *Bundle, d
 	}()
 }
 
-func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, nodes []string, dataFile io.WriteCloser, stateFilePath string) {
+func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, nodes []node, dataFile io.WriteCloser, stateFilePath string) {
+	nodeURLs := make([]string, 0, len(nodes))
+	for _, n := range nodes {
+		url, err := h.urlBuilder.BaseURL(n.IP, n.Role)
+		if err != nil {
+			// TODO(br-lewis): report this somehow
+			continue
+		}
+		nodeURLs = append(nodeURLs, url)
+	}
 
 }
 
