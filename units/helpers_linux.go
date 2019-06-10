@@ -5,40 +5,35 @@ import (
 	goio "io"
 	"time"
 
-	"github.com/dcos/dcos-log/dcos-log/journal/reader"
+	"github.com/coreos/go-systemd/sdjournal"
 
 	"github.com/dcos/dcos-diagnostics/io"
 )
 
-const (
-	// _SYSTEMD_UNIT and UNIT are custom fields used by systemd to mark logs by the systemd unit itself and
-	// also by other related components. When dcos-diagnostics reads log entries it needs to filter both entries.
-	systemdUnitProperty = "_SYSTEMD_UNIT"
-	unitProperty        = "UNIT"
-)
-
 // ReadJournalOutputSince returns logs since given duration from journal
 func ReadJournalOutputSince(ctx context.Context, unit string, duration time.Duration) (goio.ReadCloser, error) {
-	matches := DefaultSystemdMatches(unit)
-
-	src, err := reader.NewReader(reader.NewEntryFormatter("text/plain", false), reader.OptionMatchOR(matches), reader.OptionSince(duration))
-	if err != nil {
-		return nil, err
-	}
-
-	return io.ReadCloserWithContext(ctx, src), nil
+	return readJournalOutput(ctx, unit, duration, 0)
 }
 
-// DefaultSystemdMatches returns default readerWithContext.JournalEntryMatch for a given systemd unit.
-func DefaultSystemdMatches(unit string) []reader.JournalEntryMatch {
-	return []reader.JournalEntryMatch{
-		{
-			Field: systemdUnitProperty,
-			Value: unit,
-		},
-		{
-			Field: unitProperty,
-			Value: unit,
+// ReadJournalTail returns numFromTail log lines from the end of the log
+func ReadJournalTail(ctx context.Context, unit string, numFromTail uint64) (goio.ReadCloser, error) {
+	return readJournalOutput(ctx, unit, 0, numFromTail)
+}
+
+func readJournalOutput(ctx context.Context, unit string, d time.Duration, n uint64) (goio.ReadCloser, error) {
+	// We need to pass d for the past not future. So it need to negative
+	if d > 0 {
+		d = -d
+	}
+	config := sdjournal.JournalReaderConfig{
+		Since:       d,
+		NumFromTail: n,
+		Matches: []sdjournal.Match{
+			{Field: sdjournal.SD_JOURNAL_FIELD_SYSTEMD_UNIT, Value: unit},
 		},
 	}
+
+	src, err := sdjournal.NewJournalReader(config)
+
+	return io.ReadCloserWithContext(ctx, src), err
 }

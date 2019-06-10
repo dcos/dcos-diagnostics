@@ -8,7 +8,6 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20180511133405-39ca1b05acc7
 	github.com/coreos/pkg v0.0.0-20180108230652-97fdf19511ea // indirect
 	github.com/dcos/dcos-go v0.0.0-20180731154419-e3a5a0b9fb04
-	github.com/dcos/dcos-log v0.0.0-20170506012936-f91d7d097dca
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
