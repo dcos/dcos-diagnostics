@@ -57,7 +57,7 @@ func (c Coordinator) Collect(ctx context.Context, statuses <-chan bundleStatus) 
 			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
 		}
 
-		bundlePath, err := c.client.GetFile(ctx, s.node, s.ID)
+		bundlePath, err := c.client.GetFile(ctx, s.node.IP.String(), s.ID)
 		if err != nil {
 			logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
 		}
@@ -70,7 +70,7 @@ func (c Coordinator) Collect(ctx context.Context, statuses <-chan bundleStatus) 
 }
 
 func (c Coordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
-	_, err := c.client.Create(ctx, node, id)
+	_, err := c.client.Create(ctx, node.IP.String(), id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
 		return bundleStatus{
@@ -100,7 +100,7 @@ func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs
 	//TODO(janisz): Handle context
 
 	// Check bundle status
-	bundle, err := c.client.Status(ctx, node, id)
+	bundle, err := c.client.Status(ctx, node.IP.String(), id)
 	// If error
 	if err != nil {
 		// then schedule next check in given time.
