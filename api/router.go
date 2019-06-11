@@ -358,7 +358,7 @@ func wrapHandler(handler http.Handler, route routeHandler, dt *Dt) http.Handler 
 		h = noCacheMiddleware(h, dt)
 	}
 
-	return metricMiddleware(handlers.LoggingHandler(logrus.StandardLogger().Out, h))
+	return metricMiddleware(h)
 }
 
 func loadRoutes(router *mux.Router, dt *Dt) *mux.Router {
