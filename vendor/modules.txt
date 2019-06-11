@@ -5,7 +5,6 @@ github.com/beorn7/perks/quantile
 # github.com/coreos/go-systemd v0.0.0-20180511133405-39ca1b05acc7
 github.com/coreos/go-systemd/activation
 github.com/coreos/go-systemd/dbus
-github.com/coreos/go-systemd/journal
 github.com/coreos/go-systemd/sdjournal
 # github.com/coreos/pkg v0.0.0-20180108230652-97fdf19511ea
 github.com/coreos/pkg/dlopen
@@ -16,8 +15,6 @@ github.com/dcos/dcos-go/dcos
 github.com/dcos/dcos-go/dcos/http/transport
 github.com/dcos/dcos-go/dcos/nodeutil
 github.com/dcos/dcos-go/exec
-# github.com/dcos/dcos-log v0.0.0-20170506012936-f91d7d097dca
-github.com/dcos/dcos-log/dcos-log/journal/reader
 # github.com/fsnotify/fsnotify v1.4.7
 github.com/fsnotify/fsnotify
 # github.com/go-ole/go-ole v1.2.1

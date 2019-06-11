@@ -569,6 +569,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 
 	<-called
 	require.True(t, job.getBundleReportStatus().Running)
+	require.Empty(t, job.getBundleReportStatus().JobEnded, "job is running, end time should be empty")
 	_, err = dt.DtDiagnosticsJob.cancel()
 	require.NoError(t, err)
 
@@ -585,6 +586,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	assert.Equal(t, float32(100.0), status.JobProgressPercentage)
 	assert.Equal(t, "Diagnostics job failed", status.Status)
 	assert.NotEmpty(t, status.Errors)
+	assert.NotEmpty(t, status.JobEnded, "job has finished, end time should not be empty")
 
 	tools.AssertExpectations(t)
 	mockHistogram.AssertExpectations(t)
@@ -602,7 +604,6 @@ func TestGetAllStatusWithRemoteCall(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
@@ -631,7 +632,6 @@ func TestGetAllStatusWithRemoteCall(t *testing.T) {
 		Status:                                   "MyStatus",
 		LastBundlePath:                           "/path/to/snapshot",
 		JobStarted:                               "0001-01-01 00:00:00 +0000 UTC",
-		JobEnded:                                 "0001-01-01 00:00:00 +0000 UTC",
 		JobDuration:                              "2s",
 		DiagnosticBundlesBaseDir:                 "/home/core/1",
 		DiagnosticsJobTimeoutMin:                 720,
@@ -750,7 +750,6 @@ func TestGetAllStatusWithLocalAndRemoteCall(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
@@ -783,7 +782,6 @@ func TestGetAllStatusWithLocalAndRemoteCall(t *testing.T) {
 		Status:                                   "MyStatus",
 		LastBundlePath:                           "/path/to/snapshot",
 		JobStarted:                               "0001-01-01 00:00:00 +0000 UTC",
-		JobEnded:                                 "0001-01-01 00:00:00 +0000 UTC",
 		JobDuration:                              "2s",
 		DiagnosticBundlesBaseDir:                 "/home/core/1",
 		DiagnosticsJobTimeoutMin:                 720,
@@ -857,7 +855,6 @@ func TestCancelNotRunningJob(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
@@ -923,7 +920,6 @@ func TestCancelGlobalJob(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
