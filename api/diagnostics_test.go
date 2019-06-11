@@ -449,6 +449,7 @@ func TestCreateBundle(t *testing.T) {
 		return mockServer(func(w http.ResponseWriter, r *http.Request) {
 			t.Logf("Called %s", r.URL.RequestURI())
 			if r.URL.Path == "/ping" {
+				time.Sleep(time.Millisecond)
 				w.Write([]byte("pong"))
 			} else {
 				http.NotFound(w, r)
