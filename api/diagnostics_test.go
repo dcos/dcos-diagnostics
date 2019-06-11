@@ -526,6 +526,8 @@ func TestCreateBundle(t *testing.T) {
 func TestCancelWhenJobIsRunning(t *testing.T) {
 	tools := new(MockedTools)
 
+	mockHistogram := &mocks.MockHistogram{}
+
 	called := make(chan bool)
 	wait := make(chan bool)
 
@@ -533,8 +535,8 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 		return mockServer(func(w http.ResponseWriter, r *http.Request) {
 			called <- true
 			t.Logf("Called %s", r.URL.RequestURI())
-			<-wait
 			w.WriteHeader(200)
+			<-wait
 		})
 	}
 
@@ -554,7 +556,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
-	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient}
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, FetchPrometheusVector: mockHistogram}
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
@@ -569,12 +571,13 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	require.True(t, job.getBundleReportStatus().Running)
 	_, err = dt.DtDiagnosticsJob.cancel()
 	require.NoError(t, err)
-	wait <- false
 
 	for job.getBundleReportStatus().Running {
 		t.Log("Waiting for job to end")
 		time.Sleep(10 * time.Microsecond)
 	}
+
+	wait <- false
 
 	status := job.getBundleReportStatus()
 
@@ -584,6 +587,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	assert.NotEmpty(t, status.Errors)
 
 	tools.AssertExpectations(t)
+	mockHistogram.AssertExpectations(t)
 }
 
 func TestGetAllStatusWithRemoteCall(t *testing.T) {
