@@ -522,6 +522,8 @@ func TestCreateBundle(t *testing.T) {
 	assert.Contains(t, string(content), "GET http://127.0.0.1:")
 
 	tools.AssertExpectations(t)
+	mockObs.AssertExpectations(t)
+	mockHistogram.AssertExpectations(t)
 }
 
 func TestCancelWhenJobIsRunning(t *testing.T) {
