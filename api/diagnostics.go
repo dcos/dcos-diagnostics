@@ -65,7 +65,6 @@ type DiagnosticsJob struct {
 	LastBundlePath        string
 	JobStarted            time.Time
 	JobEnded              time.Time
-	JobDuration           time.Duration
 	JobProgressPercentage float32
 	// This vector is used to collect the HTTP response times of all endpoints.
 	FetchPrometheusVector prometheus.ObserverVec
@@ -97,11 +96,11 @@ type bundleReportStatus struct {
 	// job related fields
 	Running               bool     `json:"is_running"`
 	Status                string   `json:"status"`
-	Errors                []string `json:"errors"`
+	Errors                []string `json:"errors,omitempty"`
 	LastBundlePath        string   `json:"last_bundle_dir"`
 	JobStarted            string   `json:"job_started"`
-	JobEnded              string   `json:"job_ended"`
-	JobDuration           string   `json:"job_duration"`
+	JobEnded              string   `json:"job_ended,omitempty"`
+	JobDuration           string   `json:"job_duration,omitempty"`
 	JobProgressPercentage float32  `json:"job_progress_percentage"`
 
 	// config related fields
@@ -180,8 +179,8 @@ func (j *DiagnosticsJob) run(req bundleCreateRequest) (createResponse, error) {
 	j.setStatus("Diagnostics job started, archive will be available at: " + j.LastBundlePath)
 	j.cancelFunc = cancelFunc
 	j.JobStarted = time.Now()
+	j.JobEnded = time.Time{}
 	j.Running = true
-	j.JobDuration = 0
 	j.JobProgressPercentage = 0
 	go func() {
 		start := time.Now()
@@ -620,14 +619,22 @@ func (j *DiagnosticsJob) getBundleReportStatus() bundleReportStatus {
 	jobProgressPercentage := j.getJobProgressPercentage()
 
 	j.RLock()
+	running := j.Running
+	ended := ""
+	duration := ""
+	if !running {
+		ended = j.JobEnded.String()
+		duration = j.JobEnded.Sub(j.JobStarted).String()
+	}
+
 	status := bundleReportStatus{
-		Running:               j.Running,
+		Running:               running,
 		Status:                stat,
 		Errors:                errors,
 		LastBundlePath:        j.LastBundlePath,
-		JobStarted:            j.JobStarted.String(),
-		JobEnded:              j.JobEnded.String(),
-		JobDuration:           j.JobDuration.String(),
+		JobStarted:            duration,
+		JobEnded:              ended,
+		JobDuration:           time.Since(j.JobStarted).String(),
 		JobProgressPercentage: jobProgressPercentage,
 
 		DiagnosticBundlesBaseDir:                 cfg.FlagDiagnosticsBundleDir,
@@ -721,7 +728,6 @@ func (j *DiagnosticsJob) stop() {
 	j.Lock()
 	j.Running = false
 	j.JobEnded = time.Now()
-	j.JobDuration = time.Since(j.JobStarted)
 	j.Unlock()
 	logrus.Info("Job finished")
 }
