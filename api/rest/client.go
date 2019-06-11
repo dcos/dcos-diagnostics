@@ -24,7 +24,7 @@ type Client interface {
 	GetFile(ctx context.Context, node string, id string) (path string, err error)
 }
 
-type bundleStatus struct {
+type BundleStatus struct {
 	ID   string
 	node node
 	done bool
@@ -32,12 +32,7 @@ type bundleStatus struct {
 }
 
 type DiagnosticsClient struct {
-	client   *http.Client
-	forceTLS bool
-}
-
-func newDiagnosticsClient() *DiagnosticsClient {
-	return &DiagnosticsClient{}
+	client *http.Client
 }
 
 func (d *DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {

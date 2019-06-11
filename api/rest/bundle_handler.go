@@ -172,7 +172,7 @@ func (h *BundleHandler) createLocalBundle(ctx context.Context, bundle *Bundle, d
 	}()
 }
 
-func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, nodes []node, dataFile io.WriteCloser, stateFilePath string) {
+func (h *BundleHandler) createRemoteBundle(_ context.Context, _ *Bundle, nodes []node, _ io.WriteCloser, _ string) {
 	nodeURLs := make([]string, 0, len(nodes))
 	for _, n := range nodes {
 		url, err := h.urlBuilder.BaseURL(n.IP, n.Role)

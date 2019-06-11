@@ -8,15 +8,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const numberOfWorkers = 10
+
 type Coordinator struct {
 	client Client
 }
 
 // job is a function that will be called by worker. The output will be added to results chanel
-type job func() bundleStatus
+type job func() BundleStatus
 
 // worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
-func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus) {
+func worker(_ context.Context, jobs <-chan job, results chan<- BundleStatus) {
 	for j := range jobs {
 		//TODO(janisz): Handle context
 		results <- j()
@@ -24,17 +26,17 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus) {
 }
 
 // Create starts bundle creation process. Creation process could be monitor on returned channel.
-func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan bundleStatus {
+func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
 	jobs := make(chan job)
-	statuses := make(chan bundleStatus)
+	statuses := make(chan BundleStatus)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < numberOfWorkers; i++ {
 		go worker(ctx, jobs, statuses)
 	}
 
 	for _, n := range nodes {
-		jobs <- func() bundleStatus {
+		jobs <- func() BundleStatus {
 			//TODO(janisz): Handle context
 			return c.createBundle(ctx, n, id, jobs)
 		}
@@ -43,7 +45,7 @@ func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan
 	return statuses
 }
 
-func (c Coordinator) Collect(ctx context.Context, statuses <-chan bundleStatus) (bundlePath string, err error) {
+func (c Coordinator) Collect(ctx context.Context, statuses <-chan BundleStatus) (bundlePath string, err error) {
 
 	var bundles []string
 
@@ -69,11 +71,11 @@ func (c Coordinator) Collect(ctx context.Context, statuses <-chan bundleStatus) 
 	return "", nil
 }
 
-func (c Coordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
+func (c Coordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	_, err := c.client.Create(ctx, node.IP.String(), id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
-		return bundleStatus{
+		return BundleStatus{
 			ID:   id,
 			node: node,
 			done: true,
@@ -82,17 +84,17 @@ func (c Coordinator) createBundle(ctx context.Context, node node, id string, job
 	}
 
 	// Schedule bundle status check
-	jobs <- func() bundleStatus {
+	jobs <- func() BundleStatus {
 		return c.waitForDone(ctx, node, id, jobs)
 	}
 
 	// Return undone status with no error.
-	return bundleStatus{ID: id, node: node}
+	return BundleStatus{ID: id, node: node}
 }
 
-func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
+func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	statusCheck := func() {
-		jobs <- func() bundleStatus {
+		jobs <- func() BundleStatus {
 			return c.waitForDone(ctx, node, id, jobs)
 		}
 	}
@@ -107,17 +109,17 @@ func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs
 		// It will only add check to job queue so interval might increase but it's OK.
 		time.AfterFunc(time.Second, statusCheck)
 		// Return status with error. Do not mark bundle as done yet. It might change it status
-		return bundleStatus{ID: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
+		return BundleStatus{ID: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
 	// If bundle is in terminal state (its state won't change)
 	if bundle.Status == Done || bundle.Status == Deleted || bundle.Status == Canceled {
 		// mark it as done
-		return bundleStatus{ID: id, node: node, done: true}
+		return BundleStatus{ID: id, node: node, done: true}
 	}
 	// If bundle is still in progress (InProgress, Unknown or Started)
 	// then schedule next check in given time
 	// It will only add check to job queue so interval might increase but it's OK.
 	time.AfterFunc(time.Second, statusCheck)
 	// Return undone status with no error. Do not mark bundle as done yet. It might change it status
-	return bundleStatus{ID: id, node: node}
+	return BundleStatus{ID: id, node: node}
 }

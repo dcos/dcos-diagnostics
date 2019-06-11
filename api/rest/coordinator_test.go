@@ -11,6 +11,8 @@ import (
 
 func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T) {
 
+	numGoroutine := runtime.NumGoroutine()
+
 	client := new(MockClient)
 
 	c := Coordinator{
@@ -33,15 +35,15 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	s := c.Create(context.TODO(), "id", []node{node1, node2, node3})
 
-	var statuses []bundleStatus
+	var statuses []BundleStatus
 
-	assert.Equal(t, 12, runtime.NumGoroutine())
+	assert.Equal(t, numberOfWorkers, runtime.NumGoroutine()-numGoroutine)
 
 	for i := 0; i < 6; i++ {
 		statuses = append(statuses, <-s)
 	}
 
-	expected := []bundleStatus{
+	expected := []BundleStatus{
 		{ID: "id", node: node1},
 		{ID: "id", node: node1, done: true},
 		{ID: "id", node: node2},
