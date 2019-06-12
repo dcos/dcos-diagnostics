@@ -35,7 +35,7 @@ type DiagnosticsClient struct {
 	client *http.Client
 }
 
-func (d *DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
+func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
 	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
 
 	logrus.WithField("bundle", id).WithField("url", url).Info("sending bundle creation request")
@@ -77,7 +77,7 @@ func (d *DiagnosticsClient) Create(ctx context.Context, node string, id string) 
 	return &bundle, nil
 }
 
-func (d *DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
+func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
 	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
 
 	logrus.WithField("bundle", id).WithField("url", url).Info("checking status of bundle")
@@ -111,7 +111,7 @@ func (d *DiagnosticsClient) Status(ctx context.Context, node string, id string) 
 	return &bundle, nil
 }
 
-func (d *DiagnosticsClient) GetFile(ctx context.Context, node string, id string) (string, error) {
+func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string) (string, error) {
 	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s/file", node, id)
 
 	logrus.WithField("bundle", id).WithField("url", url).Info("downloading local bundle from node")
@@ -147,5 +147,6 @@ func (d *DiagnosticsClient) GetFile(ctx context.Context, node string, id string)
 		return "", err
 	}
 
-	return destinationName, nil
+	// return the full path to the created file
+	return destinationFile.Name(), nil
 }
