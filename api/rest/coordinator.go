@@ -36,6 +36,7 @@ func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan
 	}
 
 	for _, n := range nodes {
+		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
 		jobs <- func() BundleStatus {
 			//TODO(janisz): Handle context
 			return c.createBundle(ctx, n, id, jobs)
@@ -59,7 +60,7 @@ func (c Coordinator) Collect(ctx context.Context, statuses <-chan BundleStatus) 
 			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
 		}
 
-		bundlePath, err := c.client.GetFile(ctx, s.node.IP.String(), s.ID)
+		bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, s.ID)
 		if err != nil {
 			logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
 		}
@@ -72,7 +73,7 @@ func (c Coordinator) Collect(ctx context.Context, statuses <-chan BundleStatus) 
 }
 
 func (c Coordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
-	_, err := c.client.Create(ctx, node.IP.String(), id)
+	_, err := c.client.Create(ctx, node.baseURL, id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
 		return BundleStatus{
@@ -101,8 +102,9 @@ func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs
 
 	//TODO(janisz): Handle context
 
+	logrus.WithField("IP", node.IP).Info("Checking bundle status on node.")
 	// Check bundle status
-	bundle, err := c.client.Status(ctx, node.IP.String(), id)
+	bundle, err := c.client.Status(ctx, node.baseURL, id)
 	// If error
 	if err != nil {
 		// then schedule next check in given time.
@@ -113,6 +115,7 @@ func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs
 	}
 	// If bundle is in terminal state (its state won't change)
 	if bundle.Status == Done || bundle.Status == Deleted || bundle.Status == Canceled {
+		logrus.WithField("IP", node.IP).Info("Node bundle is finished.")
 		// mark it as done
 		return BundleStatus{ID: id, node: node, done: true}
 	}
