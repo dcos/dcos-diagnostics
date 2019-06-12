@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 var (
 	// Version of dcos-diagnostics code.
 	Version = "dev"
@@ -39,4 +41,8 @@ type Config struct {
 	FlagDiagnosticsJobGetSingleURLTimeoutMinutes int      `mapstructure:"diagnostics-url-timeout"`
 	FlagCommandExecTimeoutSec                    int      `mapstructure:"command-exec-timeout"`
 	FlagDiagnosticsBundleFetchersCount           int      `mapstructure:"fetchers-count"`
+}
+
+func (c Config) GetHTTPTimeout() time.Duration {
+	return time.Duration(c.FlagDiagnosticsJobGetSingleURLTimeoutMinutes) * time.Minute
 }
