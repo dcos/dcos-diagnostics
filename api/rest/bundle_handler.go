@@ -85,8 +85,9 @@ type createArguments struct {
 }
 
 type node struct {
-	IP   net.IP `json:"ip"`
-	Role string `json:"role"`
+	IP      net.IP `json:"ip"`
+	Role    string `json:"role"`
+	baseURL string
 }
 
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +146,11 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		done := make(chan []string)
 		h.createLocalBundle(ctx, &bundle, done, dataFile, stateFilePath)
 	case bundleTypeRemote:
-		h.createRemoteBundle(ctx, &bundle, args.Nodes, dataFile, stateFilePath)
+		err = h.createRemoteBundle(ctx, &bundle, args.Nodes, dataFile, stateFilePath)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, err)
+			return
+		}
 	default:
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("invalid bundle type recieved: %s", args.BundleType))
 		return
@@ -172,15 +177,54 @@ func (h *BundleHandler) createLocalBundle(ctx context.Context, bundle *Bundle, d
 	}()
 }
 
-func (h *BundleHandler) createRemoteBundle(_ context.Context, _ *Bundle, nodes []node, _ io.WriteCloser, _ string) {
-	nodeURLs := make([]string, 0, len(nodes))
+// createRemoteBundle will start the creation of a remote bundle and will return an error if something prevents it from
+// being able to start that process though errors might still occur during creation
+func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, nodes []node, dataFile io.WriteCloser, stateFilePath string) error {
+	if len(nodes) == 0 {
+		return fmt.Errorf("must include list of nodes to create remote bundle")
+	}
 	for _, n := range nodes {
 		url, err := h.urlBuilder.BaseURL(n.IP, n.Role)
 		if err != nil {
-			// TODO(br-lewis): report this somehow
-			continue
+			return err
 		}
-		nodeURLs = append(nodeURLs, url)
+		n.baseURL = url
+	}
+
+	client := DiagnosticsClient{
+		client: &http.Client{},
+	}
+	coordinator := Coordinator{
+		client: client,
+	}
+
+	statuses := coordinator.Create(ctx, bundle.ID, nodes)
+
+	go h.waitAndCollectRemoteBundle(ctx, bundle, len(nodes), dataFile, stateFilePath, coordinator, statuses)
+	return nil
+}
+
+func (h *BundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int, dataFile io.WriteCloser, stateFilePath string, coordinator Coordinator, statuses <-chan BundleStatus) {
+	bundleFilePath, err := coordinator.Collect(ctx, bundle.ID, numBundles, statuses)
+	if err != nil {
+		bundle.Errors = append(bundle.Errors, err.Error())
+	}
+	bundle.Stopped = h.clock.Now()
+	bundle.Status = Done
+
+	err = ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("Could not update state file.")
+	}
+
+	bundleFile, err := os.Open(bundleFilePath)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to open bundle for copying")
+	}
+
+	_, err = io.Copy(dataFile, bundleFile)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to copy bundle from temp dir working directory")
 	}
 
 }

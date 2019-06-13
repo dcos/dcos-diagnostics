@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -661,6 +662,35 @@ func TestIfCreateReturns507WhenCouldNotCreateWorkDir(t *testing.T) {
 
 	assert.Equal(t, http.StatusInsufficientStorage, rr.Code)
 	assert.Contains(t, rr.Body.String(), `{"code":507,"error":"could not create bundle bundle-0 workdir: `)
+}
+
+func TestIfCreateRemoteBundleReturns400WhenEmptyNodeListGiven(t *testing.T) {
+	t.Parallel()
+	workdir, err := ioutil.TempDir("", "work-dir")
+	defer os.RemoveAll(workdir)
+	require.NoError(t, err)
+
+	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+
+	args := createArguments{
+		BundleType: bundleTypeRemote,
+		Nodes:      []node{},
+	}
+
+	body, err := json.Marshal(args)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", bytes.NewReader(body))
+
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Create)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.JSONEq(t, `{"code":400,"error":"must include list of nodes to create remote bundle"}`, rr.Body.String())
 }
 
 func TestIfE2E_(t *testing.T) {
