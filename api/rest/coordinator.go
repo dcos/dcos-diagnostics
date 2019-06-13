@@ -1,8 +1,11 @@
 package rest
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -46,30 +49,81 @@ func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan
 	return statuses
 }
 
-func (c Coordinator) Collect(ctx context.Context, statuses <-chan BundleStatus) (bundlePath string, err error) {
+func (c Coordinator) Collect(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (bundlePath string, err error) {
 
 	var bundles []string
 
-	for s := range statuses {
-		//TODO(janisz): Handle context
+	for len(bundles) < numBundles {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("context canceled before all node bundles finished")
+		case s := <-statuses:
+			if !s.done {
+				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Info("Got status update. Bundle not ready.")
+			}
+			if s.err != nil {
+				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
+			}
 
-		if !s.done {
-			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Info("Got status update. Bundle not ready.")
-		}
-		if s.err != nil {
-			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
-		}
+			bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, s.ID)
+			if err != nil {
+				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
+			}
 
-		bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, s.ID)
-		if err != nil {
-			logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
+			bundles = append(bundles, bundlePath)
 		}
-
-		bundles = append(bundles, bundlePath)
 	}
 
-	//TODO(janisz): Merge all bundles into a single zip and return it
-	return "", nil
+	return mergeZips(bundleID, bundles)
+}
+
+func mergeZips(bundleID string, bundlePaths []string) (string, error) {
+
+	bundleName := fmt.Sprintf("bundle-%s-*.zip", bundleID)
+	mergedZip, err := ioutil.TempFile("", bundleName)
+	if err != nil {
+		return "", err
+	}
+	defer mergedZip.Close()
+
+	zipWriter := zip.NewWriter(mergedZip)
+	defer zipWriter.Close()
+
+	for _, p := range bundlePaths {
+		err = appendToZip(zipWriter, p)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return mergedZip.Name(), nil
+}
+
+func appendToZip(writer *zip.Writer, path string) error {
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		return fmt.Errorf("could not open %s: %s", path, err)
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
+		}
+
+		file, err := writer.Create(f.Name)
+		if err != nil {
+			return fmt.Errorf("could not create file %s: %s", f.Name, err)
+		}
+		_, err = io.Copy(file, rc)
+		if err != nil {
+			return fmt.Errorf("could not copy file %s to zip: %s", f.Name, err)
+		}
+		rc.Close()
+	}
+
+	return nil
 }
 
 func (c Coordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {

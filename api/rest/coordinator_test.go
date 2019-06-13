@@ -3,10 +3,9 @@ package rest
 import (
 	"archive/zip"
 	"context"
-	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -72,6 +71,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	ctx := context.TODO()
 
 	bundleID := "bundle-0"
+	numNodes := 3
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
@@ -85,35 +85,32 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	client.On("Status", ctx, node2.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Done}, nil)
 	client.On("Status", ctx, node3.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Done}, nil)
 
-	fileContents := []byte("test")
-
-	file1, err := ioutil.TempFile("", fmt.Sprintf("%s-*.zip", bundleID))
+	testZip1, err := filepath.Abs("./testdata/192.0.2.1.zip")
 	require.NoError(t, err)
-	defer os.Remove(file1.Name())
-	file1.Write(fileContents)
-
-	file2, err := ioutil.TempFile("", fmt.Sprintf("%s-*.zip", bundleID))
+	testZip2, err := filepath.Abs("./testdata/192.0.2.2.zip")
 	require.NoError(t, err)
-	defer os.Remove(file2.Name())
-	file2.Write(fileContents)
-
-	file3, err := ioutil.TempFile("", fmt.Sprintf("%s-*.zip", bundleID))
+	testZip3, err := filepath.Abs("./testdata/192.0.2.3.zip")
 	require.NoError(t, err)
-	defer os.Remove(file3.Name())
-	file3.Write(fileContents)
 
-	client.On("GetFile", ctx, node1.baseURL, bundleID).Return(file1.Name(), nil)
-	client.On("GetFile", ctx, node2.baseURL, bundleID).Return(file2.Name(), nil)
-	client.On("GetFile", ctx, node3.baseURL, bundleID).Return(file3.Name(), nil)
+	client.On("GetFile", ctx, node1.baseURL, bundleID).Return(testZip1, nil)
+	client.On("GetFile", ctx, node2.baseURL, bundleID).Return(testZip2, nil)
+	client.On("GetFile", ctx, node3.baseURL, bundleID).Return(testZip3, nil)
 
 	statuses := c.Create(ctx, "bundle-0", []node{node1, node2, node3})
 
-	bundlePath, err := c.Collect(ctx, statuses)
+	bundlePath, err := c.Collect(ctx, bundleID, numNodes, statuses)
 	require.NoError(t, err)
 	defer os.RemoveAll(bundlePath)
+	require.NotEmpty(t, bundlePath)
 
 	zipReader, err := zip.OpenReader(bundlePath)
 	require.NoError(t, err)
 	defer zipReader.Close()
 
+	assert.Equal(t, numNodes, len(zipReader.File))
+
+	expectedDirs := []string{"192.0.2.1/", "192.0.2.2/", "192.0.2.3/"}
+	for _, f := range zipReader.File {
+		assert.Contains(t, expectedDirs, f.Name)
+	}
 }
