@@ -890,6 +890,10 @@ func TestRemoteBundleCreation(t *testing.T) {
 					IP:   net.IPv4(192, 0, 2, 2),
 					Role: "master",
 				},
+				node{
+					IP:   net.IPv4(192, 0, 2, 3),
+					Role: "agent",
+				},
 			},
 		}
 
