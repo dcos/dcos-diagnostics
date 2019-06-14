@@ -57,7 +57,7 @@ func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node
 	for _, n := range nodes {
 		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
 
-		// necessary to prevent the closure of giving the same node to all the calls
+		// necessary to prevent the closure from giving the same node to all the calls
 		node := n
 		jobs <- func() BundleStatus {
 			//TODO(janisz): Handle context
@@ -84,7 +84,11 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
 			}
 
-			bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, s.ID)
+			// because this will also make a request from the coordinating master, we can't tell it to make a local bundle with the same ID
+			// this guarantees that the coordinating master's local bundle has a different ID.
+			fullID := fmt.Sprintf("%s-%s", s.node.IP, s.ID)
+			bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, fullID)
+
 			if err != nil {
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
 			}

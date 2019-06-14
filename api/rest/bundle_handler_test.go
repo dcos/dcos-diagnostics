@@ -913,10 +913,25 @@ func TestRemoteBundleCreation(t *testing.T) {
 	})
 
 	t.Run("get status", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+
+		for { // busy wait for bundle
+			time.Sleep(time.Millisecond)
+			req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+			require.NoError(t, err)
+
+			rr = httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			if strings.Contains(rr.Body.String(), Done.String()) {
+				break
+			}
+		}
+
 		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
 
-		rr := httptest.NewRecorder()
+		rr = httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
