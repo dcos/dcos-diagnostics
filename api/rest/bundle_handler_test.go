@@ -922,6 +922,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
+			Size:    339,
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
