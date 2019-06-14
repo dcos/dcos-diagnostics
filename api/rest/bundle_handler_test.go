@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -937,12 +938,40 @@ func TestRemoteBundleCreation(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
-			Size:    339,
+			Size:    727,
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
 			Errors:  []string{},
 		})), rr.Body.String())
+	})
+
+	t.Run("get bundle-0 file and validate it", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0/file", nil)
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		reader, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(len(rr.Body.Bytes())))
+		require.NoError(t, err)
+
+		expectedContents := []string{
+			"192.0.2.1/",
+			"192.0.2.1/test.txt",
+			"192.0.2.2/",
+			"192.0.2.2/test.txt",
+			"192.0.2.3/",
+			"192.0.2.3/test.txt",
+		}
+
+		filenames := []string{}
+		for _, f := range reader.File {
+			filenames = append(filenames, f.Name)
+		}
+		sort.Strings(filenames)
+
+		assert.Equal(t, expectedContents, filenames)
 	})
 }
 
@@ -999,5 +1028,5 @@ func (c MockCoordinator) Create(ctx context.Context, id string, nodes []node) <-
 }
 
 func (c MockCoordinator) Collect(ctx context.Context, id string, numBundles int, statuses <-chan BundleStatus) (string, error) {
-	return filepath.Abs("./testdata/192.0.2.1.zip")
+	return filepath.Abs("./testdata/combined.zip")
 }
