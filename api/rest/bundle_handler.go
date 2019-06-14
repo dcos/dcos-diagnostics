@@ -59,11 +59,12 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration, urlBuilder dcos.NodeURLBuilder) BundleHandler {
+func NewBundleHandler(workDir string, collectors []collector.Collector, coordinator Coordinator, timeout time.Duration, urlBuilder dcos.NodeURLBuilder) BundleHandler {
 	return BundleHandler{
 		clock:                 realClock{},
 		workDir:               workDir,
 		collectors:            collectors,
+		coordinator:           coordinator,
 		bundleCreationTimeout: timeout,
 		urlBuilder:            urlBuilder,
 	}
@@ -75,6 +76,7 @@ type BundleHandler struct {
 	clock                 Clock
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
+	coordinator           Coordinator           // coordinator for building remote bundles
 	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
 	urlBuilder            dcos.NodeURLBuilder
 }
@@ -191,21 +193,16 @@ func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, 
 		n.baseURL = url
 	}
 
-	client := DiagnosticsClient{
-		client: &http.Client{},
-	}
-	coordinator := Coordinator{
-		client: client,
-	}
+	statuses := h.coordinator.Create(ctx, bundle.ID, nodes)
 
-	statuses := coordinator.Create(ctx, bundle.ID, nodes)
-
-	go h.waitAndCollectRemoteBundle(ctx, bundle, len(nodes), dataFile, stateFilePath, coordinator, statuses)
+	go h.waitAndCollectRemoteBundle(ctx, bundle, len(nodes), dataFile, stateFilePath, statuses)
 	return nil
 }
 
-func (h *BundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int, dataFile io.WriteCloser, stateFilePath string, coordinator Coordinator, statuses <-chan BundleStatus) {
-	bundleFilePath, err := coordinator.Collect(ctx, bundle.ID, numBundles, statuses)
+func (h *BundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int,
+	dataFile io.WriteCloser, stateFilePath string, statuses <-chan BundleStatus) {
+
+	bundleFilePath, err := h.coordinator.Collect(ctx, bundle.ID, numBundles, statuses)
 	if err != nil {
 		bundle.Errors = append(bundle.Errors, err.Error())
 	}
@@ -215,16 +212,19 @@ func (h *BundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *
 	err = ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm)
 	if err != nil {
 		logrus.WithError(err).WithField("ID", bundle.ID).Error("Could not update state file.")
+		return
 	}
 
 	bundleFile, err := os.Open(bundleFilePath)
 	if err != nil {
 		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to open bundle for copying")
+		return
 	}
 
 	_, err = io.Copy(dataFile, bundleFile)
 	if err != nil {
 		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to copy bundle from temp dir working directory")
+		return
 	}
 
 }

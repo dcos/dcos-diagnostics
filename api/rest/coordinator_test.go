@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"runtime"
 	"testing"
 
@@ -19,23 +20,23 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	client := new(MockClient)
 
-	c := Coordinator{
+	c := ParallelCoordinator{
 		client: client,
 	}
 
 	ctx := context.TODO()
 
-	client.On("Create", ctx, "192.0.2.1", "id").Return(&Bundle{ID: "id", Status: Started}, nil)
-	client.On("Create", ctx, "192.0.2.2", "id").Return(&Bundle{ID: "id", Status: Started}, nil)
-	client.On("Create", ctx, "192.0.2.3", "id").Return(&Bundle{ID: "id", Status: Started}, nil)
+	node1 := node{IP: net.ParseIP("192.0.2.1"), baseURL: "http://192.0.2.1"}
+	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
+	node3 := node{IP: net.ParseIP("192.0.2.3"), baseURL: "http://192.0.2.3"}
 
-	client.On("Status", ctx, "192.0.2.1", "id").Return(&Bundle{ID: "id", Status: Done}, nil)
-	client.On("Status", ctx, "192.0.2.2", "id").Return(&Bundle{ID: "id", Status: Done}, nil)
-	client.On("Status", ctx, "192.0.2.3", "id").Return(&Bundle{ID: "id", Status: Done}, nil)
+	client.On("Create", ctx, node1.baseURL, "id").Return(&Bundle{ID: "id", Status: Started}, nil)
+	client.On("Create", ctx, node2.baseURL, "id").Return(&Bundle{ID: "id", Status: Started}, nil)
+	client.On("Create", ctx, node3.baseURL, "id").Return(&Bundle{ID: "id", Status: Started}, nil)
 
-	node1 := node{IP: net.ParseIP("192.0.2.1")}
-	node2 := node{IP: net.ParseIP("192.0.2.2")}
-	node3 := node{IP: net.ParseIP("192.0.2.3")}
+	client.On("Status", ctx, node1.baseURL, "id").Return(&Bundle{ID: "id", Status: Done}, nil)
+	client.On("Status", ctx, node2.baseURL, "id").Return(&Bundle{ID: "id", Status: Done}, nil)
+	client.On("Status", ctx, node3.baseURL, "id").Return(&Bundle{ID: "id", Status: Done}, nil)
 
 	s := c.Create(context.TODO(), "id", []node{node1, node2, node3})
 
@@ -64,7 +65,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 func TestCoordinatorCreateAndCollect(t *testing.T) {
 	client := MockClient{}
 
-	c := Coordinator{
+	c := ParallelCoordinator{
 		client: &client,
 	}
 
@@ -107,10 +108,20 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	require.NoError(t, err)
 	defer zipReader.Close()
 
-	assert.Equal(t, numNodes, len(zipReader.File))
-
-	expectedDirs := []string{"192.0.2.1/", "192.0.2.2/", "192.0.2.3/"}
-	for _, f := range zipReader.File {
-		assert.Contains(t, expectedDirs, f.Name)
+	expectedContents := []string{
+		"192.0.2.1/",
+		"192.0.2.1/test.txt",
+		"192.0.2.2/",
+		"192.0.2.2/test.txt",
+		"192.0.2.3/",
+		"192.0.2.3/test.txt",
 	}
+
+	filenames := []string{}
+	for _, f := range zipReader.File {
+		filenames = append(filenames, f.Name)
+	}
+	sort.Strings(filenames)
+
+	assert.Equal(t, expectedContents, filenames)
 }

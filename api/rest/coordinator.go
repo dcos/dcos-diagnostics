@@ -13,7 +13,16 @@ import (
 
 const numberOfWorkers = 10
 
-type Coordinator struct {
+// Coordinator is an interface to coordinate the creation of diagnostics bundles
+// across a cluster of nodes
+type Coordinator interface {
+	Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus
+	Collect(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
+}
+
+// ParallelCoordinator implements Coordinator interface to coordinate bundle
+// creation across a cluster, parallelized across multiple goroutines
+type ParallelCoordinator struct {
 	client Client
 }
 
@@ -28,8 +37,15 @@ func worker(_ context.Context, jobs <-chan job, results chan<- BundleStatus) {
 	}
 }
 
+// NewParallelCoordinator constructs a new parallelcoordinator.
+func NewParallelCoordinator(client Client) ParallelCoordinator {
+	return ParallelCoordinator{
+		client: client,
+	}
+}
+
 // Create starts bundle creation process. Creation process could be monitor on returned channel.
-func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
+func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
 	jobs := make(chan job)
 	statuses := make(chan BundleStatus)
@@ -40,16 +56,19 @@ func (c Coordinator) Create(ctx context.Context, id string, nodes []node) <-chan
 
 	for _, n := range nodes {
 		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
+
+		// necessary to prevent the closure of giving the same node to all the calls
+		node := n
 		jobs <- func() BundleStatus {
 			//TODO(janisz): Handle context
-			return c.createBundle(ctx, n, id, jobs)
+			return c.createBundle(ctx, node, id, jobs)
 		}
 	}
 
 	return statuses
 }
 
-func (c Coordinator) Collect(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (bundlePath string, err error) {
+func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
 	var bundles []string
 
@@ -126,7 +145,7 @@ func appendToZip(writer *zip.Writer, path string) error {
 	return nil
 }
 
-func (c Coordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
+func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	_, err := c.client.Create(ctx, node.baseURL, id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
@@ -147,7 +166,7 @@ func (c Coordinator) createBundle(ctx context.Context, node node, id string, job
 	return BundleStatus{ID: id, node: node}
 }
 
-func (c Coordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
+func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	statusCheck := func() {
 		jobs <- func() BundleStatus {
 			return c.waitForDone(ctx, node, id, jobs)

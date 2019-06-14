@@ -35,6 +35,13 @@ type DiagnosticsClient struct {
 	client *http.Client
 }
 
+// NewDiagnosticsClient constructs a diagnostics client
+func NewDiagnosticsClient() DiagnosticsClient {
+	return DiagnosticsClient{
+		client: &http.Client{},
+	}
+}
+
 func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
 	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
 

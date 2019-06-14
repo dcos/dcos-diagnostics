@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -32,7 +33,7 @@ const (
 
 func TestIfReturns507ForNotExistingDir(t *testing.T) {
 	t.Parallel()
-	bh := NewBundleHandler("not existing dir", nil, time.Nanosecond, nil)
+	bh := NewBundleHandler("not existing dir", nil, nil, time.Nanosecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -54,7 +55,7 @@ func TestIfReturnsEmptyListWhenDirIsEmpty(t *testing.T) {
 	defer os.RemoveAll(workdir)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -78,7 +79,7 @@ func TestIfReturnsEmptyListWhenDirIsEmptyContainsNoDirs(t *testing.T) {
 	_, err = ioutil.TempFile(workdir, "")
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -104,7 +105,7 @@ func TestIfDirsAsBundlesIdsWithStatusUnknown(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -154,7 +155,7 @@ func TestIfListShowsStatusWithoutAFile(t *testing.T) {
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -191,7 +192,7 @@ func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *te
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -231,7 +232,7 @@ func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName), []byte(`OK`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 	require.NoError(t, err)
@@ -274,7 +275,7 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDeleted(t *testing.T) {
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
 	require.NoError(t, err)
@@ -311,7 +312,7 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDone(t *testing.T) {
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
 	require.NoError(t, err)
@@ -342,7 +343,7 @@ func TestIfGetReturns500WhenBundleStateIsNotJson(t *testing.T) {
 		[]byte(`invalid JSON`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-state-not-json", nil)
 	router := mux.NewRouter()
@@ -368,7 +369,7 @@ func TestIfGetReturns500WhenBundleStateIsNotJson(t *testing.T) {
 func TestIfDeleteReturns404WhenNoBundleFound(t *testing.T) {
 	t.Parallel()
 
-	bh := NewBundleHandler("", nil, time.Nanosecond, nil)
+	bh := NewBundleHandler("", nil, nil, time.Nanosecond, nil)
 
 	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/not-existing-bundle", nil)
 	require.NoError(t, err)
@@ -393,7 +394,7 @@ func TestIfDeleteReturns500WhenNoBundleStateFound(t *testing.T) {
 	err = os.Mkdir(bundleWorkDir, dirPerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/not-existing-bundle-state", nil)
 	require.NoError(t, err)
@@ -424,7 +425,7 @@ func TestIfDeleteReturns500WhenBundleStateIsNotJson(t *testing.T) {
 		[]byte(`invalid JSON`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/bundle-state-not-json", nil)
 	require.NoError(t, err)
@@ -467,7 +468,7 @@ func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
 	err = ioutil.WriteFile(stateFilePath, []byte(bundleState), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/deleted-bundle", nil)
 	require.NoError(t, err)
@@ -498,7 +499,7 @@ func TestIfDeleteReturns500WhenBundleFileIsMissing(t *testing.T) {
 		"stopped_at":"2019-05-21T00:00:00Z" }`)), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/missing-data-file", nil)
 	require.NoError(t, err)
@@ -536,7 +537,7 @@ func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName), []byte(`OK`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/bundle-0", nil)
 	require.NoError(t, err)
@@ -569,7 +570,7 @@ func TestIfGetFileReturnsBundle(t *testing.T) {
 		[]byte(`OK`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
 	require.NoError(t, err)
@@ -591,7 +592,7 @@ func TestIfGetFileReturnsErrorWhenBundleDoesNotExists(t *testing.T) {
 	defer os.RemoveAll(workdir)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
 	require.NoError(t, err)
@@ -625,7 +626,7 @@ func TestIfCreateReturns409WhenBundleWithGivenIdAlreadyExists(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName), []byte(`OK`), filePerm)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
 	require.NoError(t, err)
@@ -649,7 +650,7 @@ func TestIfCreateReturns507WhenCouldNotCreateWorkDir(t *testing.T) {
 	bundleWorkDir := filepath.Join(workdir, "bundle-0")
 	err = ioutil.WriteFile(bundleWorkDir, []byte{}, 0000)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
 	require.NoError(t, err)
@@ -670,7 +671,7 @@ func TestIfCreateRemoteBundleReturns400WhenEmptyNodeListGiven(t *testing.T) {
 	defer os.RemoveAll(workdir)
 	require.NoError(t, err)
 
-	bh := NewBundleHandler(workdir, nil, time.Millisecond, nil)
+	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
 
 	args := createArguments{
 		BundleType: bundleTypeRemote,
@@ -708,6 +709,7 @@ func TestIfE2E_(t *testing.T) {
 			MockCollector{name: "collector-1", err: fmt.Errorf("some error")},
 			MockCollector{name: "collector-2", rc: ioutil.NopCloser(bytes.NewReader([]byte("OK")))},
 		},
+		nil,
 		time.Second,
 		nil,
 	)
@@ -849,6 +851,81 @@ func TestIfE2E_(t *testing.T) {
 	})
 }
 
+func TestRemoteBundleCreation(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	coordinator := MockCoordinator{}
+
+	bh := NewBundleHandler(
+		workdir,
+		nil,
+		coordinator,
+		time.Second,
+		MockURLBuilder{},
+	)
+	bh.clock = &MockClock{now: now}
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Create).Methods(http.MethodPut)
+	router.HandleFunc(bundleEndpoint, bh.Get).Methods(http.MethodGet)
+	router.HandleFunc(bundleEndpoint, bh.Delete).Methods(http.MethodDelete)
+	router.HandleFunc(bundleFileEndpoint, bh.GetFile).Methods(http.MethodGet)
+
+	t.Run("send creation request", func(t *testing.T) {
+		// roles will be ignored by the mock url builder
+		payload := createArguments{
+			BundleType: "REMOTE",
+			Nodes: []node{
+				node{
+					IP:   net.IPv4(192, 0, 2, 1),
+					Role: "agent",
+				},
+				node{
+					IP:   net.IPv4(192, 0, 2, 2),
+					Role: "master",
+				},
+			},
+		}
+
+		req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", bytes.NewBuffer(jsonMarshal(payload)))
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.JSONEq(t, string(jsonMarshal(Bundle{
+			ID:      "bundle-0",
+			Status:  Started,
+			Started: now.Add(time.Hour),
+		})), rr.Body.String())
+
+	})
+
+	t.Run("get status", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.JSONEq(t, string(jsonMarshal(Bundle{
+			ID:      "bundle-0",
+			Status:  Done,
+			Started: now.Add(time.Hour),
+			Stopped: now.Add(2 * time.Hour),
+			Errors:  []string{},
+		})), rr.Body.String())
+	})
+}
+
 // MockClock is a monotonic clock. Every call to Now() adds one hour
 type MockClock struct {
 	now time.Time
@@ -876,4 +953,31 @@ func (m MockCollector) Optional() bool {
 
 func (m MockCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
 	return m.rc, m.err
+}
+
+type MockURLBuilder struct{}
+
+func (m MockURLBuilder) BaseURL(ip net.IP, _ string) (string, error) {
+	return fmt.Sprintf("http://%s", ip), nil
+}
+
+type MockCoordinator struct{}
+
+func (c MockCoordinator) Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
+	statuses := make(chan BundleStatus, len(nodes))
+
+	for _, n := range nodes {
+		node := n
+		statuses <- BundleStatus{
+			ID:   id,
+			node: node,
+			done: true,
+		}
+	}
+
+	return statuses
+}
+
+func (c MockCoordinator) Collect(ctx context.Context, id string, numBundles int, statuses <-chan BundleStatus) (string, error) {
+	return filepath.Abs("./testdata/192.0.2.1.zip")
 }
