@@ -58,10 +58,10 @@ func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node
 		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
 
 		// necessary to prevent the closure from giving the same node to all the calls
-		node := n
+		tmpNode := n
 		jobs <- func() BundleStatus {
 			//TODO(janisz): Handle context
-			return c.createBundle(ctx, node, id, jobs)
+			return c.createBundle(ctx, tmpNode, id, jobs)
 		}
 	}
 

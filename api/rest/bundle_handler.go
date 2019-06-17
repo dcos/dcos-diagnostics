@@ -59,7 +59,8 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collector.Collector, coordinator Coordinator, timeout time.Duration, urlBuilder dcos.NodeURLBuilder) BundleHandler {
+func NewBundleHandler(workDir string, collectors []collector.Collector, coordinator Coordinator,
+	timeout time.Duration, urlBuilder dcos.NodeURLBuilder) BundleHandler {
 	return BundleHandler{
 		clock:                 realClock{},
 		workDir:               workDir,
