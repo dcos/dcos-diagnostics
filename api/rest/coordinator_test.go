@@ -3,11 +3,12 @@ package rest
 import (
 	"archive/zip"
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"runtime"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,16 +30,25 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 	node1 := node{IP: net.ParseIP("192.0.2.1"), baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
 	node3 := node{IP: net.ParseIP("192.0.2.3"), baseURL: "http://192.0.2.3"}
+	testNodes := []node{
+		node1,
+		node2,
+		node3,
+	}
 
-	client.On("Create", ctx, node1.baseURL, "id").Return(&Bundle{ID: "id", Status: Started}, nil)
-	client.On("Create", ctx, node2.baseURL, "id").Return(&Bundle{ID: "id", Status: Started}, nil)
-	client.On("Create", ctx, node3.baseURL, "id").Return(&Bundle{ID: "id", Status: Started}, nil)
+	expected := []BundleStatus{}
 
-	client.On("Status", ctx, node1.baseURL, "id").Return(&Bundle{ID: "id", Status: Done}, nil)
-	client.On("Status", ctx, node2.baseURL, "id").Return(&Bundle{ID: "id", Status: Done}, nil)
-	client.On("Status", ctx, node3.baseURL, "id").Return(&Bundle{ID: "id", Status: Done}, nil)
+	for _, n := range testNodes {
+		id := fmt.Sprintf("%s-%s", n.IP, "id")
+		client.On("Create", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Started}, nil)
+		client.On("Status", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
 
-	s := c.Create(context.TODO(), "id", []node{node1, node2, node3})
+		expected = append(expected,
+			BundleStatus{ID: id, node: n},
+			BundleStatus{ID: id, node: n, done: true},
+		)
+	}
+	s := c.Create(context.TODO(), "id", testNodes)
 
 	var statuses []BundleStatus
 
@@ -46,15 +56,6 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	for i := 0; i < 6; i++ {
 		statuses = append(statuses, <-s)
-	}
-
-	expected := []BundleStatus{
-		{ID: "id", node: node1},
-		{ID: "id", node: node1, done: true},
-		{ID: "id", node: node2},
-		{ID: "id", node: node2, done: true},
-		{ID: "id", node: node3},
-		{ID: "id", node: node3, done: true},
 	}
 
 	for _, s := range statuses {
@@ -78,24 +79,38 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
 	node3 := node{IP: net.ParseIP("192.0.2.3"), baseURL: "http://192.0.2.3"}
 
-	client.On("Create", ctx, node1.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Started}, nil)
-	client.On("Create", ctx, node2.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Started}, nil)
-	client.On("Create", ctx, node3.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Started}, nil)
-
-	client.On("Status", ctx, node1.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Done}, nil)
-	client.On("Status", ctx, node2.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Done}, nil)
-	client.On("Status", ctx, node3.baseURL, bundleID).Return(&Bundle{ID: bundleID, Status: Done}, nil)
-
-	testZip1, err := filepath.Abs("./testdata/192.0.2.1.zip")
+	testZip1, err := filepath.Abs(filepath.Join("testdata", "192.0.2.1.zip"))
 	require.NoError(t, err)
-	testZip2, err := filepath.Abs("./testdata/192.0.2.2.zip")
+	testZip2, err := filepath.Abs(filepath.Join("testdata", "192.0.2.2.zip"))
 	require.NoError(t, err)
-	testZip3, err := filepath.Abs("./testdata/192.0.2.3.zip")
+	testZip3, err := filepath.Abs(filepath.Join("testdata", "192.0.2.3.zip"))
 	require.NoError(t, err)
 
-	client.On("GetFile", ctx, node1.baseURL, bundleID).Return(testZip1, nil)
-	client.On("GetFile", ctx, node2.baseURL, bundleID).Return(testZip2, nil)
-	client.On("GetFile", ctx, node3.baseURL, bundleID).Return(testZip3, nil)
+	testNodes := []struct {
+		n       node
+		zipPath string
+	}{
+		{
+			n:       node1,
+			zipPath: testZip1,
+		},
+		{
+			n:       node2,
+			zipPath: testZip2,
+		},
+		{
+			n:       node3,
+			zipPath: testZip3,
+		},
+	}
+
+	for _, testData := range testNodes {
+		id := fmt.Sprintf("%s-%s", testData.n.IP, bundleID)
+		//id := bundleID
+		client.On("Create", ctx, testData.n.baseURL, id).Return(&Bundle{ID: id, Status: Started}, nil)
+		client.On("Status", ctx, testData.n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
+		client.On("GetFile", ctx, testData.n.baseURL, id).Return(testData.zipPath, nil)
+	}
 
 	statuses := c.Create(ctx, "bundle-0", []node{node1, node2, node3})
 

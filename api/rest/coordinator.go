@@ -61,7 +61,14 @@ func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node
 		tmpNode := n
 		jobs <- func() BundleStatus {
 			//TODO(janisz): Handle context
-			return c.createBundle(ctx, tmpNode, id, jobs)
+
+			// because this will also make a request from the coordinating master, we
+			// can't tell it to make a local bundle with the same ID this guarantees that
+			// the coordinating master's local bundle has a different ID.
+			// from this point, the full <ip>-<id> will be carried in the BundleStatus ID field so this does not
+			// need to be recalculated in the coordinator
+			fullID := fmt.Sprintf("%s-%s", tmpNode.IP, id)
+			return c.createBundle(ctx, tmpNode, fullID, jobs)
 		}
 	}
 
@@ -79,15 +86,15 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 		case s := <-statuses:
 			if !s.done {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Info("Got status update. Bundle not ready.")
+				continue
 			}
 			if s.err != nil {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
+				// TODO: the bundle will never finish, need to stop this from waiting forever
+				continue
 			}
 
-			// because this will also make a request from the coordinating master, we can't tell it to make a local bundle with the same ID
-			// this guarantees that the coordinating master's local bundle has a different ID.
-			fullID := fmt.Sprintf("%s-%s", s.node.IP, s.ID)
-			bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, fullID)
+			bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, s.ID)
 
 			if err != nil {
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")

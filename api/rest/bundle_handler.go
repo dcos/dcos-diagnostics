@@ -203,6 +203,8 @@ func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, 
 func (h *BundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int,
 	dataFile io.WriteCloser, stateFilePath string, statuses <-chan BundleStatus) {
 
+	defer dataFile.Close()
+
 	bundleFilePath, err := h.coordinator.Collect(ctx, bundle.ID, numBundles, statuses)
 	if err != nil {
 		bundle.Errors = append(bundle.Errors, err.Error())

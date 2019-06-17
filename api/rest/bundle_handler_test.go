@@ -1028,5 +1028,5 @@ func (c MockCoordinator) Create(ctx context.Context, id string, nodes []node) <-
 }
 
 func (c MockCoordinator) Collect(ctx context.Context, id string, numBundles int, statuses <-chan BundleStatus) (string, error) {
-	return filepath.Abs("./testdata/combined.zip")
+	return filepath.Abs(filepath.Join("testdata", "combined.zip"))
 }
