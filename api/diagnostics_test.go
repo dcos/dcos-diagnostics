@@ -449,6 +449,7 @@ func TestCreateBundle(t *testing.T) {
 		return mockServer(func(w http.ResponseWriter, r *http.Request) {
 			t.Logf("Called %s", r.URL.RequestURI())
 			if r.URL.Path == "/ping" {
+				time.Sleep(time.Millisecond)
 				w.Write([]byte("pong"))
 			} else {
 				http.NotFound(w, r)
@@ -521,10 +522,14 @@ func TestCreateBundle(t *testing.T) {
 	assert.Contains(t, string(content), "GET http://127.0.0.1:")
 
 	tools.AssertExpectations(t)
+	mockObs.AssertExpectations(t)
+	mockHistogram.AssertExpectations(t)
 }
 
 func TestCancelWhenJobIsRunning(t *testing.T) {
 	tools := new(MockedTools)
+
+	mockHistogram := &mocks.MockHistogram{}
 
 	called := make(chan bool)
 	wait := make(chan bool)
@@ -533,8 +538,8 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 		return mockServer(func(w http.ResponseWriter, r *http.Request) {
 			called <- true
 			t.Logf("Called %s", r.URL.RequestURI())
-			<-wait
 			w.WriteHeader(200)
+			<-wait
 		})
 	}
 
@@ -554,7 +559,7 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	tools.On("GetMasterNodes").Return([]dcos.Node{{Leader: true, IP: "127.0.0.1", Role: "master"}}, nil)
 
 	cfg := testCfg()
-	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient}
+	job := &DiagnosticsJob{Cfg: cfg, DCOSTools: tools, client: http.DefaultClient, FetchPrometheusVector: mockHistogram}
 	dt := &Dt{
 		Cfg:              cfg,
 		DtDCOSTools:      tools,
@@ -567,14 +572,16 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 
 	<-called
 	require.True(t, job.getBundleReportStatus().Running)
+	require.Empty(t, job.getBundleReportStatus().JobEnded, "job is running, end time should be empty")
 	_, err = dt.DtDiagnosticsJob.cancel()
 	require.NoError(t, err)
-	wait <- false
 
 	for job.getBundleReportStatus().Running {
 		t.Log("Waiting for job to end")
 		time.Sleep(10 * time.Microsecond)
 	}
+
+	wait <- false
 
 	status := job.getBundleReportStatus()
 
@@ -582,8 +589,10 @@ func TestCancelWhenJobIsRunning(t *testing.T) {
 	assert.Equal(t, float32(100.0), status.JobProgressPercentage)
 	assert.Equal(t, "Diagnostics job failed", status.Status)
 	assert.NotEmpty(t, status.Errors)
+	assert.NotEmpty(t, status.JobEnded, "job has finished, end time should not be empty")
 
 	tools.AssertExpectations(t)
+	mockHistogram.AssertExpectations(t)
 }
 
 func TestGetAllStatusWithRemoteCall(t *testing.T) {
@@ -598,7 +607,6 @@ func TestGetAllStatusWithRemoteCall(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
@@ -627,7 +635,6 @@ func TestGetAllStatusWithRemoteCall(t *testing.T) {
 		Status:                                   "MyStatus",
 		LastBundlePath:                           "/path/to/snapshot",
 		JobStarted:                               "0001-01-01 00:00:00 +0000 UTC",
-		JobEnded:                                 "0001-01-01 00:00:00 +0000 UTC",
 		JobDuration:                              "2s",
 		DiagnosticBundlesBaseDir:                 "/home/core/1",
 		DiagnosticsJobTimeoutMin:                 720,
@@ -746,7 +753,6 @@ func TestGetAllStatusWithLocalAndRemoteCall(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
@@ -779,7 +785,6 @@ func TestGetAllStatusWithLocalAndRemoteCall(t *testing.T) {
 		Status:                                   "MyStatus",
 		LastBundlePath:                           "/path/to/snapshot",
 		JobStarted:                               "0001-01-01 00:00:00 +0000 UTC",
-		JobEnded:                                 "0001-01-01 00:00:00 +0000 UTC",
 		JobDuration:                              "2s",
 		DiagnosticBundlesBaseDir:                 "/home/core/1",
 		DiagnosticsJobTimeoutMin:                 720,
@@ -853,7 +858,6 @@ func TestCancelNotRunningJob(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,
@@ -919,7 +923,6 @@ func TestCancelGlobalJob(t *testing.T) {
 			  "errors":null,
 			  "last_bundle_dir":"/path/to/snapshot",
 			  "job_started":"0001-01-01 00:00:00 +0000 UTC",
-			  "job_ended":"0001-01-01 00:00:00 +0000 UTC",
 			  "job_duration":"2s",
 			  "diagnostics_bundle_dir":"/home/core/1",
 			  "diagnostics_job_timeout_min":720,

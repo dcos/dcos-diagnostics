@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	jwtt "github.com/spf13/jwalterweatherman"
@@ -59,12 +60,13 @@ func Test_initConfig(t *testing.T) {
 		FlagDiagnosticsBundleEndpointsConfigFiles:    []string{"dcos-diagnostics-endpoint-config.json"},
 		FlagDiagnosticsBundleUnitsLogsSinceString:    "24h",
 		FlagDiagnosticsJobTimeoutMinutes:             720,
-		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,
-		FlagCommandExecTimeoutSec:                    120,
+		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 1,
+		FlagCommandExecTimeoutSec:                    50,
 		FlagDiagnosticsBundleFetchersCount:           1,
 	}
 
 	assert.Equal(t, expected, defaultConfig)
+	assert.Equal(t, time.Minute, defaultConfig.GetHTTPTimeout())
 
 }
 
@@ -98,12 +100,13 @@ func Test_initConfig_multiple_endpints_configs(t *testing.T) {
 		FlagDiagnosticsBundleEndpointsConfigFiles:    []string{"1", "2"},
 		FlagDiagnosticsBundleUnitsLogsSinceString:    "24h",
 		FlagDiagnosticsJobTimeoutMinutes:             720,
-		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 2,
-		FlagCommandExecTimeoutSec:                    120,
+		FlagDiagnosticsJobGetSingleURLTimeoutMinutes: 1,
+		FlagCommandExecTimeoutSec:                    50,
 		FlagDiagnosticsBundleFetchersCount:           1,
 	}
 
 	assert.Equal(t, expected, defaultConfig)
+	assert.Equal(t, time.Minute, defaultConfig.GetHTTPTimeout())
 
 }
 

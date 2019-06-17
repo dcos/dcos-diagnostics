@@ -91,7 +91,7 @@ func init() {
 	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagAgentPort, "agent-port", diagnosticsTCPPort,
 		"Use TCP port to connect to agents.")
 	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagCommandExecTimeoutSec, "command-exec-timeout",
-		120, "Set command executing timeout")
+		50, "Set command executing timeout")
 	daemonCmd.PersistentFlags().BoolVar(&defaultConfig.FlagPull, "pull", defaultConfig.FlagPull,
 		"Try to pull runner from DC/OS hosts.")
 	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagPullInterval, "pull-interval", 60,
@@ -123,7 +123,7 @@ func init() {
 		"diagnostics-job-timeout", 720,
 		"Set a global diagnostics job timeout")
 	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsJobGetSingleURLTimeoutMinutes,
-		"diagnostics-url-timeout", 2,
+		"diagnostics-url-timeout", 1,
 		"Set a local timeout for every single GET request to a log endpoint")
 	daemonCmd.PersistentFlags().IntVar(&defaultConfig.FlagDiagnosticsBundleFetchersCount,
 		"fetchers-count", 1,

@@ -1,6 +1,7 @@
 package dcos
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -8,12 +9,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dcos/dcos-diagnostics/units"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/coreos/go-systemd/dbus"
-	"github.com/dcos/dcos-diagnostics/units"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
-	"github.com/dcos/dcos-log/dcos-log/journal/reader"
 )
 
 // Tools is implementation of Tooler interface.
@@ -100,13 +101,12 @@ func (st *Tools) GetUnitNames() (units []string, err error) {
 
 // GetJournalOutput returns last 50 lines of journald command output for a specific systemd Unit.
 func (st *Tools) GetJournalOutput(unit string) (string, error) {
-	matches := units.DefaultSystemdMatches(unit)
-	format := reader.NewEntryFormatter("text/plain", false)
-	j, err := reader.NewReader(format, reader.OptionMatchOR(matches), reader.OptionSkipPrev(50))
+
+	j, err := units.ReadJournalTail(context.TODO(), unit, 50)
 	if err != nil {
 		return "", err
 	}
-	defer j.Journal.Close()
+	defer j.Close()
 
 	entries, err := ioutil.ReadAll(j)
 	if err != nil {
