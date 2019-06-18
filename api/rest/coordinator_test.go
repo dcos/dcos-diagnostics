@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"testing"
 
@@ -16,8 +15,6 @@ import (
 )
 
 func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T) {
-
-	numGoroutine := runtime.NumGoroutine()
 
 	client := new(MockClient)
 
