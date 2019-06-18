@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -62,16 +63,21 @@ func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected HTTP status code received: %d", resp.StatusCode)
+		body, e := ioutil.ReadAll(resp.Body)
+		msg := string(body[:100])
+		if e != nil {
+			msg = e.Error()
+		}
+		return nil, fmt.Errorf("received unexpected status code from %s: %d %s", url, resp.StatusCode, msg)
 	}
 
-	var bundle Bundle
-	err = json.NewDecoder(resp.Body).Decode(&bundle)
+	bundle := &Bundle{}
+	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
 		return nil, err
 	}
 
-	return &bundle, nil
+	return bundle, nil
 }
 
 func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
@@ -92,20 +98,26 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (
 	}
 	defer resp.Body.Close()
 
-	var bundle Bundle
+	bundle := &Bundle{}
 
 	if resp.StatusCode == http.StatusNotFound {
 		bundle.Status = Unknown
-		return &bundle, nil
-	} else if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received unexpected status code from %s: %d", url, resp.StatusCode)
+		return bundle, nil
 	}
-	err = json.NewDecoder(resp.Body).Decode(&bundle)
+	if resp.StatusCode != http.StatusOK {
+		body, e := ioutil.ReadAll(resp.Body)
+		msg := string(body[:100])
+		if e != nil {
+			msg = e.Error()
+		}
+		return nil, fmt.Errorf("received unexpected status code from %s: %d %s", url, resp.StatusCode, msg)
+	}
+	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
 		return nil, err
 	}
 
-	return &bundle, nil
+	return bundle, nil
 }
 
 func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, path string) error {
