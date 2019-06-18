@@ -700,7 +700,7 @@ func TestIfE2E_(t *testing.T) {
 	})
 
 	t.Run("create bundle-0", func(t *testing.T) {
-		bundle, err := client.Create(context.TODO(), testServer.URL, "bundle-0")
+		bundle, err := client.CreateBundle(context.TODO(), testServer.URL, "bundle-0")
 		require.NoError(t, err)
 
 		assert.Equal(t, &Bundle{

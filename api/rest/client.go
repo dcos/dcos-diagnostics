@@ -16,8 +16,8 @@ const bundlesEndpoint = "/system/health/v1/diagnostics"
 
 // Client is an interface that can talk with dcos-diagnostics REST API and manipulate remote bundles
 type Client interface {
-	// Create requests the given node to start a bundle creation process with that is identified by the given ID
-	Create(ctx context.Context, node string, ID string) (*Bundle, error)
+	// CreateBundle requests the given node to start a bundle creation process with that is identified by the given ID
+	CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error)
 	// Status returns the status of the bundle with the given ID on the given node
 	Status(ctx context.Context, node string, ID string) (*Bundle, error)
 	// GetFile downloads the bundle file of the bundle with the given ID from the node
@@ -37,7 +37,7 @@ func NewDiagnosticsClient(client *http.Client) DiagnosticsClient {
 	}
 }
 
-func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
+func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, id string) (*Bundle, error) {
 	url := remoteURL(node, id)
 
 	logrus.WithField("ID", id).WithField("url", url).Info("sending bundle creation request")

@@ -47,7 +47,7 @@ func TestCreate(t *testing.T) {
 		client: testClient,
 	}
 
-	bundle, err := client.Create(context.TODO(), testServer.URL, expectedBundle.ID)
+	bundle, err := client.CreateBundle(context.TODO(), testServer.URL, expectedBundle.ID)
 	require.NoError(t, err)
 	assert.EqualValues(t, expectedBundle, *bundle)
 }
@@ -84,7 +84,7 @@ func TestCreateShouldErrorWhenMalformedResponse(t *testing.T) {
 		client: testClient,
 	}
 
-	bundle, err := client.Create(context.TODO(), testServer.URL, expectedBundle.ID)
+	bundle, err := client.CreateBundle(context.TODO(), testServer.URL, expectedBundle.ID)
 	assert.EqualError(t, err, "invalid character 'm' looking for beginning of value")
 	assert.Nil(t, bundle)
 }
@@ -182,7 +182,7 @@ func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
 	client := DiagnosticsClient{
 		client: testClient,
 	}
-	bundle, err := client.Create(context.TODO(), testServer.URL, "bundle-0")
+	bundle, err := client.CreateBundle(context.TODO(), testServer.URL, "bundle-0")
 	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
 	assert.Contains(t, err.Error(), ": 500 ERROR")
 	assert.Nil(t, bundle)
@@ -231,7 +231,7 @@ func TestGetFileReturnsErrorWhenResponseIs500(t *testing.T) {
 
 func TestClientReturnsErrorWhenNodeIsInvalid(t *testing.T) {
 	client := DiagnosticsClient{client: http.DefaultClient}
-	bundle, err := client.Create(context.TODO(), ``, "bundle-0")
+	bundle, err := client.CreateBundle(context.TODO(), ``, "bundle-0")
 	assert.EqualError(t, err, `Put /system/health/v1/diagnostics/bundle-0: unsupported protocol scheme ""`)
 	assert.Nil(t, bundle)
 
