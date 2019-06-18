@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -23,8 +22,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	type payload struct {
-		BundleType string `json:"type"`
-		Nodes      []node `json:"nodes"`
+		BundleType Type `json:"type"`
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -35,9 +33,7 @@ func TestCreate(t *testing.T) {
 		err := json.NewDecoder(r.Body).Decode(&args)
 		require.NoError(t, err)
 
-		assert.Equal(t, bundleTypeLocal, strings.ToLower(args.BundleType))
-
-		assert.Empty(t, args.Nodes)
+		assert.Equal(t, Local, args.BundleType)
 
 		response := jsonMarshal(expectedBundle)
 		w.WriteHeader(http.StatusOK)
@@ -98,11 +94,15 @@ func TestGetFile(t *testing.T) {
 		client: testClient,
 	}
 
-	filename, err := client.GetFile(context.TODO(), testServer.URL, "bundle-0")
+	f, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
-	defer os.RemoveAll(filename)
+	require.NoError(t, f.Close())
+	defer os.RemoveAll(f.Name())
 
-	contents, err := ioutil.ReadFile(filename)
+	err = client.GetFile(context.TODO(), testServer.URL, "bundle-0", f.Name())
+	require.NoError(t, err)
+
+	contents, err := ioutil.ReadFile(f.Name())
 	require.NoError(t, err)
 	assert.Equal(t, []byte("test"), contents)
 }
@@ -143,6 +143,11 @@ func TestGetFileReturnsErrorWhenBundleIDNotFound(t *testing.T) {
 		client: testClient,
 	}
 
-	_, err := client.GetFile(context.TODO(), testServer.URL, "bundle-0")
+	f, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	defer os.RemoveAll(f.Name())
+
+	err = client.GetFile(context.TODO(), testServer.URL, "bundle-0", f.Name())
 	assert.Error(t, err)
 }

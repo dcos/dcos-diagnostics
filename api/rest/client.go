@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
@@ -19,16 +19,9 @@ type Client interface {
 	// Status returns status of bundle with given id on node at the given url
 	Status(ctx context.Context, node string, id string) (*Bundle, error)
 	// GetFile downloads bundle file of bundle with given id from node at the given
-	// url and save it to local filesystem. It returns path where file is stored or
-	// error if there were a problem.
-	GetFile(ctx context.Context, node string, id string) (path string, err error)
-}
-
-type BundleStatus struct {
-	ID   string
-	node node
-	done bool
-	err  error
+	// url and save it to local filesystem under given path.
+	// Returns an error if there were a problem.
+	GetFile(ctx context.Context, node string, id string, path string) (err error)
 }
 
 type DiagnosticsClient struct {
@@ -43,16 +36,16 @@ func NewDiagnosticsClient() DiagnosticsClient {
 }
 
 func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
+	url := remoteUrl(node, id)
 
 	logrus.WithField("bundle", id).WithField("url", url).Info("sending bundle creation request")
 
 	type payload struct {
-		Type string `json:"type"`
+		Type Type `json:"type"`
 	}
 
 	body, err := json.Marshal(payload{
-		Type: "LOCAL",
+		Type: Local,
 	})
 	if err != nil {
 		return nil, err
@@ -85,7 +78,7 @@ func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (
 }
 
 func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
+	url := remoteUrl(node, id)
 
 	logrus.WithField("bundle", id).WithField("url", url).Info("checking status of bundle")
 
@@ -118,42 +111,42 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (
 	return &bundle, nil
 }
 
-func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string) (string, error) {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s/file", node, id)
+func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, path string) error {
+	url := fmt.Sprintf("%s/file", remoteUrl(node, id))
 
 	logrus.WithField("bundle", id).WithField("url", url).Info("downloading local bundle from node")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	resp, err := d.client.Do(request)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("bundle %s not known to node %s", id, url)
-	} else if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received unexpected status %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received unexpected status %d", resp.StatusCode)
 	}
 
-	// the '*' will be swapped out with a random string by ioutil.TempFile
-	destinationName := fmt.Sprintf("bundle-%s-*.zip", id)
-	// This will use the default temp directory from os.TempDir
-	destinationFile, err := ioutil.TempFile("", destinationName)
+	destinationFile, err := os.Create(path)
 	if err != nil {
-		return "", nil
+		return nil
 	}
 	defer destinationFile.Close()
 
 	_, err = io.Copy(destinationFile, resp.Body)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// return the full path to the created file
-	return destinationFile.Name(), nil
+	return nil
+}
+
+func remoteUrl(node string, id string) string {
+	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
+	return url
 }

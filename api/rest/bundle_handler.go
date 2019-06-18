@@ -210,7 +210,7 @@ func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		bundle.Errors = append(bundle.Errors, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.WithField("ID", id).WithError(err).Warn("There is a problem with the bundle")
+		logrus.WithField("id", id).WithError(err).Warn("There is a problem with the bundle")
 	}
 
 	write(w, jsonMarshal(bundle))
@@ -238,7 +238,7 @@ func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 
 		bundle, err := h.getBundleState(id.Name())
 		if err != nil {
-			logrus.WithField("ID", id.Name()).WithError(err).Warn("There is a problem with the bundle")
+			logrus.WithField("id", id.Name()).WithError(err).Warn("There is a problem with the bundle")
 		}
 		bundles = append(bundles, bundle)
 
@@ -311,7 +311,7 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	bundle, err := h.getBundleState(id)
 	if err != nil {
-		logrus.WithField("ID", id).WithError(err).Warn("There is a problem with the bundle")
+		logrus.WithField("id", id).WithError(err).Warn("There is a problem with the bundle")
 		bundle.Errors = append(bundle.Errors, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		write(w, jsonMarshal(bundle))
