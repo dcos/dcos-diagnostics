@@ -52,6 +52,44 @@ func TestCreate(t *testing.T) {
 	assert.EqualValues(t, expectedBundle, *bundle)
 }
 
+func TestCreateShouldErrorWhenMalformedResponse(t *testing.T) {
+	expectedBundle := Bundle{
+		ID:      "bundle-0",
+		Started: time.Now().UTC(),
+		Status:  Started,
+	}
+
+	type payload struct {
+		BundleType Type `json:"type"`
+	}
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, http.MethodPut, r.Method)
+
+		var args payload
+		err := json.NewDecoder(r.Body).Decode(&args)
+		require.NoError(t, err)
+
+		assert.Equal(t, Local, args.BundleType)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("malformed response"))
+	}))
+	defer testServer.CloseClientConnections()
+
+	testClient := testServer.Client()
+
+	client := DiagnosticsClient{
+		client: testClient,
+	}
+
+	bundle, err := client.Create(context.TODO(), testServer.URL, expectedBundle.ID)
+	assert.EqualError(t, err, "invalid character 'm' looking for beginning of value")
+	assert.Nil(t, bundle)
+}
+
+
 func TestGetStatus(t *testing.T) {
 	expectedResp := Bundle{
 		ID:      "bundle-0",
@@ -129,6 +167,27 @@ func TestGetStatusBundleHasStatusUnknownBundleIDNotFound(t *testing.T) {
 	assert.EqualValues(t, expected, *bundle)
 }
 
+func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, http.MethodPut, r.Method)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 ERROR"))
+	}))
+	defer testServer.CloseClientConnections()
+
+	testClient := testServer.Client()
+
+	client := DiagnosticsClient{
+		client: testClient,
+	}
+	bundle, err := client.Create(context.TODO(), testServer.URL, "bundle-0")
+	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
+	assert.Contains(t, err.Error(), ": 500 ERROR")
+	assert.Nil(t, bundle)
+}
+
 func TestGetStatusReturnsErrorWhenResponseIs500(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
@@ -145,9 +204,43 @@ func TestGetStatusReturnsErrorWhenResponseIs500(t *testing.T) {
 		client: testClient,
 	}
 	bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
-	assert.Contains(t, err.Error(), "received unexpected status code from")
-	assert.Contains(t, err.Error(), ": 500 500 ERROR")
+	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
+	assert.Contains(t, err.Error(), ": 500 ERROR")
 	assert.Nil(t, bundle)
+}
+
+func TestGetFileReturnsErrorWhenResponseIs500(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0/file", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 ERROR"))
+	}))
+	defer testServer.CloseClientConnections()
+
+	testClient := testServer.Client()
+
+	client := DiagnosticsClient{
+		client: testClient,
+	}
+	err := client.GetFile(context.TODO(), testServer.URL, "bundle-0", "")
+	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
+	assert.Contains(t, err.Error(), ": 500 ERROR")
+}
+
+func TestClientReturnsErrorWhenNodeIsInvalid(t *testing.T) {
+	client := DiagnosticsClient{client: http.DefaultClient}
+	bundle, err := client.Create(context.TODO(), ``, "bundle-0")
+	assert.EqualError(t, err, `Put /system/health/v1/diagnostics/bundle-0: unsupported protocol scheme ""`)
+	assert.Nil(t, bundle)
+
+	bundle, err = client.Status(context.TODO(), ``, "bundle-0")
+	assert.EqualError(t, err, `Get /system/health/v1/diagnostics/bundle-0: unsupported protocol scheme ""`)
+	assert.Nil(t, bundle)
+
+	err = client.GetFile(context.TODO(), ``, "bundle-0", "")
+	assert.EqualError(t, err, `Get /system/health/v1/diagnostics/bundle-0/file: unsupported protocol scheme ""`)
 }
 
 func TestGetStatusReturnsErrorWhenResponseIsMalformed(t *testing.T) {
@@ -192,4 +285,27 @@ func TestGetFileReturnsErrorWhenBundleIDNotFound(t *testing.T) {
 
 	err = client.GetFile(context.TODO(), testServer.URL, "bundle-0", f.Name())
 	assert.Error(t, err)
+}
+
+func TestGetFileReturnsErrorWhenCouldNotCreateAFile(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0/file", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}))
+
+	testClient := testServer.Client()
+
+	client := DiagnosticsClient{
+		client: testClient,
+	}
+
+	name, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	defer os.RemoveAll(name)
+
+	err = client.GetFile(context.TODO(), testServer.URL, "bundle-0", name)
+	assert.Contains(t, err.Error(), "could not create a file")
 }

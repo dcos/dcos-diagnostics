@@ -32,9 +32,9 @@ type DiagnosticsClient struct {
 }
 
 // NewDiagnosticsClient constructs a diagnostics client
-func NewDiagnosticsClient() DiagnosticsClient {
+func NewDiagnosticsClient(client *http.Client) DiagnosticsClient {
 	return DiagnosticsClient{
-		client: &http.Client{},
+		client: client,
 	}
 }
 
@@ -65,12 +65,7 @@ func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, e := ioutil.ReadAll(resp.Body)
-		msg := string(body[:100])
-		if e != nil {
-			msg = e.Error()
-		}
-		return nil, fmt.Errorf("received unexpected status code from %s: %d %s", url, resp.StatusCode, msg)
+		return nil, handleErrorCode(resp, url)
 	}
 
 	bundle := &Bundle{}
@@ -107,12 +102,7 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (
 		return bundle, nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, e := ioutil.ReadAll(resp.Body)
-		msg := string(body[:100])
-		if e != nil {
-			msg = e.Error()
-		}
-		return nil, fmt.Errorf("received unexpected status code from %s: %d %s", url, resp.StatusCode, msg)
+		return nil, handleErrorCode(resp, url)
 	}
 	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
@@ -139,12 +129,12 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received unexpected status %d", resp.StatusCode)
+		return handleErrorCode(resp, url)
 	}
 
 	destinationFile, err := os.Create(path)
 	if err != nil {
-		return nil
+		return fmt.Errorf("could not create a file: %s", err)
 	}
 	defer destinationFile.Close()
 
@@ -155,6 +145,15 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, 
 
 	// return the full path to the created file
 	return nil
+}
+
+func handleErrorCode(resp *http.Response, url string) error {
+	body, err := ioutil.ReadAll(resp.Body)
+	msg := string(body[:100])
+	if err != nil {
+		msg = err.Error()
+	}
+	return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, msg)
 }
 
 func remoteURL(node string, id string) string {

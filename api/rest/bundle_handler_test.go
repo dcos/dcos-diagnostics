@@ -690,9 +690,7 @@ func TestIfE2E_(t *testing.T) {
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
-	client := DiagnosticsClient{
-		client: testServer.Client(),
-	}
+	client := NewDiagnosticsClient(testServer.Client())
 
 	t.Run("get status of not existing bundle-0", func(t *testing.T) {
 		bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
