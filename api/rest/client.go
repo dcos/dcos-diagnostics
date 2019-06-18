@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -148,12 +147,9 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, 
 }
 
 func handleErrorCode(resp *http.Response, url string) error {
-	body, err := ioutil.ReadAll(resp.Body)
-	msg := string(body[:100])
-	if err != nil {
-		msg = err.Error()
-	}
-	return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, msg)
+	body := make([]byte, 100)
+	resp.Body.Read(body)
+	return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, string(body))
 }
 
 func remoteURL(node string, id string) string {
