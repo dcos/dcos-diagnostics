@@ -199,7 +199,7 @@ func (mr *MonitoringResponse) GetNodeUnitsID(nodeIP string) (UnitsResponseJSONSt
 	}, nil
 }
 
-// GetNodeUnitByNodeIDUnitID returns a Unit status by node IP address and Unit ID.
+// GetNodeUnitByNodeIDUnitID returns a Unit status by node IP address and Unit id.
 func (mr *MonitoringResponse) GetNodeUnitByNodeIDUnitID(nodeIP, unitID string) (HealthResponseValues, error) {
 	mr.Lock()
 	defer mr.Unlock()

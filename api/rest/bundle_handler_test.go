@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	bundlesEndpoint    = "/diagnostics"
 	bundleEndpoint     = bundlesEndpoint + "/{id}"
 	bundleFileEndpoint = bundleEndpoint + "/file"
 )
@@ -723,67 +722,62 @@ func TestIfE2E_(t *testing.T) {
 	router.HandleFunc(bundleEndpoint, bh.Delete).Methods(http.MethodDelete)
 	router.HandleFunc(bundleFileEndpoint, bh.GetFile).Methods(http.MethodGet)
 
+	testServer := httptest.NewServer(router)
+	defer testServer.Close()
+
+	client := NewDiagnosticsClient(testServer.Client())
+
 	t.Run("get status of not existing bundle-0", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+		bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
 		require.NoError(t, err)
 
-		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
-
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotFound, rr.Code)
-		assert.Equal(t, "404 page not found\n", rr.Body.String())
+		assert.Equal(t, &Bundle{Status: Unknown}, bundle)
 	})
 
 	t.Run("create bundle-0", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
+		bundle, err := client.CreateBundle(context.TODO(), testServer.URL, "bundle-0")
 		require.NoError(t, err)
 
-		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
-
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.JSONEq(t, string(jsonMarshal(Bundle{
+		assert.Equal(t, &Bundle{
 			ID:      "bundle-0",
 			Status:  Started,
 			Started: now.Add(time.Hour),
-		})), rr.Body.String())
+		}, bundle)
 	})
 
 	t.Run("get bundle-0 status", func(t *testing.T) {
-		var rr *httptest.ResponseRecorder
 		for { // busy wait for bundle
-			time.Sleep(time.Millisecond)
-			req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+			bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
 			require.NoError(t, err)
-
-			rr = httptest.NewRecorder()
-			router.ServeHTTP(rr, req)
-
-			if strings.Contains(rr.Body.String(), Done.String()) {
+			if bundle.Status == Done {
 				break
 			}
 		}
 
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.JSONEq(t, string(jsonMarshal(Bundle{
+		bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
+		require.NoError(t, err)
+
+		assert.Equal(t, &Bundle{
 			ID:      "bundle-0",
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
 			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
-		})), rr.Body.String())
+		}, bundle)
 	})
 
 	t.Run("get bundle-0 file and validate it", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0/file", nil)
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusOK, rr.Code)
-		reader, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(len(rr.Body.Bytes())))
+		f, err := ioutil.TempFile("", "*.zip")
+		require.NoError(t, err)
+		f.Close()
+		defer os.Remove(f.Name())
+
+		err = client.GetFile(context.TODO(), testServer.URL, "bundle-0", f.Name())
+		require.NoError(t, err)
+
+		reader, err := zip.OpenReader(f.Name())
 		require.NoError(t, err)
 
 		require.Len(t, reader.File, 3)
@@ -816,13 +810,18 @@ func TestIfE2E_(t *testing.T) {
 	})
 
 	t.Run("delete bundle-0", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/bundle-0", nil)
+
+		req, err := http.NewRequest(http.MethodDelete, testServer.URL+bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+
+		rr, err := http.DefaultClient.Do(req)
 
 		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, http.StatusOK, rr.StatusCode)
+
+		body, err := ioutil.ReadAll(rr.Body)
+		require.NoError(t, err)
+
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
 			Status:  Deleted,
@@ -830,7 +829,7 @@ func TestIfE2E_(t *testing.T) {
 			Stopped: now.Add(2 * time.Hour),
 			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
-		})), rr.Body.String())
+		})), string(body))
 	})
 
 	t.Run("list bundles", func(t *testing.T) {

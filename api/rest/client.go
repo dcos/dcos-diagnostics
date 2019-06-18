@@ -6,29 +6,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
 
+const bundlesEndpoint = "/system/health/v1/diagnostics"
+
 // Client is an interface that can talk with dcos-diagnostics REST API and manipulate remote bundles
 type Client interface {
-	// Create ask node url to start bundle creation process with given id
-	Create(ctx context.Context, node string, id string) (*Bundle, error)
-	// Status returns status of bundle with given id on node at the given url
-	Status(ctx context.Context, node string, id string) (*Bundle, error)
-	// GetFile downloads bundle file of bundle with given id from node at the given
-	// url and save it to local filesystem. It returns path where file is stored or
-	// error if there were a problem.
-	GetFile(ctx context.Context, node string, id string) (path string, err error)
-}
-
-type BundleStatus struct {
-	ID   string
-	node node
-	done bool
-	err  error
+	// CreateBundle requests the given node to start a bundle creation process with that is identified by the given ID
+	CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error)
+	// Status returns the status of the bundle with the given ID on the given node
+	Status(ctx context.Context, node string, ID string) (*Bundle, error)
+	// GetFile downloads the bundle file of the bundle with the given ID from the node
+	// url and save it to local filesystem under given path.
+	// Returns an error if there were a problem.
+	GetFile(ctx context.Context, node string, ID string, path string) (err error)
 }
 
 type DiagnosticsClient struct {
@@ -36,27 +31,24 @@ type DiagnosticsClient struct {
 }
 
 // NewDiagnosticsClient constructs a diagnostics client
-func NewDiagnosticsClient() DiagnosticsClient {
+func NewDiagnosticsClient(client *http.Client) DiagnosticsClient {
 	return DiagnosticsClient{
-		client: &http.Client{},
+		client: client,
 	}
 }
 
-func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
+func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error) {
+	url := remoteURL(node, ID)
 
-	logrus.WithField("bundle", id).WithField("url", url).Info("sending bundle creation request")
+	logrus.WithField("ID", ID).WithField("url", url).Info("sending bundle creation request")
 
 	type payload struct {
-		Type string `json:"type"`
+		Type Type `json:"type"`
 	}
 
-	body, err := json.Marshal(payload{
-		Type: "LOCAL",
+	body := jsonMarshal(payload{
+		Type: Local,
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	request, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(body))
 	if err != nil {
@@ -72,22 +64,22 @@ func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected HTTP status code received: %d", resp.StatusCode)
+		return nil, handleErrorCode(resp, url)
 	}
 
-	var bundle Bundle
-	err = json.NewDecoder(resp.Body).Decode(&bundle)
+	bundle := &Bundle{}
+	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
 		return nil, err
 	}
 
-	return &bundle, nil
+	return bundle, nil
 }
 
-func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
+func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (*Bundle, error) {
+	url := remoteURL(node, ID)
 
-	logrus.WithField("bundle", id).WithField("url", url).Info("checking status of bundle")
+	logrus.WithField("ID", ID).WithField("url", url).Info("checking status of bundle")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -102,58 +94,65 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (
 	}
 	defer resp.Body.Close()
 
-	var bundle Bundle
+	bundle := &Bundle{}
 
 	if resp.StatusCode == http.StatusNotFound {
 		bundle.Status = Unknown
-		return &bundle, nil
-	} else if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received unexpected status code from %s: %d", url, resp.StatusCode)
+		return bundle, nil
 	}
-	err = json.NewDecoder(resp.Body).Decode(&bundle)
+	if resp.StatusCode != http.StatusOK {
+		return nil, handleErrorCode(resp, url)
+	}
+	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
 		return nil, err
 	}
 
-	return &bundle, nil
+	return bundle, nil
 }
 
-func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string) (string, error) {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s/file", node, id)
+func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, path string) error {
+	url := fmt.Sprintf("%s/file", remoteURL(node, ID))
 
-	logrus.WithField("bundle", id).WithField("url", url).Info("downloading local bundle from node")
+	logrus.WithField("ID", ID).WithField("url", url).Info("downloading local bundle from node")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	resp, err := d.client.Do(request)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("bundle %s not known to node %s", id, url)
-	} else if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received unexpected status %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return handleErrorCode(resp, url)
 	}
 
-	// the '*' will be swapped out with a random string by ioutil.TempFile
-	destinationName := fmt.Sprintf("bundle-%s-*.zip", id)
-	// This will use the default temp directory from os.TempDir
-	destinationFile, err := ioutil.TempFile("", destinationName)
+	destinationFile, err := os.Create(path)
 	if err != nil {
-		return "", nil
+		return fmt.Errorf("could not create a file: %s", err)
 	}
 	defer destinationFile.Close()
 
 	_, err = io.Copy(destinationFile, resp.Body)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// return the full path to the created file
-	return destinationFile.Name(), nil
+	return nil
+}
+
+func handleErrorCode(resp *http.Response, url string) error {
+	body := make([]byte, 100)
+	resp.Body.Read(body)
+	return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, string(body))
+}
+
+func remoteURL(node string, ID string) string {
+	url := fmt.Sprintf("%s%s/%s", node, bundlesEndpoint, ID)
+	return url
 }

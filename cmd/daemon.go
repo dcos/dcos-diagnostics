@@ -119,7 +119,7 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init collectors properly: %s", err)
 	}
 
-	coordinator := rest.NewParallelCoordinator(rest.NewDiagnosticsClient())
+	coordinator := rest.NewParallelCoordinator(rest.NewDiagnosticsClient(http.DefaultClient))
 	urlBuilder := diagDcos.NewURLBuilder(defaultConfig.FlagAgentPort, defaultConfig.FlagMasterPort, defaultConfig.FlagForceTLS)
 	bundleTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobTimeoutMinutes)
 	bundleHandler := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, coordinator, bundleTimeout, &urlBuilder)

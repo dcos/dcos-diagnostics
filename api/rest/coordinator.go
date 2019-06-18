@@ -13,6 +13,13 @@ import (
 
 const numberOfWorkers = 10
 
+type BundleStatus struct {
+	ID   string
+	node node
+	done bool
+	err  error
+}
+
 // Coordinator is an interface to coordinate the creation of diagnostics bundles
 // across a cluster of nodes
 type Coordinator interface {
@@ -94,13 +101,21 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 				continue
 			}
 
-			bundlePath, err := c.client.GetFile(ctx, s.node.baseURL, s.ID)
+			//TODO(janisz): Handle file creation in workdir
+			// the '*' will be swapped out with a random string by ioutil.TempFile
+			// This will use the default temp directory from os.TempDir
+			destinationFile, err := ioutil.TempFile("", fmt.Sprintf("bundle-%s-*.zip", bundleID))
+			if err != nil {
+				return "", fmt.Errorf("could not create temporary result file")
+			}
+			_ = destinationFile.Close()
 
+			err = c.client.GetFile(ctx, s.node.baseURL, s.ID, destinationFile.Name())
 			if err != nil {
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
 			}
 
-			bundles = append(bundles, bundlePath)
+			bundles = append(bundles, destinationFile.Name())
 		}
 	}
 
@@ -157,7 +172,7 @@ func appendToZip(writer *zip.Writer, path string) error {
 }
 
 func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
-	_, err := c.client.Create(ctx, node.baseURL, id)
+	_, err := c.client.CreateBundle(ctx, node.baseURL, id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
 		return BundleStatus{
