@@ -37,10 +37,14 @@ type ParallelCoordinator struct {
 type job func() BundleStatus
 
 // worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
-func worker(_ context.Context, jobs <-chan job, results chan<- BundleStatus) {
-	for j := range jobs {
-		//TODO(janisz): Handle context
-		results <- j()
+func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus) {
+	for {
+		select {
+		case <-ctx.Done():
+			break
+		case j := <-jobs:
+			results <- j()
+		}
 	}
 }
 
