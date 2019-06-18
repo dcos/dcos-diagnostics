@@ -41,7 +41,7 @@ func NewDiagnosticsClient(client *http.Client) DiagnosticsClient {
 func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (*Bundle, error) {
 	url := remoteURL(node, id)
 
-	logrus.WithField("bundle", id).WithField("url", url).Info("sending bundle creation request")
+	logrus.WithField("ID", id).WithField("url", url).Info("sending bundle creation request")
 
 	type payload struct {
 		Type Type `json:"type"`
@@ -80,7 +80,7 @@ func (d DiagnosticsClient) Create(ctx context.Context, node string, id string) (
 func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
 	url := remoteURL(node, id)
 
-	logrus.WithField("bundle", id).WithField("url", url).Info("checking status of bundle")
+	logrus.WithField("ID", id).WithField("url", url).Info("checking status of bundle")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -115,7 +115,7 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (
 func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, path string) error {
 	url := fmt.Sprintf("%s/file", remoteURL(node, id))
 
-	logrus.WithField("bundle", id).WithField("url", url).Info("downloading local bundle from node")
+	logrus.WithField("ID", id).WithField("url", url).Info("downloading local bundle from node")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
