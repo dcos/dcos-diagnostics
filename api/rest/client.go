@@ -18,7 +18,7 @@ const bundlesEndpoint = "/system/health/v1/diagnostics"
 type Client interface {
 	// Create requests the given node to start a bundle creation process with that is identified by the given ID
 	Create(ctx context.Context, node string, ID string) (*Bundle, error)
-	// Status returns status of bundle with given id on node at the given url
+	// Status returns the status of the bundle with the given ID on the given node
 	Status(ctx context.Context, node string, id string) (*Bundle, error)
 	// GetFile downloads bundle file of bundle with given id from node at the given
 	// url and save it to local filesystem under given path.
