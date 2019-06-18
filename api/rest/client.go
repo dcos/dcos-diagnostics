@@ -16,7 +16,7 @@ const bundlesEndpoint = "/system/health/v1/diagnostics"
 
 // Client is an interface that can talk with dcos-diagnostics REST API and manipulate remote bundles
 type Client interface {
-	// Create ask node url to start bundle creation process with given id
+	// Create requests the given node to start a bundle creation process with that is identified by the given ID
 	Create(ctx context.Context, node string, id string) (*Bundle, error)
 	// Status returns status of bundle with given id on node at the given url
 	Status(ctx context.Context, node string, id string) (*Bundle, error)
