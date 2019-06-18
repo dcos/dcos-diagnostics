@@ -23,7 +23,7 @@ type Client interface {
 	// GetFile downloads the bundle file of the bundle with the given ID from the node
 	// url and save it to local filesystem under given path.
 	// Returns an error if there were a problem.
-	GetFile(ctx context.Context, node string, id string, path string) (err error)
+	GetFile(ctx context.Context, node string, ID string, path string) (err error)
 }
 
 type DiagnosticsClient struct {
@@ -37,10 +37,10 @@ func NewDiagnosticsClient(client *http.Client) DiagnosticsClient {
 	}
 }
 
-func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, id string) (*Bundle, error) {
-	url := remoteURL(node, id)
+func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error) {
+	url := remoteURL(node, ID)
 
-	logrus.WithField("ID", id).WithField("url", url).Info("sending bundle creation request")
+	logrus.WithField("ID", ID).WithField("url", url).Info("sending bundle creation request")
 
 	type payload struct {
 		Type Type `json:"type"`
@@ -76,10 +76,10 @@ func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, id str
 	return bundle, nil
 }
 
-func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (*Bundle, error) {
-	url := remoteURL(node, id)
+func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (*Bundle, error) {
+	url := remoteURL(node, ID)
 
-	logrus.WithField("ID", id).WithField("url", url).Info("checking status of bundle")
+	logrus.WithField("ID", ID).WithField("url", url).Info("checking status of bundle")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -111,10 +111,10 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, id string) (
 	return bundle, nil
 }
 
-func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, path string) error {
-	url := fmt.Sprintf("%s/file", remoteURL(node, id))
+func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, path string) error {
+	url := fmt.Sprintf("%s/file", remoteURL(node, ID))
 
-	logrus.WithField("ID", id).WithField("url", url).Info("downloading local bundle from node")
+	logrus.WithField("ID", ID).WithField("url", url).Info("downloading local bundle from node")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -152,7 +152,7 @@ func handleErrorCode(resp *http.Response, url string) error {
 	return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, string(body))
 }
 
-func remoteURL(node string, id string) string {
-	url := fmt.Sprintf("%s%s/%s", node, bundlesEndpoint, id)
+func remoteURL(node string, ID string) string {
+	url := fmt.Sprintf("%s%s/%s", node, bundlesEndpoint, ID)
 	return url
 }
