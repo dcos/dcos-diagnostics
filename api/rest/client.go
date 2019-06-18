@@ -20,7 +20,7 @@ type Client interface {
 	Create(ctx context.Context, node string, ID string) (*Bundle, error)
 	// Status returns the status of the bundle with the given ID on the given node
 	Status(ctx context.Context, node string, ID string) (*Bundle, error)
-	// GetFile downloads bundle file of bundle with given id from node at the given
+	// GetFile downloads the bundle file of the bundle with the given ID from the node
 	// url and save it to local filesystem under given path.
 	// Returns an error if there were a problem.
 	GetFile(ctx context.Context, node string, id string, path string) (err error)
