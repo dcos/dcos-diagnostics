@@ -773,13 +773,19 @@ func TestIfE2E_(t *testing.T) {
 	})
 
 	t.Run("delete bundle-0", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/bundle-0", nil)
+
+		req, err := http.NewRequest(http.MethodDelete, testServer.URL + bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+
+
+		rr, err := http.DefaultClient.Do(req)
 
 		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, http.StatusOK, rr.StatusCode)
+
+		body, err := ioutil.ReadAll(rr.Body)
+		require.NoError(t, err)
+
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
 			Status:  Deleted,
@@ -787,7 +793,7 @@ func TestIfE2E_(t *testing.T) {
 			Stopped: now.Add(2 * time.Hour),
 			Size:    494,
 			Errors:  []string{"could not collect collector-1: some error"},
-		})), rr.Body.String())
+		})), string(body))
 	})
 
 	t.Run("list bundles", func(t *testing.T) {
