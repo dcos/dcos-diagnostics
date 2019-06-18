@@ -52,8 +52,6 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	var statuses []BundleStatus
 
-	assert.Equal(t, numberOfWorkers, runtime.NumGoroutine()-numGoroutine)
-
 	for i := 0; i < 6; i++ {
 		statuses = append(statuses, <-s)
 	}
