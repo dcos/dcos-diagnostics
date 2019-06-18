@@ -368,7 +368,7 @@ func jsonMarshal(v interface{}) []byte {
 	rawJSON, err := json.Marshal(v)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not marshal %v: %s", v, err)
+		logrus.WithError(err).Fatalf("Could not marshal %v: %s", v, err)
 	}
 	return rawJSON
 }
