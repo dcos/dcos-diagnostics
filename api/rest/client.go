@@ -13,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const bundlesEndpoint = "/system/health/v1/diagnostics"
+
 // Client is an interface that can talk with dcos-diagnostics REST API and manipulate remote bundles
 type Client interface {
 	// Create ask node url to start bundle creation process with given id
@@ -156,6 +158,6 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, id string, 
 }
 
 func remoteURL(node string, id string) string {
-	url := fmt.Sprintf("%s/system/health/v1/diagnostics/%s", node, id)
+	url := fmt.Sprintf("%s%s/%s", node, bundlesEndpoint, id)
 	return url
 }
