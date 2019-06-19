@@ -41,7 +41,7 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus) {
 	for {
 		select {
 		case <-ctx.Done():
-			break
+			return
 		case j := <-jobs:
 			results <- j()
 		}
