@@ -14,7 +14,7 @@ import (
 const numberOfWorkers = 10
 
 type BundleStatus struct {
-	ID   string
+	id   string
 	node node
 	done bool
 	err  error
@@ -96,11 +96,11 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 			return "", fmt.Errorf("context canceled before all node bundles finished")
 		case s := <-statuses:
 			if !s.done {
-				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Info("Got status update. Bundle not ready.")
+				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
 				continue
 			}
 			if s.err != nil {
-				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Bundle errored")
+				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
 				// TODO: the bundle will never finish, need to stop this from waiting forever
 				continue
 			}
@@ -114,9 +114,9 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 			}
 			_ = destinationFile.Close()
 
-			err = c.client.GetFile(ctx, s.node.baseURL, s.ID, destinationFile.Name())
+			err = c.client.GetFile(ctx, s.node.baseURL, s.id, destinationFile.Name())
 			if err != nil {
-				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.ID).Warn("Could not download file")
+				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
 			}
 
 			bundles = append(bundles, destinationFile.Name())
@@ -180,7 +180,7 @@ func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id str
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
 		return BundleStatus{
-			ID:   id,
+			id:   id,
 			node: node,
 			done: true,
 			err:  fmt.Errorf("could not create bundle: %s", err),
@@ -193,7 +193,7 @@ func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id str
 	}
 
 	// Return undone status with no error.
-	return BundleStatus{ID: id, node: node}
+	return BundleStatus{id: id, node: node}
 }
 
 func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
@@ -214,18 +214,18 @@ func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 		// It will only add check to job queue so interval might increase but it's OK.
 		time.AfterFunc(time.Second, statusCheck)
 		// Return status with error. Do not mark bundle as done yet. It might change it status
-		return BundleStatus{ID: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
+		return BundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
 	// If bundle is in terminal state (its state won't change)
 	if bundle.Status == Done || bundle.Status == Deleted || bundle.Status == Canceled {
 		logrus.WithField("IP", node.IP).Info("Node bundle is finished.")
 		// mark it as done
-		return BundleStatus{ID: id, node: node, done: true}
+		return BundleStatus{id: id, node: node, done: true}
 	}
 	// If bundle is still in progress (InProgress, Unknown or Started)
 	// then schedule next check in given time
 	// It will only add check to job queue so interval might increase but it's OK.
 	time.AfterFunc(time.Second, statusCheck)
 	// Return undone status with no error. Do not mark bundle as done yet. It might change it status
-	return BundleStatus{ID: id, node: node}
+	return BundleStatus{id: id, node: node}
 }

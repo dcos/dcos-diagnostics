@@ -41,8 +41,8 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 		client.On("Status", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
 
 		expected = append(expected,
-			BundleStatus{ID: id, node: n},
-			BundleStatus{ID: id, node: n, done: true},
+			BundleStatus{id: id, node: n},
+			BundleStatus{id: id, node: n, done: true},
 		)
 	}
 	s := c.Create(context.TODO(), "id", testNodes)
