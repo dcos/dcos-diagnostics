@@ -13,6 +13,7 @@ import (
 )
 
 const numberOfWorkers = 10
+const contextDoneErrMsg = "bundle creation context finished before bundle creation finished"
 
 type BundleStatus struct {
 	id   string
@@ -76,7 +77,15 @@ func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
 		jobs <- func() BundleStatus {
-			//TODO(janisz): Handle context
+			select {
+			case <-ctx.Done():
+				return BundleStatus{
+					id:   id,
+					node: tmpNode,
+					err:  fmt.Errorf(contextDoneErrMsg),
+				}
+			default:
+			}
 
 			// because this will also make a request from the coordinating master, we
 			// can't tell it to make a local bundle with the same ID this guarantees that
@@ -107,7 +116,7 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 			}
 			if s.err != nil {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
-				// TODO: this should probably be noted in the generated bundle and not just printed in the journal like now
+				// TODO(br-lewis): this should probably be noted in the generated bundle and not just printed in the journal
 				finishedBundles++
 				continue
 			}
@@ -197,13 +206,22 @@ func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id str
 }
 
 func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, interval time.Duration, jobs chan<- job) BundleStatus {
+	select {
+	case <-ctx.Done():
+		return BundleStatus{
+			id:   id,
+			node: node,
+			done: true,
+			err:  fmt.Errorf(contextDoneErrMsg),
+		}
+	default:
+	}
+
 	statusCheck := func() {
 		jobs <- func() BundleStatus {
 			return c.waitForDone(ctx, node, id, c.statusCheckInterval, jobs)
 		}
 	}
-
-	//TODO(janisz): Handle context
 
 	logrus.WithField("IP", node.IP).Info("Checking bundle status on node.")
 	// Check bundle status
