@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,10 +18,9 @@ import (
 func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T) {
 
 	client := new(MockClient)
+	interval := time.Millisecond
 
-	c := ParallelCoordinator{
-		client: client,
-	}
+	c := NewParallelCoordinator(client, interval)
 
 	ctx := context.TODO()
 
@@ -61,11 +61,10 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 func TestCoordinatorCreateAndCollect(t *testing.T) {
 	//TODO(janisz): FIXME
 	t.Skipf("Uncoment this test after we figure out how to generate temp local bundle dir")
-	client := MockClient{}
+	client := new(MockClient)
+	interval := time.Millisecond
 
-	c := ParallelCoordinator{
-		client: &client,
-	}
+	c := NewParallelCoordinator(client, interval)
 
 	ctx := context.TODO()
 

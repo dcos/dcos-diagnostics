@@ -30,7 +30,8 @@ type Coordinator interface {
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
 // creation across a cluster, parallelized across multiple goroutines
 type ParallelCoordinator struct {
-	client Client
+	client              Client
+	statusCheckInterval time.Duration
 }
 
 // job is a function that will be called by worker. The output will be added to results chanel
@@ -49,9 +50,10 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus) {
 }
 
 // NewParallelCoordinator constructs a new parallelcoordinator.
-func NewParallelCoordinator(client Client) ParallelCoordinator {
+func NewParallelCoordinator(client Client, interval time.Duration) ParallelCoordinator {
 	return ParallelCoordinator{
-		client: client,
+		client:              client,
+		statusCheckInterval: interval,
 	}
 }
 
@@ -189,17 +191,17 @@ func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id str
 
 	// Schedule bundle status check
 	jobs <- func() BundleStatus {
-		return c.waitForDone(ctx, node, id, jobs)
+		return c.waitForDone(ctx, node, id, c.statusCheckInterval, jobs)
 	}
 
 	// Return undone status with no error.
 	return BundleStatus{id: id, node: node}
 }
 
-func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
+func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, interval time.Duration, jobs chan<- job) BundleStatus {
 	statusCheck := func() {
 		jobs <- func() BundleStatus {
-			return c.waitForDone(ctx, node, id, jobs)
+			return c.waitForDone(ctx, node, id, c.statusCheckInterval, jobs)
 		}
 	}
 
@@ -212,7 +214,7 @@ func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	if err != nil {
 		// then schedule next check in given time.
 		// It will only add check to job queue so interval might increase but it's OK.
-		time.AfterFunc(time.Second, statusCheck)
+		time.AfterFunc(interval, statusCheck)
 		// Return status with error. Do not mark bundle as done yet. It might change it status
 		return BundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
@@ -225,7 +227,7 @@ func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	// If bundle is still in progress (InProgress, Unknown or Started)
 	// then schedule next check in given time
 	// It will only add check to job queue so interval might increase but it's OK.
-	time.AfterFunc(time.Second, statusCheck)
+	time.AfterFunc(c.statusCheckInterval, statusCheck)
 	// Return undone status with no error. Do not mark bundle as done yet. It might change it status
 	return BundleStatus{id: id, node: node}
 }
