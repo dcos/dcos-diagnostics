@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -32,6 +33,7 @@ type Coordinator interface {
 type ParallelCoordinator struct {
 	client              Client
 	statusCheckInterval time.Duration
+	workDir             string
 }
 
 // job is a function that will be called by worker. The output will be added to results chanel
@@ -50,10 +52,11 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus) {
 }
 
 // NewParallelCoordinator constructs a new parallelcoordinator.
-func NewParallelCoordinator(client Client, interval time.Duration) ParallelCoordinator {
+func NewParallelCoordinator(client Client, interval time.Duration, workDir string) ParallelCoordinator {
 	return ParallelCoordinator{
 		client:              client,
 		statusCheckInterval: interval,
+		workDir:             workDir,
 	}
 }
 
@@ -107,31 +110,23 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 				continue
 			}
 
-			//TODO(janisz): Handle file creation in workdir
-			// the '*' will be swapped out with a random string by ioutil.TempFile
-			// This will use the default temp directory from os.TempDir
-			destinationFile, err := ioutil.TempFile("", fmt.Sprintf("bundle-%s-*.zip", bundleID))
-			if err != nil {
-				return "", fmt.Errorf("could not create temporary result file")
-			}
-			_ = destinationFile.Close()
-
-			err = c.client.GetFile(ctx, s.node.baseURL, s.id, destinationFile.Name())
+			bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
+			err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
 			if err != nil {
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
 			}
 
-			bundles = append(bundles, destinationFile.Name())
+			bundles = append(bundles, bundlePath)
 		}
 	}
 
-	return mergeZips(bundleID, bundles)
+	return mergeZips(bundleID, bundles, c.workDir)
 }
 
-func mergeZips(bundleID string, bundlePaths []string) (string, error) {
+func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, error) {
 
-	bundleName := fmt.Sprintf("bundle-%s-*.zip", bundleID)
-	mergedZip, err := ioutil.TempFile("", bundleName)
+	bundlePath := filepath.Join(workDir, fmt.Sprintf("bundle-%s.zip", bundleID))
+	mergedZip, err := os.Create(bundlePath)
 	if err != nil {
 		return "", err
 	}
@@ -230,4 +225,8 @@ func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	time.AfterFunc(c.statusCheckInterval, statusCheck)
 	// Return undone status with no error. Do not mark bundle as done yet. It might change it status
 	return BundleStatus{id: id, node: node}
+}
+
+func nodeBundleFilename(n node) string {
+	return fmt.Sprintf("%s_%s.zip", n.IP, n.Role)
 }

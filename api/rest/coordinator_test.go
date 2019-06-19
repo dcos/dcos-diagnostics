@@ -19,8 +19,9 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	client := new(MockClient)
 	interval := time.Millisecond
+	workDir := os.TempDir()
 
-	c := NewParallelCoordinator(client, interval)
+	c := NewParallelCoordinator(client, interval, workDir)
 
 	ctx := context.TODO()
 
@@ -60,26 +61,29 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 func TestCoordinatorCreateAndCollect(t *testing.T) {
 	//TODO(janisz): FIXME
-	t.Skipf("Uncoment this test after we figure out how to generate temp local bundle dir")
+	//t.Skipf("Uncoment this test after we figure out how to generate temp local bundle dir")
 	client := new(MockClient)
 	interval := time.Millisecond
+	//workDir := os.TempDir()
+	workDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
 
-	c := NewParallelCoordinator(client, interval)
+	c := NewParallelCoordinator(client, interval, workDir)
 
 	ctx := context.TODO()
 
 	bundleID := "bundle-0"
 	numNodes := 3
 
-	node1 := node{IP: net.ParseIP("192.0.2.1"), baseURL: "http://192.0.2.1"}
-	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
-	node3 := node{IP: net.ParseIP("192.0.2.3"), baseURL: "http://192.0.2.3"}
+	node1 := node{IP: net.ParseIP("192.0.2.1"), Role: "agent", baseURL: "http://192.0.2.1"}
+	node2 := node{IP: net.ParseIP("192.0.2.2"), Role: "master", baseURL: "http://192.0.2.2"}
+	node3 := node{IP: net.ParseIP("192.0.2.3"), Role: "public_agent", baseURL: "http://192.0.2.3"}
 
-	testZip1, err := filepath.Abs(filepath.Join("testdata", "192.0.2.1.zip"))
+	testZip1, err := filepath.Abs(filepath.Join("testdata", "192.0.2.1_agent.zip"))
 	require.NoError(t, err)
-	testZip2, err := filepath.Abs(filepath.Join("testdata", "192.0.2.2.zip"))
+	testZip2, err := filepath.Abs(filepath.Join("testdata", "192.0.2.2_master.zip"))
 	require.NoError(t, err)
-	testZip3, err := filepath.Abs(filepath.Join("testdata", "192.0.2.3.zip"))
+	testZip3, err := filepath.Abs(filepath.Join("testdata", "192.0.2.3_public_agent.zip"))
 	require.NoError(t, err)
 
 	testNodes := []struct {
@@ -111,6 +115,8 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 
 	bundlePath, err := c.Collect(ctx, bundleID, numNodes, statuses)
 	require.NoError(t, err)
+	// ensure that the bundle is placed in the specified directory
+	assert.True(t, filepath.HasPrefix(bundlePath, workDir))
 	defer os.RemoveAll(bundlePath)
 	require.NotEmpty(t, bundlePath)
 
@@ -119,12 +125,12 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	defer zipReader.Close()
 
 	expectedContents := []string{
-		"192.0.2.1/",
-		"192.0.2.1/test.txt",
-		"192.0.2.2/",
-		"192.0.2.2/test.txt",
-		"192.0.2.3/",
-		"192.0.2.3/test.txt",
+		"192.0.2.1_agent/",
+		"192.0.2.1_agent/test.txt",
+		"192.0.2.2_master/",
+		"192.0.2.2_master/test.txt",
+		"192.0.2.3_public_agent/",
+		"192.0.2.3_public_agent/test.txt",
 	}
 
 	filenames := []string{}
