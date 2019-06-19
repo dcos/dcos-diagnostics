@@ -95,7 +95,8 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 
 	var bundles []string
 
-	for len(bundles) < numBundles {
+	finishedBundles := 0
+	for finishedBundles < numBundles {
 		select {
 		case <-ctx.Done():
 			return "", fmt.Errorf("context canceled before all node bundles finished")
@@ -106,7 +107,8 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 			}
 			if s.err != nil {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
-				// TODO: the bundle will never finish, need to stop this from waiting forever
+				// TODO: this should probably be noted in the generated bundle and not just printed in the journal like now
+				finishedBundles++
 				continue
 			}
 
@@ -117,6 +119,7 @@ func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBu
 			}
 
 			bundles = append(bundles, bundlePath)
+			finishedBundles++
 		}
 	}
 
