@@ -26,8 +26,12 @@ type BundleStatus struct {
 // Coordinator is an interface to coordinate the creation of diagnostics bundles
 // across a cluster of nodes
 type Coordinator interface {
-	Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus
-	Collect(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
+	// CreateBundle starts the bundle creation process. Status updates be monitored
+	// on the returned channel.
+	CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus
+	// CollectBundle waits until all the nodes' bundles have finished, downloads,
+	// and merges them. The results bundle zip file path is returned.
+	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
 }
 
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
@@ -62,8 +66,7 @@ func NewParallelCoordinator(client Client, interval time.Duration, workDir strin
 	}
 }
 
-// Create starts bundle creation process. Creation process could be monitor on returned channel.
-func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
+func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
 	jobs := make(chan job)
 	statuses := make(chan BundleStatus)
@@ -97,7 +100,7 @@ func (c ParallelCoordinator) Create(ctx context.Context, id string, nodes []node
 	return statuses
 }
 
-func (c ParallelCoordinator) Collect(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
+func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
 	var bundles []string
 

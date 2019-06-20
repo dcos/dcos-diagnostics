@@ -46,7 +46,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 			BundleStatus{id: id, node: n, done: true},
 		)
 	}
-	s := c.Create(context.TODO(), "id", testNodes)
+	s := c.CreateBundle(context.TODO(), "id", testNodes)
 
 	var statuses []BundleStatus
 
@@ -111,9 +111,9 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 		client.On("GetFile", ctx, testData.n.baseURL, id, testData.zipPath).Return(nil)
 	}
 
-	statuses := c.Create(ctx, "bundle-0", []node{node1, node2, node3})
+	statuses := c.CreateBundle(ctx, "bundle-0", []node{node1, node2, node3})
 
-	bundlePath, err := c.Collect(ctx, bundleID, numNodes, statuses)
+	bundlePath, err := c.CollectBundle(ctx, bundleID, numNodes, statuses)
 	require.NoError(t, err)
 	// ensure that the bundle is placed in the specified directory
 	assert.True(t, filepath.HasPrefix(bundlePath, workDir))
