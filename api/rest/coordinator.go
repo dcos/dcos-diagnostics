@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -78,8 +77,6 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 		go worker(ctx, jobs, statuses)
 	}
 
-	localBundleID := uuid.New().String()
-
 	for _, n := range nodes {
 		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
 
@@ -96,7 +93,7 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 			default:
 			}
 
-			return c.createBundle(ctx, tmpNode, localBundleID, jobs)
+			return c.createBundle(ctx, tmpNode, id, jobs)
 		}
 	}
 

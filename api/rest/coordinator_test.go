@@ -3,7 +3,6 @@ package rest
 import (
 	"archive/zip"
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +25,8 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	ctx := context.TODO()
 
+	localBundleID := uuid.New()
+
 	node1 := node{IP: net.ParseIP("192.0.2.1"), baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
 	node3 := node{IP: net.ParseIP("192.0.2.3"), baseURL: "http://192.0.2.3"}
@@ -37,7 +39,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 	expected := []BundleStatus{}
 
 	for _, n := range testNodes {
-		id := fmt.Sprintf("%s-%s", n.IP, "id")
+		id := localBundleID.String()
 		client.On("CreateBundle", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Started}, nil)
 		client.On("Status", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
 
@@ -46,7 +48,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 			BundleStatus{id: id, node: n, done: true},
 		)
 	}
-	s := c.CreateBundle(context.TODO(), "id", testNodes)
+	s := c.CreateBundle(context.TODO(), localBundleID.String(), testNodes)
 
 	var statuses []BundleStatus
 
@@ -60,11 +62,8 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 }
 
 func TestCoordinatorCreateAndCollect(t *testing.T) {
-	//TODO(janisz): FIXME
-	//t.Skipf("Uncoment this test after we figure out how to generate temp local bundle dir")
 	client := new(MockClient)
 	interval := time.Millisecond
-	//workDir := os.TempDir()
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
@@ -73,6 +72,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	ctx := context.TODO()
 
 	bundleID := "bundle-0"
+	localBundleID := uuid.New()
 	numNodes := 3
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), Role: "agent", baseURL: "http://192.0.2.1"}
@@ -105,13 +105,13 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	}
 
 	for _, testData := range testNodes {
-		id := fmt.Sprintf("%s-%s", testData.n.IP, bundleID)
+		id := localBundleID.String()
 		client.On("CreateBundle", ctx, testData.n.baseURL, id).Return(&Bundle{ID: id, Status: Started}, nil)
 		client.On("Status", ctx, testData.n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
 		client.On("GetFile", ctx, testData.n.baseURL, id, testData.zipPath).Return(nil)
 	}
 
-	statuses := c.CreateBundle(ctx, "bundle-0", []node{node1, node2, node3})
+	statuses := c.CreateBundle(ctx, localBundleID.String(), []node{node1, node2, node3})
 
 	bundlePath, err := c.CollectBundle(ctx, bundleID, numNodes, statuses)
 	require.NoError(t, err)
