@@ -107,7 +107,8 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 // and merges them. The resulting bundle zip file path is returned.
 func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
-	var bundles []string
+	// holds the paths to the downloaded local bundles before merging
+	var bundlePaths []string
 
 	finishedBundles := 0
 	for finishedBundles < numBundles {
@@ -132,12 +133,12 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
 			}
 
-			bundles = append(bundles, bundlePath)
+			bundlePaths = append(bundlePaths, bundlePath)
 			finishedBundles++
 		}
 	}
 
-	return mergeZips(bundleID, bundles, c.workDir)
+	return mergeZips(bundleID, bundlePaths, c.workDir)
 }
 
 func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, error) {
