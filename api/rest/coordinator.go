@@ -31,7 +31,7 @@ type Coordinator interface {
 	// on the returned channel.
 	CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus
 	// CollectBundle waits until all the nodes' bundles have finished, downloads,
-	// and merges them. The results bundle zip file path is returned.
+	// and merges them. The resulting bundle zip file path is returned.
 	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
 }
 
@@ -104,7 +104,7 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 }
 
 // CollectBundle waits until all the nodes' bundles have finished, downloads,
-// and merges them. The results bundle zip file path is returned.
+// and merges them. The resulting bundle zip file path is returned.
 func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
 	var bundles []string
