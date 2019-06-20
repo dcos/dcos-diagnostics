@@ -119,7 +119,7 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			}
 			if s.err != nil {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
-				// TODO(br-lewis): this should probably be noted in the generated bundle and not just printed in the journal
+				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 				finishedBundles++
 				continue
 			}
