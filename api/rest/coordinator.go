@@ -16,6 +16,7 @@ import (
 const numberOfWorkers = 10
 const contextDoneErrMsg = "bundle creation context finished before bundle creation finished"
 
+// BundleStatus tracks the status of local bundle creation requests
 type BundleStatus struct {
 	id   string
 	node node
@@ -66,6 +67,8 @@ func NewParallelCoordinator(client Client, interval time.Duration, workDir strin
 	}
 }
 
+// CreateBundle starts the bundle creation process. Status updates be monitored
+// on the returned channel.
 func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
 	jobs := make(chan job)
@@ -100,6 +103,8 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 	return statuses
 }
 
+// CollectBundle waits until all the nodes' bundles have finished, downloads,
+// and merges them. The results bundle zip file path is returned.
 func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
 	var bundles []string
