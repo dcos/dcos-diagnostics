@@ -42,7 +42,7 @@ type ParallelCoordinator struct {
 	workDir             string
 }
 
-// job is a function that will be called by worker. The output will be added to results chanel
+// job is a function that will be called by the worker function. The output will be added to results channel
 type job func() BundleStatus
 
 // worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
