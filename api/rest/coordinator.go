@@ -120,21 +120,24 @@ func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
 				continue
 			}
+
+			// even if the bundle finished with an error, it's now finished so increment finishedBundles
+			finishedBundles++
 			if s.err != nil {
-				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
 				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
-				finishedBundles++
+				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
 				continue
 			}
 
 			bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
 			err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
 			if err != nil {
+				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
+				continue
 			}
 
 			bundlePaths = append(bundlePaths, bundlePath)
-			finishedBundles++
 		}
 	}
 
