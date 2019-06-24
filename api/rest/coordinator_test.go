@@ -21,7 +21,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 	interval := time.Millisecond
 	workDir := os.TempDir()
 
-	c := NewParallelCoordinator(client, interval, workDir)
+	c := newParallelCoordinator(client, interval, workDir)
 
 	ctx := context.TODO()
 
@@ -36,7 +36,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 		node3,
 	}
 
-	expected := []BundleStatus{}
+	expected := []bundleStatus{}
 
 	for _, n := range testNodes {
 		id := localBundleID.String()
@@ -44,13 +44,13 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 		client.On("Status", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
 
 		expected = append(expected,
-			BundleStatus{id: id, node: n},
-			BundleStatus{id: id, node: n, done: true},
+			bundleStatus{id: id, node: n},
+			bundleStatus{id: id, node: n, done: true},
 		)
 	}
 	s := c.CreateBundle(context.TODO(), localBundleID.String(), testNodes)
 
-	var statuses []BundleStatus
+	var statuses []bundleStatus
 
 	for i := 0; i < 6; i++ {
 		statuses = append(statuses, <-s)
@@ -67,7 +67,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
-	c := NewParallelCoordinator(client, interval, workDir)
+	c := newParallelCoordinator(client, interval, workDir)
 
 	ctx := context.TODO()
 
