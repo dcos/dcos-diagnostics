@@ -36,7 +36,9 @@ type Coordinator interface {
 }
 
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
-// creation across a cluster, parallelized across multiple goroutines
+// creation across a cluster, parallelized across multiple goroutines.
+// After creation has started, the status of the local bundles are queried once
+// per `interval`
 type parallelCoordinator struct {
 	client              Client
 	statusCheckInterval time.Duration
@@ -58,7 +60,7 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus) {
 	}
 }
 
-// NewParallelCoordinator constructs a new parallelcoordinator.
+// newParallelCoordinator constructs a new parallelCoordinator.
 func newParallelCoordinator(client Client, interval time.Duration, workDir string) parallelCoordinator {
 	return parallelCoordinator{
 		client:              client,
