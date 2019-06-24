@@ -112,7 +112,9 @@ func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 	for finishedBundles < numBundles {
 		select {
 		case <-ctx.Done():
-			return "", fmt.Errorf("context canceled before all node bundles finished")
+			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
+			logrus.WithField("ID", bundleID).Warn("context cancelled before all node bundles finished")
+			return mergeZips(bundleID, bundlePaths, c.workDir)
 		case s := <-statuses:
 			if !s.done {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
