@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +24,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 
 	ctx := context.TODO()
 
-	localBundleID := uuid.New()
+	localBundleID := "bundle-0"
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), baseURL: "http://192.0.2.2"}
@@ -39,16 +38,15 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 	expected := []bundleStatus{}
 
 	for _, n := range testNodes {
-		id := localBundleID.String()
-		client.On("CreateBundle", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Started}, nil)
-		client.On("Status", ctx, n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
+		client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
+		client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil)
 
 		expected = append(expected,
-			bundleStatus{id: id, node: n},
-			bundleStatus{id: id, node: n, done: true},
+			bundleStatus{id: localBundleID, node: n},
+			bundleStatus{id: localBundleID, node: n, done: true},
 		)
 	}
-	s := c.CreateBundle(context.TODO(), localBundleID.String(), testNodes)
+	s := c.CreateBundle(context.TODO(), localBundleID, testNodes)
 
 	var statuses []bundleStatus
 
@@ -72,7 +70,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	ctx := context.TODO()
 
 	bundleID := "bundle-0"
-	localBundleID := uuid.New()
+	localBundleID := "bundle-local"
 	numNodes := 3
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), Role: "agent", baseURL: "http://192.0.2.1"}
@@ -105,13 +103,12 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	}
 
 	for _, testData := range testNodes {
-		id := localBundleID.String()
-		client.On("CreateBundle", ctx, testData.n.baseURL, id).Return(&Bundle{ID: id, Status: Started}, nil)
-		client.On("Status", ctx, testData.n.baseURL, id).Return(&Bundle{ID: id, Status: Done}, nil)
-		client.On("GetFile", ctx, testData.n.baseURL, id, testData.zipPath).Return(nil)
+		client.On("CreateBundle", ctx, testData.n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
+		client.On("Status", ctx, testData.n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil)
+		client.On("GetFile", ctx, testData.n.baseURL, localBundleID, testData.zipPath).Return(nil)
 	}
 
-	statuses := c.CreateBundle(ctx, localBundleID.String(), []node{node1, node2, node3})
+	statuses := c.CreateBundle(ctx, localBundleID, []node{node1, node2, node3})
 
 	bundlePath, err := c.CollectBundle(ctx, bundleID, numNodes, statuses)
 	require.NoError(t, err)
