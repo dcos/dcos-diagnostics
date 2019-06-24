@@ -3,6 +3,7 @@ package rest
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -88,7 +89,7 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 				return bundleStatus{
 					id:   id,
 					node: tmpNode,
-					err:  fmt.Errorf(contextDoneErrMsg),
+					err:  errors.New(contextDoneErrMsg),
 				}
 			default:
 			}
@@ -215,7 +216,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 			id:   id,
 			node: node,
 			done: true,
-			err:  fmt.Errorf(contextDoneErrMsg),
+			err:  errors.New(contextDoneErrMsg),
 		}
 	default:
 	}
