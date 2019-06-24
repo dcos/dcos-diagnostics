@@ -210,14 +210,14 @@ func (c parallelCoordinator) createBundle(ctx context.Context, node node, id str
 
 	// Schedule bundle status check
 	jobs <- func() bundleStatus {
-		return c.waitForDone(ctx, node, id, c.statusCheckInterval, jobs)
+		return c.waitForDone(ctx, node, id, jobs)
 	}
 
 	// Return undone status with no error.
 	return bundleStatus{id: id, node: node}
 }
 
-func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id string, interval time.Duration, jobs chan<- job) bundleStatus {
+func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
 	select {
 	case <-ctx.Done():
 		return bundleStatus{
@@ -231,7 +231,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 
 	statusCheck := func() {
 		jobs <- func() bundleStatus {
-			return c.waitForDone(ctx, node, id, c.statusCheckInterval, jobs)
+			return c.waitForDone(ctx, node, id, jobs)
 		}
 	}
 
@@ -242,7 +242,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	if err != nil {
 		// then schedule next check in given time.
 		// It will only add check to job queue so interval might increase but it's OK.
-		time.AfterFunc(interval, statusCheck)
+		time.AfterFunc(c.statusCheckInterval, statusCheck)
 		// Return status with error. Do not mark bundle as done yet. It might change it status
 		return bundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
