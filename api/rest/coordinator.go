@@ -37,10 +37,11 @@ type Coordinator interface {
 
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
 // creation across a cluster, parallelized across multiple goroutines.
-// After creation has started, the status of the local bundles are queried once
-// per `interval`
 type parallelCoordinator struct {
-	client              Client
+	client Client
+
+	// statusCheckInterval defines how often the status of the local bundles will
+	// be checked
 	statusCheckInterval time.Duration
 	workDir             string
 }
