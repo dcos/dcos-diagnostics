@@ -3,6 +3,8 @@ package rest
 import (
 	"archive/zip"
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -137,4 +139,52 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	sort.Strings(filenames)
 
 	assert.Equal(t, expectedContents, filenames)
+}
+
+func TestAppendToZipErrorsWithMalformedZip(t *testing.T) {
+
+	testDataDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+
+	bundlePath := filepath.Join(testDataDir, "test-bundle.zip")
+
+	testZip, err := os.Create(bundlePath)
+	require.NoError(t, err)
+	defer os.Remove(bundlePath)
+	defer testZip.Close()
+
+	zipWriter := zip.NewWriter(testZip)
+	defer zipWriter.Close()
+
+	invalidZipPath := filepath.Join(testDataDir, "not_a_zip.txt")
+	err = appendToZip(zipWriter, invalidZipPath)
+	require.Error(t, err)
+}
+
+func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
+	client := new(MockClient)
+	interval := time.Millisecond
+	workDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+
+	localBundleID := "bundle-0"
+
+	c := newParallelCoordinator(client, interval, workDir)
+	ctx := context.TODO()
+	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
+
+	expectedErr := errors.New("this stands in for any of the possible errors CreateBundle could throw")
+	client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(nil, expectedErr)
+
+	s := c.CreateBundle(ctx, localBundleID, []node{n})
+
+	expected := bundleStatus{
+		id:   localBundleID,
+		node: n,
+		done: true,
+		err:  fmt.Errorf("could not create bundle: %s", expectedErr),
+	}
+
+	actual := <-s
+	assert.Equal(t, expected, actual)
 }
