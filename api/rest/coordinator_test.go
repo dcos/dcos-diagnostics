@@ -231,9 +231,13 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 		},
 	}
 
+	results := []bundleStatus{}
+
 	for i := 0; i < len(expected); i++ {
-		e := expected[i]
-		status := <-statuses
-		assert.Equal(t, e, status)
+		results = append(results, <-statuses)
+	}
+
+	for _, s := range results {
+		assert.Contains(t, expected, s)
 	}
 }
