@@ -56,8 +56,6 @@ type job func() bundleStatus
 func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus) {
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		case j := <-jobs:
 			results <- j()
 		}
@@ -166,6 +164,7 @@ func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, e
 	defer zipWriter.Close()
 
 	for _, p := range bundlePaths {
+		// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle
 		err = appendToZip(zipWriter, p)
 		if err != nil {
 			return "", err

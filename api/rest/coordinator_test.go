@@ -291,3 +291,55 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 		assert.Contains(t, expected, s)
 	}
 }
+
+func TestHandlingForCanceledContext(t *testing.T) {
+	client := new(MockClient)
+	interval := time.Millisecond
+	workDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+
+	localBundleID := "bundle-0"
+
+	c := newParallelCoordinator(client, interval, workDir)
+	ctx := context.TODO()
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer cancel()
+
+	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
+
+	client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
+
+	// stay in progress forever until the context is canceled
+	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: InProgress}, nil)
+
+	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
+
+	results := []bundleStatus{}
+
+	for s := range statuses {
+		results = append(results, s)
+		if s.done {
+			break
+		}
+	}
+
+	expected := []bundleStatus{
+		{
+			id:   localBundleID,
+			node: n,
+			done: false,
+		},
+		// when the context is canceled, the response should be done with an error
+		{
+			id:   localBundleID,
+			node: n,
+			done: true,
+			err:  errors.New(contextDoneErrMsg),
+		},
+	}
+
+	for _, s := range results {
+		assert.Contains(t, expected, s)
+	}
+}
