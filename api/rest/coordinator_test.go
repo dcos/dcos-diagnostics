@@ -161,6 +161,56 @@ func TestAppendToZipErrorsWithMalformedZip(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestHandlingForBundleUpdateInProgress(t *testing.T) {
+	client := new(MockClient)
+	interval := time.Millisecond
+	workDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+
+	localBundleID := "bundle-0"
+
+	c := newParallelCoordinator(client, interval, workDir)
+	ctx := context.TODO()
+
+	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
+
+	client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
+
+	// The `Once`s here are necessary for it to find the calls in the expected order
+	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: InProgress}, nil).Once()
+	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil).Once()
+
+	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
+
+	expected := []bundleStatus{
+		{
+			id:   localBundleID,
+			node: n,
+			done: false,
+		},
+		{
+			id:   localBundleID,
+			node: n,
+			done: false,
+		},
+		{
+			id:   localBundleID,
+			node: n,
+			done: true,
+		},
+	}
+
+	results := []bundleStatus{}
+
+	for i := 0; i < len(expected); i++ {
+		results = append(results, <-statuses)
+	}
+
+	for _, s := range results {
+		assert.Contains(t, expected, s)
+	}
+}
+
 func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
 	client := new(MockClient)
 	interval := time.Millisecond
