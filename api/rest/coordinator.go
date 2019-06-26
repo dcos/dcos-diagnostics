@@ -61,6 +61,9 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus) {
 	}
 }
 
+// golangci-lint is marking this for unparam because all our tests use the same setting. This will be
+// removed in the bundle handler PR which will add a different setting
+//nolint:unparam
 // newParallelCoordinator constructs a new parallelCoordinator.
 func newParallelCoordinator(client Client, interval time.Duration, workDir string) parallelCoordinator {
 	return parallelCoordinator{
@@ -240,6 +243,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	bundle, err := c.client.Status(ctx, node.baseURL, id)
 	// If error
 	if err != nil {
+		logrus.WithField("IP", node.IP).WithError(err).Error("Error occurred checking bundle status, continuing")
 		// then schedule next check in given time.
 		// It will only add check to job queue so interval might increase but it's OK.
 		time.AfterFunc(c.statusCheckInterval, statusCheck)

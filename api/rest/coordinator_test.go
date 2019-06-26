@@ -188,3 +188,52 @@ func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
 	actual := <-s
 	assert.Equal(t, expected, actual)
 }
+
+func TestErrorHandlingFromClientStatus(t *testing.T) {
+	client := new(MockClient)
+	interval := time.Millisecond
+	workDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+
+	localBundleID := "bundle-0"
+
+	c := newParallelCoordinator(client, interval, workDir)
+	ctx := context.TODO()
+
+	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
+
+	expectedErr := errors.New("this stands in for any of the possible errors Status could throw")
+
+	client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
+
+	// The `Once`s here are necessary for it to find the calls in the expected order
+	client.On("Status", ctx, n.baseURL, localBundleID).Return(nil, expectedErr).Once()
+	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil).Once()
+
+	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
+
+	expected := []bundleStatus{
+		{
+			id:   localBundleID,
+			node: n,
+			done: false,
+		},
+		{
+			id:   localBundleID,
+			node: n,
+			done: false,
+			err:  fmt.Errorf("could not check status: %s", expectedErr),
+		},
+		{
+			id:   localBundleID,
+			node: n,
+			done: true,
+		},
+	}
+
+	for i := 0; i < len(expected); i++ {
+		e := expected[i]
+		status := <-statuses
+		assert.Equal(t, e, status)
+	}
+}
