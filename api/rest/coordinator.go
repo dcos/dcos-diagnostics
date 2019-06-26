@@ -24,9 +24,12 @@ type bundleStatus struct {
 	err  error
 }
 
-// Coordinator is an interface to coordinate the creation of diagnostics bundles
+// golangcli-lint marks this as dead code because nothing uses the interface
+// yet. this will be removed with the bundle handler PR
+//nolint:deadcode
+// coordinator is an interface to coordinate the creation of diagnostics bundles
 // across a cluster of nodes
-type Coordinator interface {
+type coordinator interface {
 	// CreateBundle starts the bundle creation process. Status updates be monitored
 	// on the returned channel.
 	CreateBundle(ctx context.Context, id string, nodes []node) <-chan bundleStatus
