@@ -48,6 +48,12 @@ type parallelCoordinator struct {
 	statusCheckInterval time.Duration
 	workDir             string
 
+	// quit is closed when the bundle is finished being created (whether due to a
+	// canceled context or finishing fully). This is used to signal that the worker
+	// goroutines should end, we use this rather than closing the jobs channel
+	// because waitForDone will send jobs into the job channel so, if it's still
+	// processing when the channel is closed, it would send to a closed channel,
+	// causing a panic.
 	quit chan struct{}
 }
 
