@@ -47,17 +47,21 @@ type parallelCoordinator struct {
 	// be checked
 	statusCheckInterval time.Duration
 	workDir             string
+
+	quit chan struct{}
 }
 
 // job is a function that will be called by the worker function. The output will be added to results channel
-type job func() bundleStatus
+type job func(context.Context) bundleStatus
 
 // worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
-func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus) {
+func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus, quit <-chan struct{}) {
 	for {
 		select {
+		case <-quit:
+			return
 		case j := <-jobs:
-			results <- j()
+			results <- j(ctx)
 		}
 	}
 }
@@ -71,6 +75,7 @@ func newParallelCoordinator(client Client, interval time.Duration, workDir strin
 		client:              client,
 		statusCheckInterval: interval,
 		workDir:             workDir,
+		quit:                make(chan struct{}),
 	}
 }
 
@@ -82,7 +87,7 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 	statuses := make(chan bundleStatus)
 
 	for i := 0; i < numberOfWorkers; i++ {
-		go worker(ctx, jobs, statuses)
+		go worker(ctx, jobs, statuses, c.quit)
 	}
 
 	for _, n := range nodes {
@@ -90,7 +95,7 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
-		jobs <- func() bundleStatus {
+		jobs <- func(ctx context.Context) bundleStatus {
 			select {
 			case <-ctx.Done():
 				return bundleStatus{
@@ -121,6 +126,7 @@ func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		case <-ctx.Done():
 			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 			logrus.WithField("ID", bundleID).Warn("context cancelled before all node bundles finished")
+			close(c.quit)
 			return mergeZips(bundleID, bundlePaths, c.workDir)
 		case s := <-statuses:
 			if !s.done {
@@ -148,6 +154,7 @@ func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		}
 	}
 
+	close(c.quit)
 	return mergeZips(bundleID, bundlePaths, c.workDir)
 }
 
@@ -214,7 +221,7 @@ func (c parallelCoordinator) createBundle(ctx context.Context, node node, id str
 	}
 
 	// Schedule bundle status check
-	jobs <- func() bundleStatus {
+	jobs <- func(ctx context.Context) bundleStatus {
 		return c.waitForDone(ctx, node, id, jobs)
 	}
 
@@ -235,7 +242,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	}
 
 	statusCheck := func() {
-		jobs <- func() bundleStatus {
+		jobs <- func(ctx context.Context) bundleStatus {
 			return c.waitForDone(ctx, node, id, jobs)
 		}
 	}
