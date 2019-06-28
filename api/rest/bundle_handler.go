@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -70,6 +71,12 @@ type BundleHandler struct {
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
 	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
+}
+
+type node struct {
+	IP      net.IP `json:"ip"`
+	Role    string `json:"role"`
+	baseURL string
 }
 
 func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
