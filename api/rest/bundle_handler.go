@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/collector"
+	"github.com/dcos/dcos-diagnostics/dcos"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -31,6 +32,9 @@ const (
 
 	filePerm = 0600
 	dirPerm  = 0700
+
+	bundleTypeLocal  = "local"
+	bundleTypeRemote = "remote"
 )
 
 type Bundle struct {
@@ -55,12 +59,15 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) BundleHandler {
+func NewBundleHandler(workDir string, collectors []collector.Collector, coordinator coordinator,
+	timeout time.Duration, urlBuilder dcos.NodeURLBuilder) BundleHandler {
 	return BundleHandler{
 		clock:                 realClock{},
 		workDir:               workDir,
 		collectors:            collectors,
+		coordinator:           coordinator,
 		bundleCreationTimeout: timeout,
+		urlBuilder:            urlBuilder,
 	}
 }
 
@@ -70,7 +77,14 @@ type BundleHandler struct {
 	clock                 Clock
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
+	coordinator           coordinator           // coordinator for building remote bundles
 	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
+	urlBuilder            dcos.NodeURLBuilder
+}
+
+type createArguments struct {
+	BundleType string `json:"type"`
+	Nodes      []node `json:"nodes"`
 }
 
 type node struct {
@@ -117,7 +131,38 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	//TODO(janisz): use context cancel function to cancel bundle creation https://jira.mesosphere.com/browse/DCOS_OSS-5222
 	ctx, _ := context.WithTimeout(context.Background(), h.bundleCreationTimeout) //nolint:govet
-	done := make(chan []string)
+
+	var args createArguments
+	if r.Body == nil {
+		// assume local
+		args.BundleType = bundleTypeLocal
+	} else {
+		err = json.NewDecoder(r.Body).Decode(&args)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, fmt.Errorf("could not decode JSON body: %s", err))
+			return
+		}
+	}
+
+	switch strings.ToLower(args.BundleType) {
+	case bundleTypeLocal:
+		done := make(chan []string)
+		h.createLocalBundle(ctx, &bundle, done, dataFile, stateFilePath)
+	case bundleTypeRemote:
+		err = h.createRemoteBundle(ctx, &bundle, args.Nodes, dataFile, stateFilePath)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, err)
+			return
+		}
+	default:
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("invalid bundle type recieved: %s", args.BundleType))
+		return
+	}
+
+	write(w, bundleStatus)
+}
+
+func (h *BundleHandler) createLocalBundle(ctx context.Context, bundle *Bundle, done chan []string, dataFile io.WriteCloser, stateFilePath string) {
 
 	go collectAll(ctx, done, dataFile, h.collectors)
 
@@ -129,12 +174,62 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
 			if e := ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm); e != nil {
-				logrus.WithError(e).Errorf("Could not update state file %s", id)
+				logrus.WithError(e).Errorf("Could not update state file %s", bundle.ID)
 			}
 		}
 	}()
+}
 
-	write(w, bundleStatus)
+// createRemoteBundle will start the creation of a remote bundle and will return an error if something prevents it from
+// being able to start that process though errors might still occur during creation
+func (h *BundleHandler) createRemoteBundle(ctx context.Context, bundle *Bundle, nodes []node, dataFile io.WriteCloser, stateFilePath string) error {
+	if len(nodes) == 0 {
+		return fmt.Errorf("must include list of nodes to create remote bundle")
+	}
+	for _, n := range nodes {
+		url, err := h.urlBuilder.BaseURL(n.IP, n.Role)
+		if err != nil {
+			return err
+		}
+		n.baseURL = url
+	}
+
+	statuses := h.coordinator.CreateBundle(ctx, bundle.ID, nodes)
+
+	go h.waitAndCollectRemoteBundle(ctx, bundle, len(nodes), dataFile, stateFilePath, statuses)
+	return nil
+}
+
+func (h *BundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int,
+	dataFile io.WriteCloser, stateFilePath string, statuses <-chan BundleStatus) {
+
+	defer dataFile.Close()
+
+	bundleFilePath, err := h.coordinator.CollectBundle(ctx, bundle.ID, numBundles, statuses)
+	if err != nil {
+		bundle.Errors = append(bundle.Errors, err.Error())
+	}
+	bundle.Stopped = h.clock.Now()
+	bundle.Status = Done
+
+	err = ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("Could not update state file.")
+		return
+	}
+
+	bundleFile, err := os.Open(bundleFilePath)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to open bundle for copying")
+		return
+	}
+
+	_, err = io.Copy(dataFile, bundleFile)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to copy bundle from temp dir working directory")
+		return
+	}
+
 }
 
 func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collector.Collector) {
