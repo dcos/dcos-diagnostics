@@ -2,15 +2,42 @@ package rest
 
 import (
 	"net/http"
+	"time"
+
+	"github.com/dcos/dcos-diagnostics/dcos"
 )
 
 // ClusterBundleHandler is a handler that will create and manage cluster-wide
 // diagnostics bundles
-type ClusterBundleHandler struct{}
+type ClusterBundleHandler struct {
+	workDir string
+	coord   coordinator
+	tools   dcos.Tooler
+	timeout time.Duration
+	clock   Clock
+}
+
+func NewClusterBundleHandler(c coordinator, tools dcos.Tooler, workDir string, timeout time.Duration, clock Clock) *ClusterBundleHandler {
+	return &ClusterBundleHandler{
+		coord:   c,
+		workDir: workDir,
+		timeout: timeout,
+		tools:   tools,
+		clock:   clock,
+	}
+}
 
 // Create will send the initial creation request for the bundle to all nodes. The created
 // bundle will exist on the called master node
 func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
+	masters, err := c.tools.GetMasterNodes()
+	if err != nil {
+	}
+	agents, err := c.tools.GetAgentNodes()
+	if err != nil {
+	}
+
+	_ = append(masters, agents...)
 
 }
 

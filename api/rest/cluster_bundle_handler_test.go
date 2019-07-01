@@ -1,38 +1,61 @@
 package rest
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-/*
-func TestIfCreateRemoteBundleReturns400WhenEmptyNodeListGiven(t *testing.T) {
-	t.Parallel()
-	workdir, err := ioutil.TempDir("", "work-dir")
-	defer os.RemoveAll(workdir)
-	require.NoError(t, err)
+func TestRemoteBundleCreationConflictErrorWhenBundleExists(t *testing.T) {
+}
 
-	bh := NewBundleHandler(workdir, nil, nil, time.Millisecond, nil)
+func TestRemoteBundleCreationFileSystemError(t *testing.T) {
+}
 
-	args := createArguments{
-		BundleType: bundleTypeRemote,
-		Nodes:      []node{},
-	}
+func TestDeleteBundleOnOtherMaster(t *testing.T) {
+}
 
-	body, err := json.Marshal(args)
-	require.NoError(t, err)
+func TestDeleteAlreadyDeletedBundle(t *testing.T) {
+}
 
-	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", bytes.NewReader(body))
+func TestDeleteBundleThatNeverExisted(t *testing.T) {
+}
 
-	require.NoError(t, err)
+func TestDeleteUnreadableBundle(t *testing.T) {
+}
 
-	router := mux.NewRouter()
-	router.HandleFunc(bundleEndpoint, bh.Create)
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
+func TestStatusForBundleOnOtherMaster(t *testing.T) {
+}
 
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.JSONEq(t, `{"code":400,"error":"must include list of nodes to create remote bundle"}`, rr.Body.String())
+func TestStatusOnMissingBundle(t *testing.T) {
+}
+
+func TestStatusForUnreadableBunde(t *testing.T) {
+}
+
+func TestDownloadBundleOnOtherMaster(t *testing.T) {
+}
+
+func TestDownloadMissingBundle(t *testing.T) {
+}
+
+func TestDownloadUnreadableBundle(t *testing.T) {
+}
+
+func TestListWithBundlesOnOtherMasters(t *testing.T) {
 }
 
 func TestRemoteBundleCreation(t *testing.T) {
@@ -44,44 +67,24 @@ func TestRemoteBundleCreation(t *testing.T) {
 	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
 	require.NoError(t, err)
 
-	coordinator := mockCoordinator{}
-
-	bh := NewBundleHandler(
+	tools := new(MockedTools)
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		tools,
 		workdir,
-		nil,
-		coordinator,
 		time.Second,
-		MockURLBuilder{},
+		&MockClock{now: now},
 	)
-	bh.clock = &MockClock{now: now}
 
 	router := mux.NewRouter()
 	router.HandleFunc(bundleEndpoint, bh.Create).Methods(http.MethodPut)
-	router.HandleFunc(bundleEndpoint, bh.Get).Methods(http.MethodGet)
+	router.HandleFunc(bundleEndpoint, bh.Status).Methods(http.MethodGet)
 	router.HandleFunc(bundleEndpoint, bh.Delete).Methods(http.MethodDelete)
-	router.HandleFunc(bundleFileEndpoint, bh.GetFile).Methods(http.MethodGet)
+	router.HandleFunc(bundleFileEndpoint, bh.Download).Methods(http.MethodGet)
 
 	t.Run("send creation request", func(t *testing.T) {
-		// roles will be ignored by the mock url builder
-		payload := createArguments{
-			BundleType: "REMOTE",
-			Nodes: []node{
-				node{
-					IP:   net.IPv4(192, 0, 2, 1),
-					Role: "agent",
-				},
-				node{
-					IP:   net.IPv4(192, 0, 2, 2),
-					Role: "master",
-				},
-				node{
-					IP:   net.IPv4(192, 0, 2, 3),
-					Role: "agent",
-				},
-			},
-		}
-
-		req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", bytes.NewBuffer(jsonMarshal(payload)))
+		req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
@@ -156,8 +159,13 @@ func TestRemoteBundleCreation(t *testing.T) {
 
 		assert.Equal(t, expectedContents, filenames)
 	})
+
+	t.Run("delete bundle", func(t *testing.T) {
+		//TODO: implement this
+		assert.True(t, false)
+	})
 }
-*/
+
 type mockCoordinator struct{}
 
 func (c mockCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
