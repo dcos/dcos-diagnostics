@@ -119,10 +119,8 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init collectors properly: %s", err)
 	}
 
-	coordinator := rest.NewParallelCoordinator(rest.NewDiagnosticsClient(http.DefaultClient), time.Second, defaultConfig.FlagDiagnosticsBundleDir)
-	urlBuilder := diagDcos.NewURLBuilder(defaultConfig.FlagAgentPort, defaultConfig.FlagMasterPort, defaultConfig.FlagForceTLS)
 	bundleTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobTimeoutMinutes)
-	bundleHandler := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, coordinator, bundleTimeout, &urlBuilder)
+	bundleHandler := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, bundleTimeout)
 
 	// Inject dependencies used for running dcos-diagnostics.
 	dt := &api.Dt{
