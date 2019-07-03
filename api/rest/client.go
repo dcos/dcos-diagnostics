@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const bundlesEndpoint = "/system/health/v1/diagnostics"
+const bundlesEndpoint = "/system/health/v1/node/diagnostics"
 
 // Client is an interface that can talk with dcos-diagnostics REST API and manipulate remote bundles
 type Client interface {
