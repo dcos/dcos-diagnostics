@@ -4,7 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dcos/dcos-diagnostics/dcos"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -68,6 +72,24 @@ func TestRemoteBundleCreation(t *testing.T) {
 	require.NoError(t, err)
 
 	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Leader: true,
+			Role:   "master",
+			IP:     "192.0.2.2",
+		},
+	}, nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{
+		{
+			Role: "agent",
+			IP:   "192.0.2.1",
+		},
+		{
+			Role: "agent",
+			IP:   "192.0.2.3",
+		},
+	}, nil)
+
 	coord := new(mockCoordinator)
 	bh := NewClusterBundleHandler(
 		coord,
@@ -75,6 +97,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 		workdir,
 		time.Second,
 		&MockClock{now: now},
+		MockURLBuilder{},
 	)
 
 	router := mux.NewRouter()
@@ -185,4 +208,10 @@ func (c mockCoordinator) CreateBundle(ctx context.Context, id string, nodes []no
 
 func (c mockCoordinator) CollectBundle(ctx context.Context, id string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 	return filepath.Abs(filepath.Join("testdata", "combined.zip"))
+}
+
+type MockURLBuilder struct{}
+
+func (m MockURLBuilder) BaseURL(ip net.IP, _ string) (string, error) {
+	return fmt.Sprintf("http://%s", ip), nil
 }
