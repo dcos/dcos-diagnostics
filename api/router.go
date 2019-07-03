@@ -17,8 +17,8 @@ import (
 // see: https://github.com/dcos/dcos/blob/1.13.1/packages/adminrouter/extra/src/docs/api/nginx.agent.yaml#L56-L62
 const baseRoute string = "/system/health/v1"
 
-// Endpoint for listing all bundles
-const bundlesEndpoint = baseRoute + "/diagnostics"
+// Endpoint for listing all local bundles
+const bundlesEndpoint = baseRoute + "/node/diagnostics"
 
 // CRUD endpoint for diagnostics bundle files
 const bundleEndpoint = bundlesEndpoint + "/{id}"

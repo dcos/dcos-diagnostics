@@ -26,7 +26,7 @@ func TestCreate(t *testing.T) {
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodPut, r.Method)
 
 		var args payload
@@ -64,7 +64,7 @@ func TestCreateShouldErrorWhenMalformedResponse(t *testing.T) {
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodPut, r.Method)
 
 		var args payload
@@ -89,7 +89,6 @@ func TestCreateShouldErrorWhenMalformedResponse(t *testing.T) {
 	assert.Nil(t, bundle)
 }
 
-
 func TestGetStatus(t *testing.T) {
 	expectedResp := Bundle{
 		ID:      "bundle-0",
@@ -97,7 +96,7 @@ func TestGetStatus(t *testing.T) {
 		Status:  InProgress,
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		response := jsonMarshal(expectedResp)
@@ -119,7 +118,7 @@ func TestGetStatus(t *testing.T) {
 
 func TestGetFile(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0/file", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0/file", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusOK)
@@ -150,7 +149,7 @@ func TestGetStatusBundleHasStatusUnknownBundleIDNotFound(t *testing.T) {
 		Status: Unknown,
 	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusNotFound)
@@ -169,7 +168,7 @@ func TestGetStatusBundleHasStatusUnknownBundleIDNotFound(t *testing.T) {
 
 func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodPut, r.Method)
 
 		w.WriteHeader(http.StatusInternalServerError)
@@ -190,7 +189,7 @@ func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
 
 func TestGetStatusReturnsErrorWhenResponseIs500(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusInternalServerError)
@@ -211,7 +210,7 @@ func TestGetStatusReturnsErrorWhenResponseIs500(t *testing.T) {
 
 func TestGetFileReturnsErrorWhenResponseIs500(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0/file", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0/file", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusInternalServerError)
@@ -232,20 +231,20 @@ func TestGetFileReturnsErrorWhenResponseIs500(t *testing.T) {
 func TestClientReturnsErrorWhenNodeIsInvalid(t *testing.T) {
 	client := DiagnosticsClient{client: http.DefaultClient}
 	bundle, err := client.CreateBundle(context.TODO(), ``, "bundle-0")
-	assert.EqualError(t, err, `Put /system/health/v1/diagnostics/bundle-0: unsupported protocol scheme ""`)
+	assert.EqualError(t, err, `Put /system/health/v1/node/diagnostics/bundle-0: unsupported protocol scheme ""`)
 	assert.Nil(t, bundle)
 
 	bundle, err = client.Status(context.TODO(), ``, "bundle-0")
-	assert.EqualError(t, err, `Get /system/health/v1/diagnostics/bundle-0: unsupported protocol scheme ""`)
+	assert.EqualError(t, err, `Get /system/health/v1/node/diagnostics/bundle-0: unsupported protocol scheme ""`)
 	assert.Nil(t, bundle)
 
 	err = client.GetFile(context.TODO(), ``, "bundle-0", "")
-	assert.EqualError(t, err, `Get /system/health/v1/diagnostics/bundle-0/file: unsupported protocol scheme ""`)
+	assert.EqualError(t, err, `Get /system/health/v1/node/diagnostics/bundle-0/file: unsupported protocol scheme ""`)
 }
 
 func TestGetStatusReturnsErrorWhenResponseIsMalformed(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusOK)
@@ -263,10 +262,9 @@ func TestGetStatusReturnsErrorWhenResponseIsMalformed(t *testing.T) {
 	assert.Nil(t, bundle)
 }
 
-
 func TestGetFileReturnsErrorWhenBundleIDNotFound(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0/file", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0/file", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusNotFound)
@@ -289,7 +287,7 @@ func TestGetFileReturnsErrorWhenBundleIDNotFound(t *testing.T) {
 
 func TestGetFileReturnsErrorWhenCouldNotCreateAFile(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/system/health/v1/diagnostics/bundle-0/file", r.URL.Path)
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0/file", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.WriteHeader(http.StatusOK)
