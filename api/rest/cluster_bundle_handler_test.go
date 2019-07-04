@@ -42,6 +42,68 @@ func TestDeleteUnreadableBundle(t *testing.T) {
 }
 
 func TestStatusForBundleOnOtherMaster(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Role: "master",
+			IP:   "192.0.2.2",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.4",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.5",
+		},
+	}, nil)
+
+	ctx := context.TODO()
+
+	client := new(MockClient)
+	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(nil, fmt.Errorf("asdf"))
+	client.On("Status", ctx, "http://192.0.2.4", "bundle-0").Return(&Bundle{
+		ID:      "bundle-0",
+		Status:  Done,
+		Started: now,
+		Stopped: now.Add(1 * time.Hour),
+	}, nil)
+	client.On("Status", ctx, "http://192.0.2.5", "bundle-0").Return(nil, fmt.Errorf("asdf"))
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Status).Methods(http.MethodGet)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.JSONEq(t, string(jsonMarshal(Bundle{
+		ID:      "bundle-0",
+		Status:  Done,
+		Started: now.Add(time.Hour),
+	})), rr.Body.String())
 }
 
 func TestStatusOnMissingBundle(t *testing.T) {
@@ -90,9 +152,15 @@ func TestRemoteBundleCreation(t *testing.T) {
 		},
 	}, nil)
 
+	ctx := context.TODO()
+
+	client := new(MockClient)
+	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(nil, fmt.Errorf("asdf"))
+
 	coord := new(mockCoordinator)
 	bh := NewClusterBundleHandler(
 		coord,
+		client,
 		tools,
 		workdir,
 		time.Second,
@@ -125,6 +193,8 @@ func TestRemoteBundleCreation(t *testing.T) {
 	t.Run("get status", func(t *testing.T) {
 		rr := httptest.NewRecorder()
 
+		tries := 0
+		retryLimit := 100
 		for { // busy wait for bundle
 			time.Sleep(time.Millisecond)
 			req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
@@ -136,6 +206,9 @@ func TestRemoteBundleCreation(t *testing.T) {
 			if strings.Contains(rr.Body.String(), Done.String()) {
 				break
 			}
+			tries++
+			// keeps the test suite from hanging if something is wrong
+			require.True(t, tries < retryLimit, "status wait loop exceeded retry limit")
 		}
 
 		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)

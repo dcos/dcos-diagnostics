@@ -24,17 +24,19 @@ import (
 type ClusterBundleHandler struct {
 	workDir    string
 	coord      coordinator
+	client     Client
 	tools      dcos.Tooler
 	timeout    time.Duration
 	clock      Clock
 	urlBuilder dcos.NodeURLBuilder
 }
 
-func NewClusterBundleHandler(c coordinator, tools dcos.Tooler, workDir string, timeout time.Duration,
+func NewClusterBundleHandler(c coordinator, client Client, tools dcos.Tooler, workDir string, timeout time.Duration,
 	clock Clock, urlBuilder dcos.NodeURLBuilder) *ClusterBundleHandler {
 
 	return &ClusterBundleHandler{
 		coord:      c,
+		client:     client,
 		workDir:    workDir,
 		timeout:    timeout,
 		tools:      tools,
@@ -159,18 +161,41 @@ func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, b
 
 // List will get a list of all bundles available across all masters
 func (c *ClusterBundleHandler) List(w http.ResponseWriter, r *http.Request) {
-
+	_, err := c.getClusterNodes()
+	if err != nil {
+		// TODO
+	}
 }
 
 // Status will return the status of a given bundle, proxying the call to the appropriate master
 func (c *ClusterBundleHandler) Status(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	_ = vars["id"]
+	id := vars["id"]
 
-	_, err := c.getClusterNodes()
+	masters, err := c.getMasterNodes()
 	if err != nil {
-		// TODO
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to get list of master nodes: %s", err))
+		return
 	}
+
+	ctx := context.TODO()
+
+	// TODO: parallelize this
+	// TODO: it's very possible that we can have duplicate node IDs for the local bundles that will be generated on the master
+	var foundBundle *Bundle
+	for _, n := range masters {
+		bundle, err := c.client.Status(ctx, n.baseURL, id)
+		if err == nil {
+			foundBundle = bundle
+			break
+		}
+	}
+
+	if foundBundle == nil {
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle %s did not exist on any masters", id))
+		return
+	}
+	write(w, jsonMarshal(foundBundle))
 }
 
 // Delete will delete a given bundle, proxying the call if the given bundle exists
@@ -179,7 +204,7 @@ func (c *ClusterBundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	_ = vars["id"]
 
-	_, err := c.getClusterNodes()
+	_, err := c.getMasterNodes()
 	if err != nil {
 		// TODO
 	}
@@ -197,18 +222,51 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 }
 
 func (c *ClusterBundleHandler) getClusterNodes() ([]node, error) {
-	masters, err := c.tools.GetMasterNodes()
+	masters, err := c.getMasterNodes()
 	if err != nil {
 		return nil, err
 	}
 
+	agents, err := c.getAgentNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	return append(masters, agents...), nil
+}
+
+func (c *ClusterBundleHandler) getMasterNodes() ([]node, error) {
+	masters, err := c.tools.GetMasterNodes()
+	if err != nil {
+		return nil, err
+	}
+	nodes := []node{}
+	for _, n := range masters {
+		ip := net.ParseIP(n.IP)
+		// govet seems to have an issue with err shadowing a previous declaration, not sure why
+		url, err := c.urlBuilder.BaseURL(ip, n.Role)
+		if err != nil {
+			logrus.WithField("node", ip).WithField("role", n.Role).WithError(err).Error("unable to build base URL for node, skipping")
+			continue
+		}
+		nodes = append(nodes, node{
+			Role:    n.Role,
+			IP:      ip,
+			baseURL: url,
+		})
+	}
+
+	return nodes, nil
+}
+
+func (c *ClusterBundleHandler) getAgentNodes() ([]node, error) {
 	agents, err := c.tools.GetAgentNodes()
 	if err != nil {
 		return nil, err
 	}
 
 	nodes := []node{}
-	for _, n := range append(masters, agents...) {
+	for _, n := range agents {
 		ip := net.ParseIP(n.IP)
 		// govet seems to have an issue with err shadowing a previous declaration, not sure why
 		url, err := c.urlBuilder.BaseURL(ip, n.Role)
