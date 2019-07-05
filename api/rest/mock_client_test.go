@@ -47,6 +47,29 @@ func (_m *MockClient) GetFile(ctx context.Context, node string, ID string, path 
 	return r0
 }
 
+// List provides a mock function with given fields: ctx, node
+func (_m *MockClient) List(ctx context.Context, node string) ([]*Bundle, error) {
+	ret := _m.Called(ctx, node)
+
+	var r0 []*Bundle
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*Bundle); ok {
+		r0 = rf(ctx, node)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Bundle)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, node)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Status provides a mock function with given fields: ctx, node, ID
 func (_m *MockClient) Status(ctx context.Context, node string, ID string) (*Bundle, error) {
 	ret := _m.Called(ctx, node, ID)

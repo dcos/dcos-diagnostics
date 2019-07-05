@@ -24,6 +24,10 @@ type Client interface {
 	// url and save it to local filesystem under given path.
 	// Returns an error if there were a problem.
 	GetFile(ctx context.Context, node string, ID string, path string) (err error)
+	// List will get the list of available bundles on the given node
+	List(ctx context.Context, node string) ([]*Bundle, error)
+	// Delete will delete the bundle with the given id from the given node
+	Delete(ctx context.Context, node string, id string) error
 }
 
 type DiagnosticsClient struct {
@@ -143,6 +147,58 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 	}
 
 	// return the full path to the created file
+	return nil
+}
+
+func (d DiagnosticsClient) List(ctx context.Context, node string) ([]*Bundle, error) {
+	url := fmt.Sprintf("%s/%s", node, bundlesEndpoint)
+
+	logrus.WithField("node", node).Info("getting list of bundles from node")
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := d.client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, handleErrorCode(resp, url)
+	}
+
+	bundles := []*Bundle{}
+	err = json.NewDecoder(resp.Body).Decode(&bundles)
+	if err != nil {
+		return nil, err
+	}
+
+	return bundles, nil
+}
+
+func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) error {
+	url := remoteURL(node, id)
+
+	logrus.WithField("node", node).WithField("ID", id).Info("deleting bundle from node")
+
+	request, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return nil
+	}
+
+	resp, err := d.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		return handleErrorCode(resp, url)
+	}
+
 	return nil
 }
 
