@@ -151,7 +151,7 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 }
 
 func (d DiagnosticsClient) List(ctx context.Context, node string) ([]*Bundle, error) {
-	url := fmt.Sprintf("%s/%s", node, bundlesEndpoint)
+	url := fmt.Sprintf("%s%s", node, bundlesEndpoint)
 
 	logrus.WithField("node", node).Info("getting list of bundles from node")
 
@@ -186,7 +186,7 @@ func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) e
 
 	request, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	resp, err := d.client.Do(request)
@@ -195,7 +195,13 @@ func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) e
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNotFound {
+	if resp.StatusCode == http.StatusNotModified {
+		return fmt.Errorf("bundle %s canceled or already deleted", id)
+	} else if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("bundle %s not found", id)
+	} else if resp.StatusCode == http.StatusInternalServerError {
+		return fmt.Errorf("bundle %s could not be read", id)
+	} else if resp.StatusCode != http.StatusOK {
 		return handleErrorCode(resp, url)
 	}
 

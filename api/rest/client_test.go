@@ -307,3 +307,119 @@ func TestGetFileReturnsErrorWhenCouldNotCreateAFile(t *testing.T) {
 	err = client.GetFile(context.TODO(), testServer.URL, "bundle-0", name)
 	assert.Contains(t, err.Error(), "could not create a file")
 }
+
+func TestList(t *testing.T) {
+	expectedResponse := []*Bundle{
+		{
+			ID:     "bundle-0",
+			Status: Done,
+		},
+		{
+			ID:     "bundle-1",
+			Status: InProgress,
+		},
+	}
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/node/diagnostics", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		response := jsonMarshal(expectedResponse)
+		w.WriteHeader(http.StatusOK)
+		w.Write(response)
+	}))
+
+	testClient := testServer.Client()
+
+	client := DiagnosticsClient{
+		client: testClient,
+	}
+
+	bundles, err := client.List(context.TODO(), testServer.URL)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, expectedResponse, bundles)
+}
+
+func TestListWhenResponseEmpty(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/node/diagnostics", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonMarshal([]*Bundle{}))
+	}))
+
+	testClient := testServer.Client()
+
+	client := DiagnosticsClient{
+		client: testClient,
+	}
+
+	bundles, err := client.List(context.TODO(), testServer.URL)
+	require.NoError(t, err)
+	assert.Len(t, bundles, 0)
+}
+
+func TestDelete(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	client := DiagnosticsClient{
+		client: testServer.Client(),
+	}
+
+	err := client.Delete(context.TODO(), testServer.URL, "bundle-0")
+	require.NoError(t, err)
+}
+
+func TestDeleteWhenBundleNotFound(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	client := DiagnosticsClient{
+		client: testServer.Client(),
+	}
+
+	err := client.Delete(context.TODO(), testServer.URL, "bundle-0")
+	assert.EqualError(t, err, "bundle bundle-0 not found")
+}
+
+func TestDeleteWhenBundleAlreadyDeleted(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+
+		w.WriteHeader(http.StatusNotModified)
+	}))
+
+	client := DiagnosticsClient{
+		client: testServer.Client(),
+	}
+
+	err := client.Delete(context.TODO(), testServer.URL, "bundle-0")
+	assert.EqualError(t, err, "bundle bundle-0 canceled or already deleted")
+}
+
+func TestDeleteWhenBundleUnreadable(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	client := DiagnosticsClient{
+		client: testServer.Client(),
+	}
+
+	err := client.Delete(context.TODO(), testServer.URL, "bundle-0")
+	assert.EqualError(t, err, "bundle bundle-0 could not be read")
+}
