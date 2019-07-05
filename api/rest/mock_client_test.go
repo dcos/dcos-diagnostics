@@ -33,6 +33,20 @@ func (_m *MockClient) CreateBundle(ctx context.Context, node string, ID string) 
 	return r0, r1
 }
 
+// Delete provides a mock function with given fields: ctx, node, id
+func (_m *MockClient) Delete(ctx context.Context, node string, id string) error {
+	ret := _m.Called(ctx, node, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, node, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetFile provides a mock function with given fields: ctx, node, ID, path
 func (_m *MockClient) GetFile(ctx context.Context, node string, ID string, path string) error {
 	ret := _m.Called(ctx, node, ID, path)
