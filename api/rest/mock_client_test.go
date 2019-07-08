@@ -33,6 +33,20 @@ func (_m *MockClient) CreateBundle(ctx context.Context, node string, ID string) 
 	return r0, r1
 }
 
+// Delete provides a mock function with given fields: ctx, node, id
+func (_m *MockClient) Delete(ctx context.Context, node string, id string) error {
+	ret := _m.Called(ctx, node, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, node, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetFile provides a mock function with given fields: ctx, node, ID, path
 func (_m *MockClient) GetFile(ctx context.Context, node string, ID string, path string) error {
 	ret := _m.Called(ctx, node, ID, path)
@@ -45,6 +59,29 @@ func (_m *MockClient) GetFile(ctx context.Context, node string, ID string, path 
 	}
 
 	return r0
+}
+
+// List provides a mock function with given fields: ctx, node
+func (_m *MockClient) List(ctx context.Context, node string) ([]*Bundle, error) {
+	ret := _m.Called(ctx, node)
+
+	var r0 []*Bundle
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*Bundle); ok {
+		r0 = rf(ctx, node)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Bundle)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, node)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Status provides a mock function with given fields: ctx, node, ID
