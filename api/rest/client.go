@@ -67,7 +67,9 @@ func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID str
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode == http.StatusConflict {
+		return nil, &DiagnosticsBundleAlreadyExists{id: ID}
+	} else if resp.StatusCode != http.StatusOK {
 		return nil, handleErrorCode(resp, url)
 	}
 
@@ -101,12 +103,13 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (
 	bundle := &Bundle{}
 
 	if resp.StatusCode == http.StatusNotFound {
-		bundle.Status = Unknown
-		return bundle, nil
-	}
-	if resp.StatusCode != http.StatusOK {
+		return nil, &DiagnosticsBundleNotFoundError{id: ID}
+	} else if resp.StatusCode == http.StatusInternalServerError {
+		return nil, &DiagnosticsBundleUnreadableError{id: ID}
+	} else if resp.StatusCode != http.StatusOK {
 		return nil, handleErrorCode(resp, url)
 	}
+
 	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
 		return nil, err
@@ -131,7 +134,11 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode == http.StatusNotFound {
+		return &DiagnosticsBundleNotFoundError{id: ID}
+	} else if resp.StatusCode == http.StatusInternalServerError {
+		return &DiagnosticsBundleUnreadableError{id: ID}
+	} else if resp.StatusCode != http.StatusOK {
 		return handleErrorCode(resp, url)
 	}
 
@@ -196,11 +203,11 @@ func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) e
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotModified {
-		return fmt.Errorf("bundle %s canceled or already deleted", id)
+		return &DiagnosticsBundleNotCompletedError{id: id}
 	} else if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("bundle %s not found", id)
+		return &DiagnosticsBundleNotFoundError{id: id}
 	} else if resp.StatusCode == http.StatusInternalServerError {
-		return fmt.Errorf("bundle %s could not be read", id)
+		return &DiagnosticsBundleUnreadableError{id: id}
 	} else if resp.StatusCode != http.StatusOK {
 		return handleErrorCode(resp, url)
 	}
@@ -217,4 +224,36 @@ func handleErrorCode(resp *http.Response, url string) error {
 func remoteURL(node string, ID string) string {
 	url := fmt.Sprintf("%s%s/%s", node, bundlesEndpoint, ID)
 	return url
+}
+
+type DiagnosticsBundleNotFoundError struct {
+	id string
+}
+
+func (d *DiagnosticsBundleNotFoundError) Error() string {
+	return fmt.Sprintf("bundle %s not found", d.id)
+}
+
+type DiagnosticsBundleUnreadableError struct {
+	id string
+}
+
+func (d *DiagnosticsBundleUnreadableError) Error() string {
+	return fmt.Sprintf("bundle %s not readable", d.id)
+}
+
+type DiagnosticsBundleNotCompletedError struct {
+	id string
+}
+
+func (d *DiagnosticsBundleNotCompletedError) Error() string {
+	return fmt.Sprintf("bundle %s canceled or already deleted", d.id)
+}
+
+type DiagnosticsBundleAlreadyExists struct {
+	id string
+}
+
+func (d *DiagnosticsBundleAlreadyExists) Error() string {
+	return fmt.Sprintf("bundle %s already exists", d.id)
 }
