@@ -39,9 +39,62 @@ func TestDeleteBundleThatNeverExisted(t *testing.T) {
 }
 
 func TestDeleteUnreadableBundle(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Role: "master",
+			IP:   "192.0.2.2",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.4",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.5",
+		},
+	}, nil)
+
+	ctx := context.TODO()
+
+	id := "bundle-0"
+	client := new(MockClient)
+	client.On("Delete", ctx, "http://192.0.2.2", id).Return(&DiagnosticsBundleNotFoundError{id: id})
+	client.On("Delete", ctx, "http://192.0.2.4", id).Return(&DiagnosticsBundleUnreadableError{id: id})
+	client.On("Delete", ctx, "http://192.0.2.5", id).Return(&DiagnosticsBundleNotFoundError{id: id})
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Delete).Methods(http.MethodDelete)
+
+	req, err := http.NewRequest(http.MethodDelete, bundlesEndpoint+"/"+id, nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }
 
-func TestStatusForBundleOnOtherMaster(t *testing.T) {
+func TestStatusForBundle(t *testing.T) {
 	workdir, err := ioutil.TempDir("", "work-dir")
 	require.NoError(t, err)
 	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
@@ -102,11 +155,65 @@ func TestStatusForBundleOnOtherMaster(t *testing.T) {
 	assert.JSONEq(t, string(jsonMarshal(Bundle{
 		ID:      "bundle-0",
 		Status:  Done,
-		Started: now.Add(time.Hour),
+		Started: now,
+		Stopped: now.Add(time.Hour),
 	})), rr.Body.String())
 }
 
 func TestStatusOnMissingBundle(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Role: "master",
+			IP:   "192.0.2.2",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.4",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.5",
+		},
+	}, nil)
+
+	ctx := context.TODO()
+
+	id := "bundle-0"
+	client := new(MockClient)
+	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+	client.On("Status", ctx, "http://192.0.2.5", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Status).Methods(http.MethodGet)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle-0", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestStatusForUnreadableBunde(t *testing.T) {
@@ -121,7 +228,72 @@ func TestDownloadMissingBundle(t *testing.T) {
 func TestDownloadUnreadableBundle(t *testing.T) {
 }
 
-func TestListWithBundlesOnOtherMasters(t *testing.T) {
+func TestListWithBundlesOnMultipleMasters(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Role: "master",
+			IP:   "192.0.2.2",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.4",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.5",
+		},
+	}, nil)
+
+	ctx := context.TODO()
+
+	expectedBundles := []*Bundle{
+		{
+			ID: "bundle-0",
+		},
+		{
+			ID: "bundle-1",
+		},
+		{
+			ID: "bundle-2",
+		},
+	}
+
+	client := new(MockClient)
+	client.On("List", ctx, "http://192.0.2.2").Return([]*Bundle{expectedBundles[2]})
+	client.On("List", ctx, "http://192.0.2.4").Return([]*Bundle{expectedBundles[1]})
+	client.On("List", ctx, "http://192.0.2.5").Return([]*Bundle{expectedBundles[0]})
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundlesEndpoint, bh.List).Methods(http.MethodGet)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.JSONEq(t, string(jsonMarshal(expectedBundles)), rr.Body.String())
 }
 
 func TestRemoteBundleCreation(t *testing.T) {
@@ -155,7 +327,12 @@ func TestRemoteBundleCreation(t *testing.T) {
 	ctx := context.TODO()
 
 	client := new(MockClient)
-	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(nil, fmt.Errorf("asdf"))
+	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(&Bundle{
+		ID:      "bundle-0",
+		Started: now.Add(time.Hour),
+		Stopped: now.Add(2 * time.Hour),
+		Status:  Done,
+	}, nil)
 
 	coord := new(mockCoordinator)
 	bh := NewClusterBundleHandler(
@@ -220,7 +397,6 @@ func TestRemoteBundleCreation(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
-			Size:    727,
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),

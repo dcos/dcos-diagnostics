@@ -153,7 +153,6 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 		return err
 	}
 
-	// return the full path to the created file
 	return nil
 }
 

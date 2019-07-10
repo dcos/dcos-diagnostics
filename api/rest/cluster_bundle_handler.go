@@ -161,10 +161,25 @@ func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, b
 
 // List will get a list of all bundles available across all masters
 func (c *ClusterBundleHandler) List(w http.ResponseWriter, r *http.Request) {
-	_, err := c.getClusterNodes()
+	masters, err := c.getClusterNodes()
 	if err != nil {
-		// TODO
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to get list of master nodes: %s", err))
+		return
 	}
+
+	ctx := context.Background()
+
+	bundles := []*Bundle{}
+	for _, n := range masters {
+		nodeBundles, err := c.client.List(ctx, n.baseURL)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to get list of bundles from all masters: %s", err))
+			return
+		}
+		bundles = append(bundles, nodeBundles...)
+	}
+
+	write(w, jsonMarshal(bundles))
 }
 
 // Status will return the status of a given bundle, proxying the call to the appropriate master
@@ -182,43 +197,105 @@ func (c *ClusterBundleHandler) Status(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: parallelize this
 	// TODO: it's very possible that we can have duplicate node IDs for the local bundles that will be generated on the master
-	var foundBundle *Bundle
 	for _, n := range masters {
 		bundle, err := c.client.Status(ctx, n.baseURL, id)
+
 		if err == nil {
-			foundBundle = bundle
-			break
+			write(w, jsonMarshal(bundle))
+			return
 		}
 	}
 
-	if foundBundle == nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle %s did not exist on any masters", id))
-		return
-	}
-	write(w, jsonMarshal(foundBundle))
+	// we would only get here if we didn't find the bundle on any of the masters
+	writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle %s did not exist on any masters", id))
 }
 
 // Delete will delete a given bundle, proxying the call if the given bundle exists
 // on a different master
 func (c *ClusterBundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	_ = vars["id"]
+	id := vars["id"]
 
-	_, err := c.getMasterNodes()
+	masters, err := c.getMasterNodes()
 	if err != nil {
-		// TODO
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to get list of masters: %s", err))
+		return
+	}
+
+	ctx := context.Background()
+
+	found := false
+	for _, n := range masters {
+		err = c.client.Delete(ctx, n.baseURL, id)
+		if err != nil {
+			// some errors tell us the bundle was found on a master but something else was wrong so we end and return an error status
+			// but a NotFound error means it should keep going
+			switch err.(type) {
+			case *DiagnosticsBundleNotCompletedError:
+				writeJSONError(w, http.StatusNotModified, err)
+				return
+			case *DiagnosticsBundleUnreadableError:
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+		}
+		if err == nil {
+			found = true
+		}
+	}
+
+	if !found {
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("bundle %s not found on any master", id))
 	}
 }
 
 // Download will download the given bundle, proxying the call to the appropriate master
 func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	_ = vars["id"]
+	id := vars["id"]
 
-	_, err := c.getClusterNodes()
+	// TODO: for this one specifically, it would be ideal to detect if the bundle exists on the calling master
+	// first since then we can skip the intermediate download
+	masters, err := c.getMasterNodes()
 	if err != nil {
-		// TODO
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to get list of masters: %s", err))
+		return
 	}
+
+	ctx := context.Background()
+
+	var masterWithBundle node
+	for _, n := range masters {
+		_, err = c.client.Status(ctx, n.baseURL, id)
+		if err != nil {
+			masterWithBundle = n
+			break
+		}
+	}
+
+	bundleDir, err := ioutil.TempDir("", "bundle-*")
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error opening temp file to download bundle %s", err))
+		return
+	}
+	defer os.RemoveAll(bundleDir)
+
+	bundleFilename := filepath.Join(bundleDir, "bundle.zip")
+
+	err = c.client.GetFile(ctx, masterWithBundle.baseURL, id, bundleFilename)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error downloading bundle: %s", err))
+		return
+	}
+
+	data, err := ioutil.ReadFile(bundleFilename)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to read downloaded bundle file: %s", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 func (c *ClusterBundleHandler) getClusterNodes() ([]node, error) {
@@ -243,7 +320,6 @@ func (c *ClusterBundleHandler) getMasterNodes() ([]node, error) {
 	nodes := []node{}
 	for _, n := range masters {
 		ip := net.ParseIP(n.IP)
-		// govet seems to have an issue with err shadowing a previous declaration, not sure why
 		url, err := c.urlBuilder.BaseURL(ip, n.Role)
 		if err != nil {
 			logrus.WithField("node", ip).WithField("role", n.Role).WithError(err).Error("unable to build base URL for node, skipping")
