@@ -161,7 +161,7 @@ func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, b
 
 // List will get a list of all bundles available across all masters
 func (c *ClusterBundleHandler) List(w http.ResponseWriter, r *http.Request) {
-	masters, err := c.getClusterNodes()
+	masters, err := c.getMasterNodes()
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to get list of master nodes: %s", err))
 		return
@@ -199,6 +199,16 @@ func (c *ClusterBundleHandler) Status(w http.ResponseWriter, r *http.Request) {
 	// TODO: it's very possible that we can have duplicate node IDs for the local bundles that will be generated on the master
 	for _, n := range masters {
 		bundle, err := c.client.Status(ctx, n.baseURL, id)
+		if err != nil {
+			switch err.(type) {
+			case *DiagnosticsBundleNotCompletedError:
+				writeJSONError(w, http.StatusNotModified, err)
+				return
+			case *DiagnosticsBundleUnreadableError:
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+		}
 
 		if err == nil {
 			write(w, jsonMarshal(bundle))
@@ -267,13 +277,13 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 	var masterWithBundle node
 	for _, n := range masters {
 		_, err = c.client.Status(ctx, n.baseURL, id)
-		if err != nil {
+		if err == nil {
 			masterWithBundle = n
 			break
 		}
 	}
 
-	bundleDir, err := ioutil.TempDir("", "bundle-*")
+	bundleDir, err := ioutil.TempDir("", "bundle-")
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error opening temp file to download bundle %s", err))
 		return
