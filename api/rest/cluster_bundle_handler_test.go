@@ -26,9 +26,44 @@ import (
 )
 
 func TestRemoteBundleCreationConflictErrorWhenBundleExists(t *testing.T) {
-}
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(workdir)
+	// err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	// require.NoError(t, err)
 
-func TestRemoteBundleCreationFileSystemError(t *testing.T) {
+	id := "bundle-0"
+	err = os.Mkdir(filepath.Join(workdir, id), 0x666)
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+
+	client := new(MockClient)
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Create).Methods(http.MethodPut)
+
+	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/"+id, nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusConflict, rr.Code)
 }
 
 func TestDeleteBundle(t *testing.T) {
@@ -497,9 +532,115 @@ func TestDownloadBundle(t *testing.T) {
 }
 
 func TestDownloadMissingBundle(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Role: "master",
+			IP:   "192.0.2.2",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.4",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.5",
+		},
+	}, nil)
+
+	ctx := context.TODO()
+
+	id := "bundle-0"
+	client := new(MockClient)
+	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+	client.On("Status", ctx, "http://192.0.2.5", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleFileEndpoint, bh.Download).Methods(http.MethodGet)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/"+id+"/file", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestDownloadUnreadableBundle(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir) // just check if dcos-diagnostics will create whole path to workdir
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{
+		{
+			Role: "master",
+			IP:   "192.0.2.2",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.4",
+		},
+		{
+			Role: "master",
+			IP:   "192.0.2.5",
+		},
+	}, nil)
+
+	ctx := context.TODO()
+
+	id := "bundle-0"
+	client := new(MockClient)
+	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
+	client.On("Status", ctx, "http://192.0.2.5", id).Return(nil, &DiagnosticsBundleUnreadableError{id: id})
+
+	coord := new(mockCoordinator)
+	bh := NewClusterBundleHandler(
+		coord,
+		client,
+		tools,
+		workdir,
+		time.Second,
+		&MockClock{now: now},
+		MockURLBuilder{},
+	)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleFileEndpoint, bh.Download).Methods(http.MethodGet)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/"+id+"/file", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestListWithBundlesOnMultipleMasters(t *testing.T) {
