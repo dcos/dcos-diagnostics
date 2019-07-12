@@ -17,7 +17,7 @@ const numberOfWorkers = 10
 const contextDoneErrMsg = "bundle creation context finished before bundle creation finished"
 
 // BundleStatus tracks the status of local bundle creation requests
-type bundleStatus struct {
+type BundleStatus struct {
 	id   string
 	node node
 	done bool
@@ -26,21 +26,20 @@ type bundleStatus struct {
 
 // golangcli-lint marks this as dead code because nothing uses the interface
 // yet. this will be removed with the bundle handler PR
-//nolint:deadcode
 // coordinator is an interface to coordinate the creation of diagnostics bundles
 // across a cluster of nodes
-type coordinator interface {
+type Coordinator interface {
 	// CreateBundle starts the bundle creation process. Status updates be monitored
 	// on the returned channel.
-	CreateBundle(ctx context.Context, id string, nodes []node) <-chan bundleStatus
+	CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus
 	// CollectBundle waits until all the nodes' bundles have finished, downloads,
 	// and merges them. The resulting bundle zip file path is returned.
-	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan bundleStatus) (string, error)
+	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
 }
 
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
 // creation across a cluster, parallelized across multiple goroutines.
-type parallelCoordinator struct {
+type ParallelCoordinator struct {
 	client Client
 
 	// statusCheckInterval defines how often the status of the local bundles will
@@ -57,11 +56,21 @@ type parallelCoordinator struct {
 	quit chan struct{}
 }
 
+// NewParallelCoordinator creates and returns a new ParallelCoordinator
+func NewParallelCoordinator(client Client, interval time.Duration, workDir string) *ParallelCoordinator {
+	return &ParallelCoordinator{
+		client:              client,
+		statusCheckInterval: interval,
+		workDir:             workDir,
+		quit:                make(chan struct{}),
+	}
+}
+
 // job is a function that will be called by the worker function. The output will be added to results channel
-type job func(context.Context) bundleStatus
+type job func(context.Context) BundleStatus
 
 // worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
-func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus, quit <-chan struct{}) {
+func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus, quit <-chan struct{}) {
 	for {
 		select {
 		case <-quit:
@@ -72,25 +81,12 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus, q
 	}
 }
 
-// golangci-lint is marking this for unparam because all our tests use the same setting. This will be
-// removed in the bundle handler PR which will add a different setting
-//nolint:unparam
-// newParallelCoordinator constructs a new parallelCoordinator.
-func newParallelCoordinator(client Client, interval time.Duration, workDir string) parallelCoordinator {
-	return parallelCoordinator{
-		client:              client,
-		statusCheckInterval: interval,
-		workDir:             workDir,
-		quit:                make(chan struct{}),
-	}
-}
-
 // CreateBundle starts the bundle creation process. Status updates be monitored
 // on the returned channel.
-func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan bundleStatus {
+func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
 	jobs := make(chan job)
-	statuses := make(chan bundleStatus)
+	statuses := make(chan BundleStatus)
 
 	for i := 0; i < numberOfWorkers; i++ {
 		go worker(ctx, jobs, statuses, c.quit)
@@ -101,10 +97,10 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
-		jobs <- func(ctx context.Context) bundleStatus {
+		jobs <- func(ctx context.Context) BundleStatus {
 			select {
 			case <-ctx.Done():
-				return bundleStatus{
+				return BundleStatus{
 					id:   id,
 					node: tmpNode,
 					err:  errors.New(contextDoneErrMsg),
@@ -121,7 +117,7 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 // CollectBundle waits until all the nodes' bundles have finished, downloads,
 // and merges them. The resulting bundle zip file path is returned.
-func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan bundleStatus) (string, error) {
+func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
 	// holds the paths to the downloaded local bundles before merging
 	var bundlePaths []string
@@ -214,11 +210,11 @@ func appendToZip(writer *zip.Writer, path string) error {
 	return nil
 }
 
-func (c parallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
+func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	_, err := c.client.CreateBundle(ctx, node.baseURL, id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
-		return bundleStatus{
+		return BundleStatus{
 			id:   id,
 			node: node,
 			done: true,
@@ -227,18 +223,18 @@ func (c parallelCoordinator) createBundle(ctx context.Context, node node, id str
 	}
 
 	// Schedule bundle status check
-	jobs <- func(ctx context.Context) bundleStatus {
+	jobs <- func(ctx context.Context) BundleStatus {
 		return c.waitForDone(ctx, node, id, jobs)
 	}
 
 	// Return undone status with no error.
-	return bundleStatus{id: id, node: node}
+	return BundleStatus{id: id, node: node}
 }
 
-func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
+func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	select {
 	case <-ctx.Done():
-		return bundleStatus{
+		return BundleStatus{
 			id:   id,
 			node: node,
 			done: true,
@@ -248,7 +244,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	}
 
 	statusCheck := func() {
-		jobs <- func(ctx context.Context) bundleStatus {
+		jobs <- func(ctx context.Context) BundleStatus {
 			return c.waitForDone(ctx, node, id, jobs)
 		}
 	}
@@ -263,20 +259,20 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 		// It will only add check to job queue so interval might increase but it's OK.
 		time.AfterFunc(c.statusCheckInterval, statusCheck)
 		// Return status with error. Do not mark bundle as done yet. It might change it status
-		return bundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
+		return BundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
 	// If bundle is in terminal state (its state won't change)
 	if bundle.Status == Done || bundle.Status == Deleted || bundle.Status == Canceled {
 		logrus.WithField("IP", node.IP).Info("Node bundle is finished.")
 		// mark it as done
-		return bundleStatus{id: id, node: node, done: true}
+		return BundleStatus{id: id, node: node, done: true}
 	}
 	// If bundle is still in progress (InProgress, Unknown or Started)
 	// then schedule next check in given time
 	// It will only add check to job queue so interval might increase but it's OK.
 	time.AfterFunc(c.statusCheckInterval, statusCheck)
 	// Return undone status with no error. Do not mark bundle as done yet. It might change it status
-	return bundleStatus{id: id, node: node}
+	return BundleStatus{id: id, node: node}
 }
 
 func nodeBundleFilename(n node) string {

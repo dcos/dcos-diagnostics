@@ -18,13 +18,22 @@ import (
 const baseRoute string = "/system/health/v1"
 
 // Endpoint for listing all local bundles
-const bundlesEndpoint = baseRoute + "/node/diagnostics"
+const nodeBundlesEndpoint = baseRoute + "/node/diagnostics"
 
 // CRUD endpoint for diagnostics bundle files
-const bundleEndpoint = bundlesEndpoint + "/{id}"
+const nodeBundleEndpoint = nodeBundlesEndpoint + "/{id}"
 
 // Endpoint to download bundle file
-const bundleFileEndpoint = bundleEndpoint + "/file"
+const nodeBundleFileEndpoint = nodeBundleEndpoint + "/file"
+
+// Endpoint for listing all cluster bundles
+const clusterBundlesEndpoint = baseRoute + "/diagnostics"
+
+// CRUD endpoint for cluster-level diagnostics bundles
+const clusterBundleEndpoint = clusterBundlesEndpoint + "/{id}"
+
+// Endpoint to download cluster bundle file
+const clusterBundleFileEndpoint = clusterBundleEndpoint + "/file"
 
 type routeHandler struct {
 	url                 string
@@ -99,6 +108,7 @@ func getRoutes(dt *Dt) []routeHandler {
 	}
 
 	bh := dt.BundleHandler
+	cbh := dt.ClusterBundleHandler
 
 	routes := []routeHandler{
 		{
@@ -193,29 +203,56 @@ func getRoutes(dt *Dt) []routeHandler {
 		},
 		//---------------------------------------------------------------------
 		// 					V2 REST API for bundles CRUD
+		//---- Node level API
 		{
-			url:     bundleEndpoint,
+			url:     nodeBundleEndpoint,
 			handler: bh.Create,
 			methods: []string{"PUT"},
 		},
 		{
-			url:     bundleEndpoint,
+			url:     nodeBundleEndpoint,
 			handler: bh.Delete,
 			methods: []string{"DELETE"},
 		},
 		{
-			url:     bundlesEndpoint,
+			url:     nodeBundlesEndpoint,
 			handler: bh.List,
 			methods: []string{"GET"},
 		},
 		{
-			url:     bundleEndpoint,
+			url:     nodeBundleEndpoint,
 			handler: bh.Get,
 			methods: []string{"GET"},
 		},
 		{
-			url:     bundleFileEndpoint,
+			url:     nodeBundleFileEndpoint,
 			handler: bh.GetFile,
+			methods: []string{"GET"},
+		},
+		//---- Cluster level API
+		{
+			url:     clusterBundleEndpoint,
+			handler: cbh.Create,
+			methods: []string{"PUT"},
+		},
+		{
+			url:     clusterBundleEndpoint,
+			handler: cbh.Delete,
+			methods: []string{"DELETE"},
+		},
+		{
+			url:     clusterBundlesEndpoint,
+			handler: cbh.List,
+			methods: []string{"GET"},
+		},
+		{
+			url:     clusterBundleEndpoint,
+			handler: cbh.Status,
+			methods: []string{"GET"},
+		},
+		{
+			url:     clusterBundleFileEndpoint,
+			handler: cbh.Download,
 			methods: []string{"GET"},
 		},
 		//---------------------------------------------------------------------

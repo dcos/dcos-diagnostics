@@ -22,7 +22,7 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 	interval := time.Millisecond
 	workDir := os.TempDir()
 
-	c := newParallelCoordinator(client, interval, workDir)
+	c := NewParallelCoordinator(client, interval, workDir)
 
 	ctx := context.TODO()
 
@@ -37,20 +37,20 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 		node3,
 	}
 
-	expected := []bundleStatus{}
+	expected := []BundleStatus{}
 
 	for _, n := range testNodes {
 		client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
 		client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil)
 
 		expected = append(expected,
-			bundleStatus{id: localBundleID, node: n},
-			bundleStatus{id: localBundleID, node: n, done: true},
+			BundleStatus{id: localBundleID, node: n},
+			BundleStatus{id: localBundleID, node: n, done: true},
 		)
 	}
 	s := c.CreateBundle(context.TODO(), localBundleID, testNodes)
 
-	var statuses []bundleStatus
+	var statuses []BundleStatus
 
 	for i := 0; i < 6; i++ {
 		statuses = append(statuses, <-s)
@@ -67,7 +67,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
-	c := newParallelCoordinator(client, interval, workDir)
+	c := NewParallelCoordinator(client, interval, workDir)
 
 	ctx := context.TODO()
 
@@ -169,7 +169,7 @@ func TestHandlingForBundleUpdateInProgress(t *testing.T) {
 
 	localBundleID := "bundle-0"
 
-	c := newParallelCoordinator(client, interval, workDir)
+	c := NewParallelCoordinator(client, interval, workDir)
 	ctx := context.TODO()
 
 	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
@@ -182,7 +182,7 @@ func TestHandlingForBundleUpdateInProgress(t *testing.T) {
 
 	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
 
-	expected := []bundleStatus{
+	expected := []BundleStatus{
 		{
 			id:   localBundleID,
 			node: n,
@@ -200,7 +200,7 @@ func TestHandlingForBundleUpdateInProgress(t *testing.T) {
 		},
 	}
 
-	results := []bundleStatus{}
+	results := []BundleStatus{}
 
 	for i := 0; i < len(expected); i++ {
 		results = append(results, <-statuses)
@@ -219,7 +219,7 @@ func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
 
 	localBundleID := "bundle-0"
 
-	c := newParallelCoordinator(client, interval, workDir)
+	c := NewParallelCoordinator(client, interval, workDir)
 	ctx := context.TODO()
 	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
 
@@ -228,7 +228,7 @@ func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
 
 	s := c.CreateBundle(ctx, localBundleID, []node{n})
 
-	expected := bundleStatus{
+	expected := BundleStatus{
 		id:   localBundleID,
 		node: n,
 		done: true,
@@ -247,7 +247,7 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 
 	localBundleID := "bundle-0"
 
-	c := newParallelCoordinator(client, interval, workDir)
+	c := NewParallelCoordinator(client, interval, workDir)
 	ctx := context.TODO()
 
 	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
@@ -262,7 +262,7 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 
 	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
 
-	expected := []bundleStatus{
+	expected := []BundleStatus{
 		{
 			id:   localBundleID,
 			node: n,
@@ -281,7 +281,7 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 		},
 	}
 
-	results := []bundleStatus{}
+	results := []BundleStatus{}
 
 	for i := 0; i < len(expected); i++ {
 		results = append(results, <-statuses)
@@ -300,7 +300,7 @@ func TestHandlingForCanceledContext(t *testing.T) {
 
 	localBundleID := "bundle-0"
 
-	c := newParallelCoordinator(client, interval, workDir)
+	c := NewParallelCoordinator(client, interval, workDir)
 	ctx := context.TODO()
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
@@ -315,7 +315,7 @@ func TestHandlingForCanceledContext(t *testing.T) {
 
 	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
 
-	results := []bundleStatus{}
+	results := []BundleStatus{}
 
 	for s := range statuses {
 		results = append(results, s)
@@ -324,7 +324,7 @@ func TestHandlingForCanceledContext(t *testing.T) {
 		}
 	}
 
-	expected := []bundleStatus{
+	expected := []BundleStatus{
 		{
 			id:   localBundleID,
 			node: n,

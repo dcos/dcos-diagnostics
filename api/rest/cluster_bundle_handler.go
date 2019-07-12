@@ -23,7 +23,7 @@ import (
 // diagnostics bundles
 type ClusterBundleHandler struct {
 	workDir    string
-	coord      coordinator
+	coord      Coordinator
 	client     Client
 	tools      dcos.Tooler
 	timeout    time.Duration
@@ -31,8 +31,8 @@ type ClusterBundleHandler struct {
 	urlBuilder dcos.NodeURLBuilder
 }
 
-func NewClusterBundleHandler(c coordinator, client Client, tools dcos.Tooler, workDir string, timeout time.Duration,
-	clock Clock, urlBuilder dcos.NodeURLBuilder) *ClusterBundleHandler {
+func NewClusterBundleHandler(c Coordinator, client Client, tools dcos.Tooler, workDir string, timeout time.Duration,
+	urlBuilder dcos.NodeURLBuilder) *ClusterBundleHandler {
 
 	return &ClusterBundleHandler{
 		coord:      c,
@@ -40,7 +40,7 @@ func NewClusterBundleHandler(c coordinator, client Client, tools dcos.Tooler, wo
 		workDir:    workDir,
 		timeout:    timeout,
 		tools:      tools,
-		clock:      clock,
+		clock:      &realClock{},
 		urlBuilder: urlBuilder,
 	}
 }
@@ -129,7 +129,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int,
-	dataFile io.WriteCloser, stateFilePath string, statuses <-chan bundleStatus) {
+	dataFile io.WriteCloser, stateFilePath string, statuses <-chan BundleStatus) {
 
 	defer dataFile.Close()
 
@@ -193,7 +193,7 @@ func (c *ClusterBundleHandler) Status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	// TODO: parallelize this
 	// TODO: it's very possible that we can have duplicate node IDs for the local bundles that will be generated on the master
