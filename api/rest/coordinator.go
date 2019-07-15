@@ -130,7 +130,6 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		select {
 		case <-ctx.Done():
 			msg := "Context cancelled before all node bundles finished"
-			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 			logrus.WithField("ID", bundleID).Warn(msg)
 			close(c.quit)
 			bundleErrors = append(bundleErrors, msg)
@@ -281,6 +280,12 @@ func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	bundle, err := c.client.Status(ctx, node.baseURL, id)
 	// If error
 	if err != nil {
+		// Unreadable tells the bundle is finished but broken somehow so we shouldn't expect its status to change in the future
+		if _, ok := err.(*DiagnosticsBundleUnreadableError); ok {
+			logrus.WithField("IP", node.IP).WithField("ID", id).WithError(err).Error("Bundle unreadable, stopping")
+			return BundleStatus{done: true, id: id, node: node, err: err}
+		}
+
 		logrus.WithField("IP", node.IP).WithError(err).Error("Error occurred checking bundle status, continuing")
 		// then schedule next check in given time.
 		// It will only add check to job queue so interval might increase but it's OK.
