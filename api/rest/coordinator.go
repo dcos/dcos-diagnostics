@@ -2,6 +2,7 @@ package rest
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -122,14 +123,18 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 	// holds the paths to the downloaded local bundles before merging
 	var bundlePaths []string
 
+	bundleErrors := []string{}
+
 	finishedBundles := 0
 	for finishedBundles < numBundles {
 		select {
 		case <-ctx.Done():
+			msg := "Context cancelled before all node bundles finished"
 			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
-			logrus.WithField("ID", bundleID).Warn("context cancelled before all node bundles finished")
+			logrus.WithField("ID", bundleID).Warn(msg)
 			close(c.quit)
-			return mergeZips(bundleID, bundlePaths, c.workDir)
+			bundleErrors = append(bundleErrors, msg)
+			return mergeZips(bundleID, bundlePaths, bundleErrors, c.workDir)
 		case s := <-statuses:
 			if !s.done {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
@@ -139,16 +144,16 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			// even if the bundle finished with an error, it's now finished so increment finishedBundles
 			finishedBundles++
 			if s.err != nil {
-				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
+				bundleErrors = append(bundleErrors, fmt.Sprintf("Error getting bundle %s: %s", s.node.IP, s.err))
 				continue
 			}
 
 			bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
 			err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
 			if err != nil {
-				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
+				bundleErrors = append(bundleErrors, fmt.Sprintf("Error downloading bundle from %s: %s", s.node.IP, err))
 				continue
 			}
 
@@ -157,10 +162,10 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 	}
 
 	close(c.quit)
-	return mergeZips(bundleID, bundlePaths, c.workDir)
+	return mergeZips(bundleID, bundlePaths, bundleErrors, c.workDir)
 }
 
-func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, error) {
+func mergeZips(bundleID string, bundlePaths []string, generationErrors []string, workDir string) (string, error) {
 
 	bundlePath := filepath.Join(workDir, fmt.Sprintf("bundle-%s.zip", bundleID))
 	mergedZip, err := os.Create(bundlePath)
@@ -172,13 +177,17 @@ func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, e
 	zipWriter := zip.NewWriter(mergedZip)
 	defer zipWriter.Close()
 
+	writingErrors := []string{}
+
 	for _, p := range bundlePaths {
-		// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle
 		err = appendToZip(zipWriter, p)
 		if err != nil {
-			return "", err
+			writingErrors = append(writingErrors, err.Error())
 		}
 	}
+
+	errors := append(generationErrors, writingErrors...)
+	appendErrorsToZip(zipWriter, errors)
 
 	return mergedZip.Name(), nil
 }
@@ -206,6 +215,24 @@ func appendToZip(writer *zip.Writer, path string) error {
 		}
 		rc.Close()
 	}
+
+	return nil
+}
+
+func appendErrorsToZip(writer *zip.Writer, errors []string) error {
+	w, err := writer.Create("summaryErrorReport.txt")
+	if err != nil {
+		return err
+	}
+
+	bw := bufio.NewWriter(w)
+	for _, e := range errors {
+		_, err := fmt.Fprintln(bw, e)
+		if err != nil {
+			return err
+		}
+	}
+	bw.Flush()
 
 	return nil
 }

@@ -130,6 +130,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 		"192.0.2.2_master/test.txt",
 		"192.0.2.3_public_agent/",
 		"192.0.2.3_public_agent/test.txt",
+		"summaryErrorReport.txt",
 	}
 
 	filenames := []string{}
