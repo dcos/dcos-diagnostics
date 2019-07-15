@@ -67,9 +67,10 @@ func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID str
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusConflict {
+	switch {
+	case resp.StatusCode == http.StatusConflict:
 		return nil, &DiagnosticsBundleAlreadyExists{id: ID}
-	} else if resp.StatusCode != http.StatusOK {
+	case resp.StatusCode != http.StatusOK:
 		return nil, handleErrorCode(resp, url)
 	}
 
@@ -102,11 +103,12 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (
 
 	bundle := &Bundle{}
 
-	if resp.StatusCode == http.StatusNotFound {
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
 		return nil, &DiagnosticsBundleNotFoundError{id: ID}
-	} else if resp.StatusCode == http.StatusInternalServerError {
+	case resp.StatusCode == http.StatusInternalServerError:
 		return nil, &DiagnosticsBundleUnreadableError{id: ID}
-	} else if resp.StatusCode != http.StatusOK {
+	case resp.StatusCode != http.StatusOK:
 		return nil, handleErrorCode(resp, url)
 	}
 
@@ -134,11 +136,12 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
 		return &DiagnosticsBundleNotFoundError{id: ID}
-	} else if resp.StatusCode == http.StatusInternalServerError {
+	case resp.StatusCode == http.StatusInternalServerError:
 		return &DiagnosticsBundleUnreadableError{id: ID}
-	} else if resp.StatusCode != http.StatusOK {
+	case resp.StatusCode != http.StatusOK:
 		return handleErrorCode(resp, url)
 	}
 
@@ -201,13 +204,14 @@ func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) e
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotModified {
+	switch {
+	case resp.StatusCode == http.StatusNotModified:
 		return &DiagnosticsBundleNotCompletedError{id: id}
-	} else if resp.StatusCode == http.StatusNotFound {
+	case resp.StatusCode == http.StatusNotFound:
 		return &DiagnosticsBundleNotFoundError{id: id}
-	} else if resp.StatusCode == http.StatusInternalServerError {
+	case resp.StatusCode == http.StatusInternalServerError:
 		return &DiagnosticsBundleUnreadableError{id: id}
-	} else if resp.StatusCode != http.StatusOK {
+	case resp.StatusCode != http.StatusOK:
 		return handleErrorCode(resp, url)
 	}
 
