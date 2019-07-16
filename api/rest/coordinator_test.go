@@ -49,7 +49,9 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 			BundleStatus{id: localBundleID, node: n, done: true},
 		)
 	}
-	s := c.CreateBundle(context.TODO(), localBundleID, testNodes)
+
+	report := newBundleReport("cluster-bundle")
+	s := c.CreateBundle(context.TODO(), localBundleID, testNodes, report)
 
 	var statuses []BundleStatus
 
@@ -74,7 +76,6 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 
 	bundleID := "bundle-0"
 	localBundleID := "bundle-local"
-	numNodes := 3
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), Role: "agent", baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), Role: "master", baseURL: "http://192.0.2.2"}
@@ -111,9 +112,10 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 		client.On("GetFile", ctx, testData.n.baseURL, localBundleID, testData.zipPath).Return(nil)
 	}
 
-	statuses := c.CreateBundle(ctx, localBundleID, []node{node1, node2, node3})
+	report := newBundleReport("cluster-bundle")
+	statuses := c.CreateBundle(ctx, localBundleID, []node{node1, node2, node3}, report)
 
-	bundlePath, err := c.CollectBundle(ctx, bundleID, numNodes, statuses)
+	bundlePath, err := c.CollectBundle(ctx, bundleID, report, statuses)
 	require.NoError(t, err)
 	// ensure that the bundle is placed in the specified directory
 	assert.True(t, filepath.HasPrefix(bundlePath, workDir))
@@ -182,7 +184,8 @@ func TestHandlingForBundleUpdateInProgress(t *testing.T) {
 	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: InProgress}, nil).Once()
 	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil).Once()
 
-	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
+	report := newBundleReport("cluster-bundle")
+	statuses := c.CreateBundle(ctx, localBundleID, []node{n}, report)
 
 	expected := []BundleStatus{
 		{
@@ -228,7 +231,8 @@ func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
 	expectedErr := errors.New("this stands in for any of the possible errors CreateBundle could throw")
 	client.On("CreateBundle", ctx, n.baseURL, localBundleID).Return(nil, expectedErr)
 
-	s := c.CreateBundle(ctx, localBundleID, []node{n})
+	report := newBundleReport("cluster-bundle")
+	s := c.CreateBundle(ctx, localBundleID, []node{n}, report)
 
 	expected := BundleStatus{
 		id:   localBundleID,
@@ -262,7 +266,8 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 	client.On("Status", ctx, n.baseURL, localBundleID).Return(nil, expectedErr).Once()
 	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil).Once()
 
-	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
+	report := newBundleReport("cluster-bundle")
+	statuses := c.CreateBundle(ctx, localBundleID, []node{n}, report)
 
 	expected := []BundleStatus{
 		{
@@ -315,7 +320,8 @@ func TestHandlingForCanceledContext(t *testing.T) {
 	// stay in progress forever until the context is canceled
 	client.On("Status", ctx, n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: InProgress}, nil)
 
-	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
+	report := newBundleReport("cluster-bundle")
+	statuses := c.CreateBundle(ctx, localBundleID, []node{n}, report)
 
 	results := []BundleStatus{}
 
@@ -358,7 +364,6 @@ func TestCoordinatorCreateAndCollectWithErroredNodes(t *testing.T) {
 
 	bundleID := "bundle-0"
 	localBundleID := "bundle-local"
-	numNodes := 3
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), Role: "agent", baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), Role: "master", baseURL: "http://192.0.2.2"}
@@ -393,9 +398,10 @@ func TestCoordinatorCreateAndCollectWithErroredNodes(t *testing.T) {
 	client.On("CreateBundle", ctx, node3.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
 	client.On("Status", ctx, node3.baseURL, localBundleID).Return(nil, &DiagnosticsBundleUnreadableError{id: localBundleID})
 
-	statuses := c.CreateBundle(ctx, localBundleID, []node{node1, node2, node3})
+	report := newBundleReport("cluster-bundle")
+	statuses := c.CreateBundle(ctx, localBundleID, []node{node1, node2, node3}, report)
 
-	bundlePath, err := c.CollectBundle(ctx, bundleID, numNodes, statuses)
+	bundlePath, err := c.CollectBundle(ctx, bundleID, report, statuses)
 	require.NoError(t, err)
 	// ensure that the bundle is placed in the specified directory
 	assert.True(t, filepath.HasPrefix(bundlePath, workDir))
@@ -431,5 +437,5 @@ func TestCoordinatorCreateAndCollectWithErroredNodes(t *testing.T) {
 	sort.Strings(filenames)
 
 	assert.Equal(t, expectedContents, filenames)
-	assert.Equal(t, "Error getting bundle 192.0.2.3: bundle bundle-local not readable\n", errorContents)
+	assert.Equal(t, "{\"id\":\"cluster-bundle\",\"nodes\":{\"192.0.2.1\":{\"succeeded\":true},\"192.0.2.2\":{\"succeeded\":true},\"192.0.2.3\":{\"succeeded\":false,\"error\":\"bundle bundle-local not readable\"}}}", errorContents)
 }

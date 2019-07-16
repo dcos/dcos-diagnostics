@@ -873,7 +873,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 
 type mockCoordinator struct{}
 
-func (c mockCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
+func (c mockCoordinator) CreateBundle(ctx context.Context, id string, nodes []node, report bundleReport) <-chan BundleStatus {
 	statuses := make(chan BundleStatus, len(nodes))
 
 	for _, n := range nodes {
@@ -888,7 +888,7 @@ func (c mockCoordinator) CreateBundle(ctx context.Context, id string, nodes []no
 	return statuses
 }
 
-func (c mockCoordinator) CollectBundle(ctx context.Context, id string, numBundles int, statuses <-chan BundleStatus) (string, error) {
+func (c mockCoordinator) CollectBundle(ctx context.Context, id string, report bundleReport, statuses <-chan BundleStatus) (string, error) {
 	return filepath.Abs(filepath.Join("testdata", "combined.zip"))
 }
 

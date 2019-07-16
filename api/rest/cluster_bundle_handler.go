@@ -121,19 +121,21 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to create local bundle id for bundle %s: %s", id, err))
 		return
 	}
-	statuses := c.coord.CreateBundle(ctx, localBundleID.String(), nodes)
 
-	go c.waitAndCollectRemoteBundle(ctx, &bundle, len(nodes), dataFile, stateFilePath, statuses)
+	report := bundleReport{Id: localBundleID.String()}
+	statuses := c.coord.CreateBundle(ctx, localBundleID.String(), nodes, report)
+
+	go c.waitAndCollectRemoteBundle(ctx, &bundle, report, dataFile, stateFilePath, statuses)
 
 	write(w, bundleStatus)
 }
 
-func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int,
+func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, report bundleReport,
 	dataFile io.WriteCloser, stateFilePath string, statuses <-chan BundleStatus) {
 
 	defer dataFile.Close()
 
-	bundleFilePath, err := c.coord.CollectBundle(ctx, bundle.ID, numBundles, statuses)
+	bundleFilePath, err := c.coord.CollectBundle(ctx, bundle.ID, report, statuses)
 	if err != nil {
 		bundle.Errors = append(bundle.Errors, err.Error())
 	}

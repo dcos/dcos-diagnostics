@@ -2,7 +2,6 @@ package rest
 
 import (
 	"archive/zip"
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -25,6 +24,23 @@ type BundleStatus struct {
 	err  error
 }
 
+type bundleReport struct {
+	Id    string                      `json:"id"`
+	Nodes map[string]bundleNodeReport `json:"nodes"`
+}
+
+type bundleNodeReport struct {
+	Succeeded bool   `json:"succeeded"`
+	Err       string `json:"error,omitempty"`
+}
+
+func newBundleReport(id string) bundleReport {
+	return bundleReport{
+		Id:    id,
+		Nodes: make(map[string]bundleNodeReport),
+	}
+}
+
 // golangcli-lint marks this as dead code because nothing uses the interface
 // yet. this will be removed with the bundle handler PR
 // coordinator is an interface to coordinate the creation of diagnostics bundles
@@ -32,10 +48,10 @@ type BundleStatus struct {
 type Coordinator interface {
 	// CreateBundle starts the bundle creation process. Status updates be monitored
 	// on the returned channel.
-	CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus
+	CreateBundle(ctx context.Context, id string, nodes []node, report bundleReport) <-chan BundleStatus
 	// CollectBundle waits until all the nodes' bundles have finished, downloads,
 	// and merges them. The resulting bundle zip file path is returned.
-	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
+	CollectBundle(ctx context.Context, bundleID string, report bundleReport, statuses <-chan BundleStatus) (string, error)
 }
 
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
@@ -84,7 +100,7 @@ func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus, q
 
 // CreateBundle starts the bundle creation process. Status updates be monitored
 // on the returned channel.
-func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
+func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node, report bundleReport) <-chan BundleStatus {
 
 	jobs := make(chan job)
 	statuses := make(chan BundleStatus)
@@ -98,6 +114,9 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
+
+		report.Nodes[tmpNode.IP.String()] = bundleNodeReport{}
+
 		jobs <- func(ctx context.Context) BundleStatus {
 			select {
 			case <-ctx.Done():
@@ -118,22 +137,27 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 // CollectBundle waits until all the nodes' bundles have finished, downloads,
 // and merges them. The resulting bundle zip file path is returned.
-func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
+func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, report bundleReport, statuses <-chan BundleStatus) (string, error) {
 
 	// holds the paths to the downloaded local bundles before merging
 	var bundlePaths []string
 
-	bundleErrors := []string{}
-
 	finishedBundles := 0
-	for finishedBundles < numBundles {
+	for finishedBundles < len(report.Nodes) {
 		select {
 		case <-ctx.Done():
 			msg := "Context cancelled before all node bundles finished"
 			logrus.WithField("ID", bundleID).Warn(msg)
+			for _, n := range report.Nodes {
+				// any nodes that haven't succeeded and are missing an error (ie haven't already been known as failed)
+				if !n.Succeeded && n.Err == "" {
+					//n.Err = errors.New(msg)
+					n.Err = msg
+				}
+			}
+
 			close(c.quit)
-			bundleErrors = append(bundleErrors, msg)
-			return mergeZips(bundleID, bundlePaths, bundleErrors, c.workDir)
+			return mergeZips(bundleID, bundlePaths, report, c.workDir)
 		case s := <-statuses:
 			if !s.done {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
@@ -144,7 +168,7 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			finishedBundles++
 			if s.err != nil {
 				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
-				bundleErrors = append(bundleErrors, fmt.Sprintf("Error getting bundle %s: %s", s.node.IP, s.err))
+				report.Nodes[s.node.IP.String()] = bundleNodeReport{Succeeded: false, Err: s.err.Error()}
 				continue
 			}
 
@@ -152,19 +176,20 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
 			if err != nil {
 				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
-				bundleErrors = append(bundleErrors, fmt.Sprintf("Error downloading bundle from %s: %s", s.node.IP, err))
+				report.Nodes[s.node.IP.String()] = bundleNodeReport{Succeeded: false, Err: s.err.Error()}
 				continue
 			}
 
 			bundlePaths = append(bundlePaths, bundlePath)
+			report.Nodes[s.node.IP.String()] = bundleNodeReport{Succeeded: true}
 		}
 	}
 
 	close(c.quit)
-	return mergeZips(bundleID, bundlePaths, bundleErrors, c.workDir)
+	return mergeZips(bundleID, bundlePaths, report, c.workDir)
 }
 
-func mergeZips(bundleID string, bundlePaths []string, generationErrors []string, workDir string) (string, error) {
+func mergeZips(bundleID string, bundlePaths []string, report bundleReport, workDir string) (string, error) {
 
 	bundlePath := filepath.Join(workDir, fmt.Sprintf("bundle-%s.zip", bundleID))
 	mergedZip, err := os.Create(bundlePath)
@@ -185,8 +210,10 @@ func mergeZips(bundleID string, bundlePaths []string, generationErrors []string,
 		}
 	}
 
-	errors := append(generationErrors, writingErrors...)
-	appendErrorsToZip(zipWriter, errors)
+	err = appendReportToZip(zipWriter, report)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundleID).Error("unable to write report JSON to bundle zip, bundle generated without report")
+	}
 
 	return mergedZip.Name(), nil
 }
@@ -218,21 +245,15 @@ func appendToZip(writer *zip.Writer, path string) error {
 	return nil
 }
 
-func appendErrorsToZip(writer *zip.Writer, errors []string) error {
+func appendReportToZip(writer *zip.Writer, report bundleReport) error {
 	w, err := writer.Create("summaryErrorReport.txt")
 	if err != nil {
 		return err
 	}
-
-	bw := bufio.NewWriter(w)
-	for _, e := range errors {
-		_, err := fmt.Fprintln(bw, e)
-		if err != nil {
-			return err
-		}
+	_, err = w.Write(jsonMarshal(report))
+	if err != nil {
+		return err
 	}
-	bw.Flush()
-
 	return nil
 }
 
