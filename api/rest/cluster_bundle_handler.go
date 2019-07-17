@@ -122,7 +122,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report := bundleReport{Id: localBundleID.String()}
+	report := newBundleReport(localBundleID.String())
 	statuses := c.coord.CreateBundle(ctx, localBundleID.String(), nodes, report)
 
 	go c.waitAndCollectRemoteBundle(ctx, &bundle, report, dataFile, stateFilePath, statuses)

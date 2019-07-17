@@ -25,7 +25,7 @@ type BundleStatus struct {
 }
 
 type bundleReport struct {
-	Id    string                      `json:"id"`
+	ID    string                      `json:"id"`
 	Nodes map[string]bundleNodeReport `json:"nodes"`
 }
 
@@ -36,7 +36,7 @@ type bundleNodeReport struct {
 
 func newBundleReport(id string) bundleReport {
 	return bundleReport{
-		Id:    id,
+		ID:    id,
 		Nodes: make(map[string]bundleNodeReport),
 	}
 }
@@ -151,7 +151,6 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			for _, n := range report.Nodes {
 				// any nodes that haven't succeeded and are missing an error (ie haven't already been known as failed)
 				if !n.Succeeded && n.Err == "" {
-					//n.Err = errors.New(msg)
 					n.Err = msg
 				}
 			}
