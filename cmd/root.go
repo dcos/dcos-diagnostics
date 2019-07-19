@@ -130,6 +130,8 @@ func init() {
 		"Set a number of concurrent fetchers gathering nodes logs")
 	RootCmd.AddCommand(daemonCmd)
 
+	RootCmd.AddCommand(stateCmd)
+
 	RootCmd.PersistentFlags().BoolVar(&version, "version", false, "Print dcos-diagnostics version")
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.dcos-diagnostics.yaml)")
 	RootCmd.PersistentFlags().BoolVar(&diag, "diag", false,

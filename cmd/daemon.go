@@ -24,9 +24,9 @@ import (
 
 	"github.com/dcos/dcos-diagnostics/api"
 	"github.com/dcos/dcos-diagnostics/api/rest"
+	diagDcos "github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/util"
 
-	diagDcos "github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/http/transport"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
@@ -53,41 +53,18 @@ var daemonCmd = &cobra.Command{
 }
 
 func startDiagnosticsDaemon() {
-	// init new transport
-	var transportOptions []transport.OptionTransportFunc
-	if defaultConfig.FlagCACertFile != "" {
-		transportOptions = append(transportOptions, transport.OptionCaCertificatePath(defaultConfig.FlagCACertFile))
-	}
-	if defaultConfig.FlagIAMConfig != "" {
-		transportOptions = append(transportOptions, transport.OptionIAMConfigPath(defaultConfig.FlagIAMConfig))
-	}
-
-	tr, err := transport.NewTransport(transportOptions...)
+	tr, err := initTransport()
 	if err != nil {
-		logrus.Fatalf("Unable to initialize HTTP transport: %s", err)
+		logrus.WithError(err).Fatal("Could not start")
 	}
 
-	client := &http.Client{
-		Transport: tr,
-	}
-
-	var options []nodeutil.Option
-	defaultStateURL := url.URL{
-		Scheme: "https",
-		Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
-		Path:   "/state",
-	}
-	if defaultConfig.FlagForceTLS {
-		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
-	}
-
-	nodeInfo, err := nodeutil.NewNodeInfo(client, defaultConfig.FlagRole, options...)
+	nodeInfo, err := getNodeInfo(tr)
 	if err != nil {
 		logrus.Fatalf("Could not initialize nodeInfo: %s", err)
 	}
 
 	if defaultConfig.FlagDiagnosticsBundleFetchersCount < 1 {
-		logrus.Fatalf("workers-count must be greater than 0")
+		logrus.Fatal("workers-count must be greater than 0")
 	}
 
 	DCOSTools := &diagDcos.Tools{
@@ -161,4 +138,33 @@ func startDiagnosticsDaemon() {
 	}
 	logrus.Infof("Using socket: %s", listeners[0].Addr().String())
 	logrus.Fatal(http.Serve(listeners[0], router))
+}
+
+func getNodeInfo(tr http.RoundTripper) (nodeutil.NodeInfo, error) {
+	var options []nodeutil.Option
+	defaultStateURL := url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
+		Path:   "/state",
+	}
+	if defaultConfig.FlagForceTLS {
+		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
+	}
+	return nodeutil.NewNodeInfo(util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr), defaultConfig.FlagRole, options...)
+}
+
+func initTransport() (http.RoundTripper, error) {
+	var transportOptions []transport.OptionTransportFunc
+	if defaultConfig.FlagCACertFile != "" {
+		transportOptions = append(transportOptions, transport.OptionCaCertificatePath(defaultConfig.FlagCACertFile))
+	}
+	if defaultConfig.FlagIAMConfig != "" {
+		transportOptions = append(transportOptions, transport.OptionIAMConfigPath(defaultConfig.FlagIAMConfig))
+	}
+	tr, err := transport.NewTransport(transportOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize HTTP transport: %s", err)
+	}
+
+	return tr, nil
 }
