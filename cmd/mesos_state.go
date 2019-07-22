@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -22,29 +23,38 @@ var stateCmd = &cobra.Command{
 			return err
 		}
 
-		defaultStateURL := url.URL{
-			Scheme: "http",
-			Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
-			Path:   "/state",
-		}
+		state, err := getMesosState(tr)
+		fmt.Println(state)
 
-		stateURL, err := util.UseTLSScheme(defaultStateURL.String(), defaultConfig.FlagForceTLS)
-		if err != nil {
-			return err
-		}
-		client := util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr)
-
-		resp, err := client.Get(stateURL)
-		if err != nil {
-			return fmt.Errorf("could not GET %s: %s", stateURL, err)
-		}
-
-		raw, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("could not read response: %s", err)
-		}
-
-		fmt.Print(string(raw))
-		return nil
+		return err
 	},
+}
+
+func getMesosState(tr http.RoundTripper) (string, error) {
+	defaultStateURL := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
+		Path:   "/state",
+	}
+
+	stateURL, err := util.UseTLSScheme(defaultStateURL.String(), defaultConfig.FlagForceTLS)
+	if err != nil {
+		return "", err
+	}
+	client := util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr)
+
+	resp, err := client.Get(stateURL)
+	if err != nil {
+		return "", err
+	}
+
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("could not read response: %s", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return string(raw), fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	return string(raw), nil
 }
