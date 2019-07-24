@@ -15,14 +15,16 @@ func Test_getMesosState(t *testing.T) {
 		assert.Equal(t, r.URL.String(), "http://leader.mesos:5050/state")
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(`{}`)),
+			Body:       ioutil.NopCloser(strings.NewReader(`{"this": "and that"}`)),
 		}, nil
 	})
 
-	state, err := getMesosState(tr)
+	var out strings.Builder
+
+	err := getMesosState(tr, &out)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "{}", state)
+	assert.Equal(t, `{"this": "and that"}`, out.String())
 }
 
 func Test_getMesosState_status_not_200(t *testing.T) {
@@ -30,14 +32,15 @@ func Test_getMesosState_status_not_200(t *testing.T) {
 		assert.Equal(t, r.URL.String(), "http://leader.mesos:5050/state")
 		return &http.Response{
 			StatusCode: http.StatusNotFound,
-			Body:       ioutil.NopCloser(strings.NewReader(`{}`)),
+			Body:       ioutil.NopCloser(strings.NewReader(`{"this": "and that"}`)),
 		}, nil
 	})
+	var out strings.Builder
 
-	state, err := getMesosState(tr)
+	err := getMesosState(tr, &out)
 
 	assert.EqualError(t, err, "unexpected status code: 404")
-	assert.Equal(t, "{}", state)
+	assert.Equal(t, `{"this": "and that"}`, out.String())
 }
 
 func Test_getMesosState_errored(t *testing.T) {
@@ -46,10 +49,9 @@ func Test_getMesosState_errored(t *testing.T) {
 		return nil, fmt.Errorf("error")
 	})
 
-	state, err := getMesosState(tr)
+	err := getMesosState(tr, nil)
 
 	assert.EqualError(t, err, "Get http://leader.mesos:5050/state: error")
-	assert.Empty(t, state)
 }
 
 type roundTripFunc func(r *http.Request) (*http.Response, error)

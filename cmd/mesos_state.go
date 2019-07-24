@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 
 	"github.com/dcos/dcos-diagnostics/util"
@@ -23,14 +25,11 @@ var stateCmd = &cobra.Command{
 			return err
 		}
 
-		state, err := getMesosState(tr)
-		fmt.Println(state)
-
-		return err
+		return getMesosState(tr, os.Stdout)
 	},
 }
 
-func getMesosState(tr http.RoundTripper) (string, error) {
+func getMesosState(tr http.RoundTripper, out io.Writer) error {
 	defaultStateURL := url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
@@ -39,22 +38,27 @@ func getMesosState(tr http.RoundTripper) (string, error) {
 
 	stateURL, err := util.UseTLSScheme(defaultStateURL.String(), defaultConfig.FlagForceTLS)
 	if err != nil {
-		return "", err
+		return err
 	}
 	client := util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr)
 
 	resp, err := client.Get(stateURL)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("could not read response: %s", err)
+		return fmt.Errorf("could not read response: %s", err)
+	}
+
+	_, err = out.Write(raw)
+	if err != nil {
+		return fmt.Errorf("could not wrtie output: %s", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return string(raw), fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	return string(raw), nil
+	return nil
 }
