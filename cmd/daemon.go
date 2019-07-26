@@ -91,7 +91,9 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 
-	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr))
+	client := util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr)
+
+	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, client)
 	if err != nil {
 		logrus.Fatalf("Could not init collectors properly: %s", err)
 	}
