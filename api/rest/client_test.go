@@ -179,8 +179,7 @@ func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
 		client: testClient,
 	}
 	bundle, err := client.CreateBundle(context.TODO(), testServer.URL, "bundle-0")
-	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
-	assert.Contains(t, err.Error(), ": 500 ERROR")
+	assert.Contains(t, err.Error(), "bundle bundle-0 not readable")
 	assert.Nil(t, bundle)
 }
 
