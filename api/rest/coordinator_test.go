@@ -124,11 +124,8 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	defer zipReader.Close()
 
 	expectedContents := []string{
-		"192.0.2.1_agent/",
 		"192.0.2.1_agent/test.txt",
-		"192.0.2.2_master/",
 		"192.0.2.2_master/test.txt",
-		"192.0.2.3_public_agent/",
 		"192.0.2.3_public_agent/test.txt",
 	}
 

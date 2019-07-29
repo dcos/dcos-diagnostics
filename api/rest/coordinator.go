@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -190,19 +191,22 @@ func appendToZip(writer *zip.Writer, path string) error {
 	}
 	defer r.Close()
 
+	base := strings.TrimSuffix(filepath.Base(path), ".zip")
+
 	for _, f := range r.File {
 		rc, err := f.Open()
 		if err != nil {
 			return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
 		}
 
-		file, err := writer.Create(f.Name)
+		fileName := filepath.Join(base, f.Name)
+		file, err := writer.Create(fileName)
 		if err != nil {
-			return fmt.Errorf("could not create file %s: %s", f.Name, err)
+			return fmt.Errorf("could not create file %s: %s", fileName, err)
 		}
 		_, err = io.Copy(file, rc)
 		if err != nil {
-			return fmt.Errorf("could not copy file %s to zip: %s", f.Name, err)
+			return fmt.Errorf("could not copy file %s to zip: %s", fileName, err)
 		}
 		rc.Close()
 	}

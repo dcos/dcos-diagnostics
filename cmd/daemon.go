@@ -101,7 +101,7 @@ func startDiagnosticsDaemon() {
 	bundleTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobTimeoutMinutes)
 	bundleHandler := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, bundleTimeout)
 	diagClient := rest.NewDiagnosticsClient(client)
-	coord := rest.NewParallelCoordinator(diagClient, time.Second, defaultConfig.FlagDiagnosticsBundleDir)
+	coord := rest.NewParallelCoordinator(diagClient, time.Minute, defaultConfig.FlagDiagnosticsBundleDir)
 	urlBuilder := diagDcos.NewURLBuilder(defaultConfig.FlagAgentPort, defaultConfig.FlagMasterPort, defaultConfig.FlagForceTLS)
 	clusterBundleHandler := rest.NewClusterBundleHandler(coord, diagClient, DCOSTools, defaultConfig.FlagDiagnosticsBundleDir,
 		bundleTimeout, &urlBuilder)
