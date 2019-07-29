@@ -47,14 +47,6 @@ type ParallelCoordinator struct {
 	// be checked
 	statusCheckInterval time.Duration
 	workDir             string
-
-	// quit is closed when the bundle is finished being created (whether due to a
-	// canceled context or finishing fully). This is used to signal that the worker
-	// goroutines should end, we use this rather than closing the jobs channel
-	// because waitForDone will send jobs into the job channel so, if it's still
-	// processing when the channel is closed, it would send to a closed channel,
-	// causing a panic.
-	quit chan struct{}
 }
 
 // NewParallelCoordinator creates and returns a new ParallelCoordinator
@@ -63,21 +55,26 @@ func NewParallelCoordinator(client Client, interval time.Duration, workDir strin
 		client:              client,
 		statusCheckInterval: interval,
 		workDir:             workDir,
-		quit:                make(chan struct{}),
 	}
 }
 
 // job is a function that will be called by the worker function. The output will be added to results channel
 type job func(context.Context) BundleStatus
 
-// worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
-func worker(ctx context.Context, jobs <-chan job, results chan<- BundleStatus, quit <-chan struct{}) {
+// worker is a function that will run incoming jobs from jobs channel and put jobs output to statuses chan
+func worker(ctx context.Context, jobs <-chan job, statuses chan<- BundleStatus) {
 	for {
 		select {
-		case <-quit:
+		case <-ctx.Done():
+			// Flush jobs channel before exit
+			// Nobody will write to statuses channel anymore
+			// and all statuses will be processed and goruntines closed
+			for j := range jobs {
+				statuses <- j(ctx)
+			}
 			return
 		case j := <-jobs:
-			results <- j(ctx)
+			statuses <- j(ctx)
 		}
 	}
 }
@@ -90,7 +87,7 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 	statuses := make(chan BundleStatus)
 
 	for i := 0; i < numberOfWorkers; i++ {
-		go worker(ctx, jobs, statuses, c.quit)
+		go worker(ctx, jobs, statuses)
 	}
 
 	for _, n := range nodes {
@@ -129,7 +126,6 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		case <-ctx.Done():
 			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 			logrus.WithField("ID", bundleID).Warn("context cancelled before all node bundles finished")
-			close(c.quit)
 			return mergeZips(bundleID, bundlePaths, c.workDir)
 		case s := <-statuses:
 			if !s.done {
@@ -157,7 +153,6 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		}
 	}
 
-	close(c.quit)
 	return mergeZips(bundleID, bundlePaths, c.workDir)
 }
 

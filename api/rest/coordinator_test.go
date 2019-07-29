@@ -291,17 +291,14 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 
 func TestHandlingForCanceledContext(t *testing.T) {
 	client := new(MockClient)
-	interval := time.Millisecond
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
 	localBundleID := "bundle-0"
 
-	c := NewParallelCoordinator(client, interval, workDir)
-	ctx := context.TODO()
+	c := NewParallelCoordinator(client, time.Millisecond, workDir)
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.TODO(), 10*time.Millisecond)
 
 	n := node{IP: net.ParseIP("127.0.0.1"), Role: "master", baseURL: "http://127.0.0.1"}
 
@@ -312,7 +309,7 @@ func TestHandlingForCanceledContext(t *testing.T) {
 
 	statuses := c.CreateBundle(ctx, localBundleID, []node{n})
 
-	results := []BundleStatus{}
+	var results []BundleStatus
 
 	for s := range statuses {
 		results = append(results, s)
