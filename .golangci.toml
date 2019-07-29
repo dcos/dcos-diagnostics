@@ -25,7 +25,8 @@ enable = [
     "goconst",
     "lll",
     "misspell",
-    "unparam"
+    "unparam",
+    "unused"
 ]
 
 [linters-settings.lll]

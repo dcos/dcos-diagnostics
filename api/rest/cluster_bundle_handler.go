@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -325,20 +324,6 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 	w.Write(data)
 }
 
-func (c *ClusterBundleHandler) getClusterNodes() ([]node, error) {
-	masters, err := c.getMasterNodes()
-	if err != nil {
-		return nil, err
-	}
-
-	agents, err := c.getAgentNodes()
-	if err != nil {
-		return nil, err
-	}
-
-	return append(masters, agents...), nil
-}
-
 func (c *ClusterBundleHandler) getMasterNodes() ([]node, error) {
 	masters, err := c.tools.GetMasterNodes()
 	if err != nil {
@@ -347,31 +332,6 @@ func (c *ClusterBundleHandler) getMasterNodes() ([]node, error) {
 	nodes := []node{}
 	for _, n := range masters {
 		ip := net.ParseIP(n.IP)
-		url, err := c.urlBuilder.BaseURL(ip, n.Role)
-		if err != nil {
-			logrus.WithField("node", ip).WithField("role", n.Role).WithError(err).Error("unable to build base URL for node, skipping")
-			continue
-		}
-		nodes = append(nodes, node{
-			Role:    n.Role,
-			IP:      ip,
-			baseURL: url,
-		})
-	}
-
-	return nodes, nil
-}
-
-func (c *ClusterBundleHandler) getAgentNodes() ([]node, error) {
-	agents, err := c.tools.GetAgentNodes()
-	if err != nil {
-		return nil, err
-	}
-
-	nodes := []node{}
-	for _, n := range agents {
-		ip := net.ParseIP(n.IP)
-		// govet seems to have an issue with err shadowing a previous declaration, not sure why
 		url, err := c.urlBuilder.BaseURL(ip, n.Role)
 		if err != nil {
 			logrus.WithField("node", ip).WithField("role", n.Role).WithError(err).Error("unable to build base URL for node, skipping")
@@ -397,44 +357,4 @@ func (c *ClusterBundleHandler) bundleExists(id string) bool {
 		return false
 	}
 	return true
-}
-
-func (c *ClusterBundleHandler) getBundleState(id string) (Bundle, error) {
-	bundle := Bundle{
-		ID:     id,
-		Status: Unknown,
-	}
-
-	stateFilePath := filepath.Join(c.workDir, id, stateFileName)
-	rawState, err := ioutil.ReadFile(stateFilePath)
-	if err != nil {
-		return bundle, fmt.Errorf("could not read state file for bundle %s: %s", id, err)
-	}
-
-	err = json.Unmarshal(rawState, &bundle)
-	if err != nil {
-		return bundle, fmt.Errorf("could not unmarshal state file %s: %s", id, err)
-	}
-
-	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown {
-		return bundle, nil
-	}
-
-	dataFileStat, err := os.Stat(filepath.Join(c.workDir, id, dataFileName))
-	if err != nil {
-		bundle.Status = Unknown
-		return bundle, fmt.Errorf("could not stat data file %s: %s", id, err)
-	}
-
-	if bundle.Size != dataFileStat.Size() {
-		bundle.Size = dataFileStat.Size()
-		// Update status files
-		bundleStatus := jsonMarshal(bundle)
-		err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
-		if err != nil {
-			return bundle, fmt.Errorf("could not update state file %s: %s", id, err)
-		}
-	}
-
-	return bundle, nil
 }
