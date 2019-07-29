@@ -189,24 +189,45 @@ func appendToZip(writer *zip.Writer, path string) error {
 	base := strings.TrimSuffix(filepath.Base(path), ".zip")
 
 	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
+		if err := addFileToZip(writer, f, base); err != nil {
+			return err
 		}
-
-		fileName := filepath.Join(base, f.Name)
-		file, err := writer.Create(fileName)
-		if err != nil {
-			return fmt.Errorf("could not create file %s: %s", fileName, err)
-		}
-		_, err = io.Copy(file, rc)
-		if err != nil {
-			return fmt.Errorf("could not copy file %s to zip: %s", fileName, err)
-		}
-		rc.Close()
 	}
 
 	return nil
+}
+
+func addFileToZip(writer *zip.Writer, f *zip.File, base string) error {
+	rc, err := f.Open()
+	if err != nil {
+		return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
+	}
+	defer rc.Close()
+
+	fileName, err := sanitizeExtractPath(f.Name, base)
+	if err != nil {
+		return err
+	}
+
+	file, err := writer.Create(fileName)
+	if err != nil {
+		return fmt.Errorf("could not create file %s: %s", fileName, err)
+	}
+	_, err = io.Copy(file, rc)
+	if err != nil {
+		return fmt.Errorf("could not copy file %s to zip: %s", fileName, err)
+	}
+
+	return nil
+}
+
+// see: https://snyk.io/research/zip-slip-vulnerability
+func sanitizeExtractPath(filePath string, destination string) (string, error) {
+	destpath := filepath.Join(destination, filePath)
+	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%s: illegal file path", filePath)
+	}
+	return destpath, nil
 }
 
 func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
