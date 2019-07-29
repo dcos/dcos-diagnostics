@@ -201,7 +201,7 @@ func (c *ClusterBundleHandler) Status(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			switch err.(type) {
 			case *DiagnosticsBundleNotCompletedError:
-				writeJSONError(w, http.StatusNotModified, err)
+				writeJSONError(w, http.StatusNotFound, err)
 				return
 			case *DiagnosticsBundleUnreadableError:
 				writeJSONError(w, http.StatusInternalServerError, err)
@@ -241,7 +241,7 @@ func (c *ClusterBundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			// but a NotFound error means it should keep going
 			switch err.(type) {
 			case *DiagnosticsBundleNotCompletedError:
-				writeJSONError(w, http.StatusNotModified, err)
+				w.WriteHeader(http.StatusNotModified)
 				return
 			case *DiagnosticsBundleUnreadableError:
 				writeJSONError(w, http.StatusInternalServerError, err)
@@ -283,7 +283,7 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
 			case *DiagnosticsBundleNotCompletedError:
-				writeJSONError(w, http.StatusNotModified, err)
+				writeJSONError(w, http.StatusNotFound, err)
 				return
 			case *DiagnosticsBundleNotFoundError:
 				continue
