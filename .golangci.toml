@@ -11,21 +11,23 @@ modules-download-mode = "vendor"
 disable-all = true
 enable = [
     "deadcode",
+    "goconst",
     "gocyclo",
+    "gofmt",
     "goimports",
     "golint",
-    "gofmt",
-    "typecheck",
+    "gosec",
     "govet",
-    "varcheck",
-    "structcheck",
     "ineffassign",
     "interfacer",
-    "unconvert",
-    "goconst",
     "lll",
     "misspell",
-    "unparam"
+    "structcheck",
+    "typecheck",
+    "unconvert",
+    "unparam",
+    "unused",
+    "varcheck"
 ]
 
 [linters-settings.lll]

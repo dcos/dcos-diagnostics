@@ -145,9 +145,6 @@ func TestGetFile(t *testing.T) {
 }
 
 func TestGetStatusBundleHasStatusUnknownBundleIDNotFound(t *testing.T) {
-	expected := Bundle{
-		Status: Unknown,
-	}
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
@@ -161,9 +158,9 @@ func TestGetStatusBundleHasStatusUnknownBundleIDNotFound(t *testing.T) {
 	client := DiagnosticsClient{
 		client: testClient,
 	}
-	bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
-	assert.NoError(t, err)
-	assert.EqualValues(t, expected, *bundle)
+	_, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
+	assert.Error(t, err)
+	assert.IsType(t, &DiagnosticsBundleNotFoundError{}, err)
 }
 
 func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
@@ -182,8 +179,7 @@ func TestCreateReturnsErrorWhenResponseIs500(t *testing.T) {
 		client: testClient,
 	}
 	bundle, err := client.CreateBundle(context.TODO(), testServer.URL, "bundle-0")
-	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
-	assert.Contains(t, err.Error(), ": 500 ERROR")
+	assert.Contains(t, err.Error(), "bundle bundle-0 not readable")
 	assert.Nil(t, bundle)
 }
 
@@ -203,8 +199,7 @@ func TestGetStatusReturnsErrorWhenResponseIs500(t *testing.T) {
 		client: testClient,
 	}
 	bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
-	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
-	assert.Contains(t, err.Error(), ": 500 ERROR")
+	assert.IsType(t, &DiagnosticsBundleUnreadableError{}, err)
 	assert.Nil(t, bundle)
 }
 
@@ -224,8 +219,7 @@ func TestGetFileReturnsErrorWhenResponseIs500(t *testing.T) {
 		client: testClient,
 	}
 	err := client.GetFile(context.TODO(), testServer.URL, "bundle-0", "")
-	assert.Contains(t, err.Error(), "received unexpected status code [500] from")
-	assert.Contains(t, err.Error(), ": 500 ERROR")
+	assert.IsType(t, &DiagnosticsBundleUnreadableError{}, err)
 }
 
 func TestClientReturnsErrorWhenNodeIsInvalid(t *testing.T) {
@@ -421,5 +415,5 @@ func TestDeleteWhenBundleUnreadable(t *testing.T) {
 	}
 
 	err := client.Delete(context.TODO(), testServer.URL, "bundle-0")
-	assert.EqualError(t, err, "bundle bundle-0 could not be read")
+	assert.IsType(t, &DiagnosticsBundleUnreadableError{}, err)
 }

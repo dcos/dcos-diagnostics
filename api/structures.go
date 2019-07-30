@@ -71,14 +71,15 @@ type NodeResponseFieldsWithErrorStruct struct {
 // Dt is a struct of dependencies used in dcos-diagnostics code. There are 2 implementations, the one runs on a real system and
 // the one used for testing.
 type Dt struct {
-	Cfg               *config.Config
-	DtDCOSTools       dcos.Tooler
-	DtDiagnosticsJob  *DiagnosticsJob
-	BundleHandler     rest.BundleHandler
-	RunPullerChan     chan bool
-	RunPullerDoneChan chan bool
-	SystemdUnits      *SystemdUnits
-	MR                *MonitoringResponse
+	Cfg                  *config.Config
+	DtDCOSTools          dcos.Tooler
+	DtDiagnosticsJob     *DiagnosticsJob
+	BundleHandler        rest.BundleHandler
+	ClusterBundleHandler *rest.ClusterBundleHandler
+	RunPullerChan        chan bool
+	RunPullerDoneChan    chan bool
+	SystemdUnits         *SystemdUnits
+	MR                   *MonitoringResponse
 }
 
 type bundle struct {

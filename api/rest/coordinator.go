@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ const numberOfWorkers = 10
 const contextDoneErrMsg = "bundle creation context finished before bundle creation finished"
 
 // BundleStatus tracks the status of local bundle creation requests
-type bundleStatus struct {
+type BundleStatus struct {
 	id   string
 	node node
 	done bool
@@ -26,74 +27,67 @@ type bundleStatus struct {
 
 // golangcli-lint marks this as dead code because nothing uses the interface
 // yet. this will be removed with the bundle handler PR
-//nolint:deadcode
 // coordinator is an interface to coordinate the creation of diagnostics bundles
 // across a cluster of nodes
-type coordinator interface {
+type Coordinator interface {
 	// CreateBundle starts the bundle creation process. Status updates be monitored
 	// on the returned channel.
-	CreateBundle(ctx context.Context, id string, nodes []node) <-chan bundleStatus
+	CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus
 	// CollectBundle waits until all the nodes' bundles have finished, downloads,
 	// and merges them. The resulting bundle zip file path is returned.
-	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan bundleStatus) (string, error)
+	CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error)
 }
 
 // ParallelCoordinator implements Coordinator interface to coordinate bundle
 // creation across a cluster, parallelized across multiple goroutines.
-type parallelCoordinator struct {
+type ParallelCoordinator struct {
 	client Client
 
 	// statusCheckInterval defines how often the status of the local bundles will
 	// be checked
 	statusCheckInterval time.Duration
 	workDir             string
-
-	// quit is closed when the bundle is finished being created (whether due to a
-	// canceled context or finishing fully). This is used to signal that the worker
-	// goroutines should end, we use this rather than closing the jobs channel
-	// because waitForDone will send jobs into the job channel so, if it's still
-	// processing when the channel is closed, it would send to a closed channel,
-	// causing a panic.
-	quit chan struct{}
 }
 
-// job is a function that will be called by the worker function. The output will be added to results channel
-type job func(context.Context) bundleStatus
-
-// worker is a function that will run incoming jobs from jobs channel and put jobs output to results chan
-func worker(ctx context.Context, jobs <-chan job, results chan<- bundleStatus, quit <-chan struct{}) {
-	for {
-		select {
-		case <-quit:
-			return
-		case j := <-jobs:
-			results <- j(ctx)
-		}
-	}
-}
-
-// golangci-lint is marking this for unparam because all our tests use the same setting. This will be
-// removed in the bundle handler PR which will add a different setting
-//nolint:unparam
-// newParallelCoordinator constructs a new parallelCoordinator.
-func newParallelCoordinator(client Client, interval time.Duration, workDir string) parallelCoordinator {
-	return parallelCoordinator{
+// NewParallelCoordinator creates and returns a new ParallelCoordinator
+func NewParallelCoordinator(client Client, interval time.Duration, workDir string) *ParallelCoordinator {
+	return &ParallelCoordinator{
 		client:              client,
 		statusCheckInterval: interval,
 		workDir:             workDir,
-		quit:                make(chan struct{}),
+	}
+}
+
+// job is a function that will be called by the worker function. The output will be added to results channel
+type job func(context.Context) BundleStatus
+
+// worker is a function that will run incoming jobs from jobs channel and put jobs output to statuses chan
+func worker(ctx context.Context, jobs <-chan job, statuses chan<- BundleStatus) {
+	for {
+		select {
+		case <-ctx.Done():
+			// Flush jobs channel before exit
+			// Nobody will write to statuses channel anymore
+			// and all statuses will be processed and goruntines closed
+			for j := range jobs {
+				statuses <- j(ctx)
+			}
+			return
+		case j := <-jobs:
+			statuses <- j(ctx)
+		}
 	}
 }
 
 // CreateBundle starts the bundle creation process. Status updates be monitored
 // on the returned channel.
-func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan bundleStatus {
+func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
 	jobs := make(chan job)
-	statuses := make(chan bundleStatus)
+	statuses := make(chan BundleStatus)
 
 	for i := 0; i < numberOfWorkers; i++ {
-		go worker(ctx, jobs, statuses, c.quit)
+		go worker(ctx, jobs, statuses)
 	}
 
 	for _, n := range nodes {
@@ -101,10 +95,10 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
-		jobs <- func(ctx context.Context) bundleStatus {
+		jobs <- func(ctx context.Context) BundleStatus {
 			select {
 			case <-ctx.Done():
-				return bundleStatus{
+				return BundleStatus{
 					id:   id,
 					node: tmpNode,
 					err:  errors.New(contextDoneErrMsg),
@@ -121,7 +115,7 @@ func (c parallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 
 // CollectBundle waits until all the nodes' bundles have finished, downloads,
 // and merges them. The resulting bundle zip file path is returned.
-func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan bundleStatus) (string, error) {
+func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string, numBundles int, statuses <-chan BundleStatus) (string, error) {
 
 	// holds the paths to the downloaded local bundles before merging
 	var bundlePaths []string
@@ -132,7 +126,6 @@ func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		case <-ctx.Done():
 			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
 			logrus.WithField("ID", bundleID).Warn("context cancelled before all node bundles finished")
-			close(c.quit)
 			return mergeZips(bundleID, bundlePaths, c.workDir)
 		case s := <-statuses:
 			if !s.done {
@@ -160,7 +153,6 @@ func (c parallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		}
 	}
 
-	close(c.quit)
 	return mergeZips(bundleID, bundlePaths, c.workDir)
 }
 
@@ -194,31 +186,55 @@ func appendToZip(writer *zip.Writer, path string) error {
 	}
 	defer r.Close()
 
-	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
-		}
+	base := strings.TrimSuffix(filepath.Base(path), ".zip")
 
-		file, err := writer.Create(f.Name)
-		if err != nil {
-			return fmt.Errorf("could not create file %s: %s", f.Name, err)
+	for _, f := range r.File {
+		if err := addFileToZip(writer, f, base); err != nil {
+			return err
 		}
-		_, err = io.Copy(file, rc)
-		if err != nil {
-			return fmt.Errorf("could not copy file %s to zip: %s", f.Name, err)
-		}
-		rc.Close()
 	}
 
 	return nil
 }
 
-func (c parallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
+func addFileToZip(writer *zip.Writer, f *zip.File, base string) error {
+	rc, err := f.Open()
+	if err != nil {
+		return fmt.Errorf("could not open %s from zip: %s", f.Name, err)
+	}
+	defer rc.Close()
+
+	fileName, err := sanitizeExtractPath(f.Name, base)
+	if err != nil {
+		return err
+	}
+
+	file, err := writer.Create(fileName)
+	if err != nil {
+		return fmt.Errorf("could not create file %s: %s", fileName, err)
+	}
+	_, err = io.Copy(file, rc)
+	if err != nil {
+		return fmt.Errorf("could not copy file %s to zip: %s", fileName, err)
+	}
+
+	return nil
+}
+
+// see: https://snyk.io/research/zip-slip-vulnerability
+func sanitizeExtractPath(filePath string, destination string) (string, error) {
+	destpath := filepath.Join(destination, filePath)
+	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%s: illegal file path", filePath)
+	}
+	return destpath, nil
+}
+
+func (c ParallelCoordinator) createBundle(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	_, err := c.client.CreateBundle(ctx, node.baseURL, id)
 	if err != nil {
 		// Return done status with error. To mark node as errored so file will not be downloaded
-		return bundleStatus{
+		return BundleStatus{
 			id:   id,
 			node: node,
 			done: true,
@@ -227,18 +243,18 @@ func (c parallelCoordinator) createBundle(ctx context.Context, node node, id str
 	}
 
 	// Schedule bundle status check
-	jobs <- func(ctx context.Context) bundleStatus {
+	jobs <- func(ctx context.Context) BundleStatus {
 		return c.waitForDone(ctx, node, id, jobs)
 	}
 
 	// Return undone status with no error.
-	return bundleStatus{id: id, node: node}
+	return BundleStatus{id: id, node: node}
 }
 
-func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) bundleStatus {
+func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id string, jobs chan<- job) BundleStatus {
 	select {
 	case <-ctx.Done():
-		return bundleStatus{
+		return BundleStatus{
 			id:   id,
 			node: node,
 			done: true,
@@ -248,7 +264,7 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 	}
 
 	statusCheck := func() {
-		jobs <- func(ctx context.Context) bundleStatus {
+		jobs <- func(ctx context.Context) BundleStatus {
 			return c.waitForDone(ctx, node, id, jobs)
 		}
 	}
@@ -263,20 +279,20 @@ func (c parallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 		// It will only add check to job queue so interval might increase but it's OK.
 		time.AfterFunc(c.statusCheckInterval, statusCheck)
 		// Return status with error. Do not mark bundle as done yet. It might change it status
-		return bundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
+		return BundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
 	// If bundle is in terminal state (its state won't change)
 	if bundle.Status == Done || bundle.Status == Deleted || bundle.Status == Canceled {
 		logrus.WithField("IP", node.IP).Info("Node bundle is finished.")
 		// mark it as done
-		return bundleStatus{id: id, node: node, done: true}
+		return BundleStatus{id: id, node: node, done: true}
 	}
 	// If bundle is still in progress (InProgress, Unknown or Started)
 	// then schedule next check in given time
 	// It will only add check to job queue so interval might increase but it's OK.
 	time.AfterFunc(c.statusCheckInterval, statusCheck)
 	// Return undone status with no error. Do not mark bundle as done yet. It might change it status
-	return bundleStatus{id: id, node: node}
+	return BundleStatus{id: id, node: node}
 }
 
 func nodeBundleFilename(n node) string {

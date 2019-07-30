@@ -67,8 +67,9 @@ func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID str
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorCode(resp, url)
+	err = handleErrorCode(resp, url, ID)
+	if err != nil {
+		return nil, err
 	}
 
 	bundle := &Bundle{}
@@ -100,13 +101,11 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (
 
 	bundle := &Bundle{}
 
-	if resp.StatusCode == http.StatusNotFound {
-		bundle.Status = Unknown
-		return bundle, nil
+	err = handleErrorCode(resp, url, ID)
+	if err != nil {
+		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorCode(resp, url)
-	}
+
 	err = json.NewDecoder(resp.Body).Decode(bundle)
 	if err != nil {
 		return nil, err
@@ -131,8 +130,9 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return handleErrorCode(resp, url)
+	err = handleErrorCode(resp, url, ID)
+	if err != nil {
+		return err
 	}
 
 	destinationFile, err := os.Create(path)
@@ -146,7 +146,6 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 		return err
 	}
 
-	// return the full path to the created file
 	return nil
 }
 
@@ -166,8 +165,12 @@ func (d DiagnosticsClient) List(ctx context.Context, node string) ([]*Bundle, er
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorCode(resp, url)
+	// there are no expected error messages that could come from this so having
+	// a null id should be fine as the only case this should hit is the default
+	// unexpected status code case.
+	err = handleErrorCode(resp, url, "")
+	if err != nil {
+		return nil, err
 	}
 
 	bundles := []*Bundle{}
@@ -195,23 +198,23 @@ func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) e
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotModified {
-		return fmt.Errorf("bundle %s canceled or already deleted", id)
-	} else if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("bundle %s not found", id)
-	} else if resp.StatusCode == http.StatusInternalServerError {
-		return fmt.Errorf("bundle %s could not be read", id)
-	} else if resp.StatusCode != http.StatusOK {
-		return handleErrorCode(resp, url)
-	}
-
-	return nil
+	return handleErrorCode(resp, url, id)
 }
 
-func handleErrorCode(resp *http.Response, url string) error {
-	body := make([]byte, 100)
-	resp.Body.Read(body)
-	return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, string(body))
+func handleErrorCode(resp *http.Response, url string, bundleID string) error {
+	switch {
+	case resp.StatusCode == http.StatusNotModified:
+		return &DiagnosticsBundleNotCompletedError{id: bundleID}
+	case resp.StatusCode == http.StatusNotFound:
+		return &DiagnosticsBundleNotFoundError{id: bundleID}
+	case resp.StatusCode == http.StatusInternalServerError:
+		return &DiagnosticsBundleUnreadableError{id: bundleID}
+	case resp.StatusCode != http.StatusOK:
+		body := make([]byte, 100)
+		resp.Body.Read(body)
+		return fmt.Errorf("received unexpected status code [%d] from %s: %s", resp.StatusCode, url, string(body))
+	}
+	return nil
 }
 
 func remoteURL(node string, ID string) string {

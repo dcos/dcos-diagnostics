@@ -694,9 +694,8 @@ func TestIfE2E_(t *testing.T) {
 
 	t.Run("get status of not existing bundle-0", func(t *testing.T) {
 		bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
-		require.NoError(t, err)
-
-		assert.Equal(t, &Bundle{Status: Unknown}, bundle)
+		assert.Nil(t, bundle)
+		assert.IsType(t, &DiagnosticsBundleNotFoundError{}, err)
 	})
 
 	t.Run("create bundle-0", func(t *testing.T) {
@@ -714,7 +713,9 @@ func TestIfE2E_(t *testing.T) {
 		for { // busy wait for bundle
 			bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
 			require.NoError(t, err)
-			if bundle.Status == Done { break }
+			if bundle.Status == Done {
+				break
+			}
 		}
 
 		bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
@@ -774,9 +775,8 @@ func TestIfE2E_(t *testing.T) {
 
 	t.Run("delete bundle-0", func(t *testing.T) {
 
-		req, err := http.NewRequest(http.MethodDelete, testServer.URL + bundlesEndpoint+"/bundle-0", nil)
+		req, err := http.NewRequest(http.MethodDelete, testServer.URL+bundlesEndpoint+"/bundle-0", nil)
 		require.NoError(t, err)
-
 
 		rr, err := http.DefaultClient.Do(req)
 
