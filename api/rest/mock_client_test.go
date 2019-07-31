@@ -12,6 +12,10 @@ type MockClient struct {
 
 // CreateBundle provides a mock function with given fields: ctx, node, ID
 func (_m *MockClient) CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	ret := _m.Called(ctx, node, ID)
 
 	var r0 *Bundle
@@ -35,6 +39,10 @@ func (_m *MockClient) CreateBundle(ctx context.Context, node string, ID string) 
 
 // Delete provides a mock function with given fields: ctx, node, id
 func (_m *MockClient) Delete(ctx context.Context, node string, id string) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	ret := _m.Called(ctx, node, id)
 
 	var r0 error
@@ -49,6 +57,10 @@ func (_m *MockClient) Delete(ctx context.Context, node string, id string) error 
 
 // GetFile provides a mock function with given fields: ctx, node, ID, path
 func (_m *MockClient) GetFile(ctx context.Context, node string, ID string, path string) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	ret := _m.Called(ctx, node, ID, path)
 
 	var r0 error
@@ -63,6 +75,10 @@ func (_m *MockClient) GetFile(ctx context.Context, node string, ID string, path 
 
 // List provides a mock function with given fields: ctx, node
 func (_m *MockClient) List(ctx context.Context, node string) ([]*Bundle, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	ret := _m.Called(ctx, node)
 
 	var r0 []*Bundle
@@ -86,6 +102,10 @@ func (_m *MockClient) List(ctx context.Context, node string) ([]*Bundle, error) 
 
 // Status provides a mock function with given fields: ctx, node, ID
 func (_m *MockClient) Status(ctx context.Context, node string, ID string) (*Bundle, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	ret := _m.Called(ctx, node, ID)
 
 	var r0 *Bundle

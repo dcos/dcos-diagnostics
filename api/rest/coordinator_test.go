@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 	"time"
 
@@ -62,57 +62,61 @@ func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T)
 }
 
 func TestCoordinatorCreateAndCollect(t *testing.T) {
-	client := new(MockClient)
-	interval := time.Millisecond
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
-	c := NewParallelCoordinator(client, interval, workDir)
-
-	ctx := context.TODO()
-
 	bundleID := "bundle-0"
 	localBundleID := "bundle-local"
-	numNodes := 3
 
 	node1 := node{IP: net.ParseIP("192.0.2.1"), Role: "agent", baseURL: "http://192.0.2.1"}
 	node2 := node{IP: net.ParseIP("192.0.2.2"), Role: "master", baseURL: "http://192.0.2.2"}
 	node3 := node{IP: net.ParseIP("192.0.2.3"), Role: "public_agent", baseURL: "http://192.0.2.3"}
 
-	testZip1, err := filepath.Abs(filepath.Join("testdata", "192.0.2.1_agent.zip"))
-	require.NoError(t, err)
-	testZip2, err := filepath.Abs(filepath.Join("testdata", "192.0.2.2_master.zip"))
-	require.NoError(t, err)
-	testZip3, err := filepath.Abs(filepath.Join("testdata", "192.0.2.3_public_agent.zip"))
-	require.NoError(t, err)
+	testNodes := []node{node1, node2, node3}
 
-	testNodes := []struct {
-		n       node
-		zipPath string
-	}{
-		{
-			n:       node1,
-			zipPath: testZip1,
+	failingNode := node{IP: net.ParseIP("192.0.2.4"), Role: "public_agent", baseURL: "http://192.0.2.4"}
+	nodeInProgress := node{IP: net.ParseIP("192.0.2.5"), Role: "public_agent", baseURL: "http://192.0.2.5"}
+
+	testNodes = append(testNodes, failingNode, nodeInProgress)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 100 * time.Millisecond)
+	downloaded := make(chan bool)
+
+	client := &AlternativeMockClient{
+		createBundle: func(ctx context.Context, node string, ID string) (bundle *Bundle, e error) {
+			return &Bundle{ID: localBundleID, Status: Started}, nil
 		},
-		{
-			n:       node2,
-			zipPath: testZip2,
+		status: func(ctx context.Context, node string, ID string) (bundle *Bundle, e error) {
+			if node == nodeInProgress.baseURL {
+				return  &Bundle{ID: localBundleID, Status: InProgress}, nil
+			}
+			return &Bundle{ID: localBundleID, Status: Done}, nil
 		},
-		{
-			n:       node3,
-			zipPath: testZip3,
+		getFile: func(ctx context.Context, node string, ID string, path string) (err error) {
+			defer func() { downloaded <- true }()
+			if node == failingNode.baseURL {
+				return fmt.Errorf("some error")
+			}
+			return nil
 		},
 	}
 
-	for _, testData := range testNodes {
-		client.On("CreateBundle", ctx, testData.n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Started}, nil)
-		client.On("Status", ctx, testData.n.baseURL, localBundleID).Return(&Bundle{ID: localBundleID, Status: Done}, nil)
-		client.On("GetFile", ctx, testData.n.baseURL, localBundleID, testData.zipPath).Return(nil)
-	}
+	go func() {
+		count := 0
+		for range downloaded {
+			count++
+			if count == 4 {
+				break
+			}
+		}
+		cancel()
+	}()
 
-	statuses := c.CreateBundle(ctx, localBundleID, []node{node1, node2, node3})
+	c := NewParallelCoordinator(client, time.Microsecond, workDir)
 
-	bundlePath, err := c.CollectBundle(ctx, bundleID, numNodes, statuses)
+	statuses := c.CreateBundle(ctx, localBundleID, testNodes)
+
+	bundlePath, err := c.CollectBundle(ctx, bundleID, len(testNodes), statuses)
 	require.NoError(t, err)
 	// ensure that the bundle is placed in the specified directory
 	assert.True(t, filepath.HasPrefix(bundlePath, workDir))
@@ -123,19 +127,24 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	require.NoError(t, err)
 	defer zipReader.Close()
 
-	expectedContents := []string{
-		filepath.Join("192.0.2.1_agent", "test.txt"),
-		filepath.Join("192.0.2.2_master", "test.txt"),
-		filepath.Join("192.0.2.3_public_agent", "test.txt"),
+	expectedFiles := map[string]string{
+		filepath.Join("192.0.2.1_agent", "test.txt"):        "test\n",
+		filepath.Join("192.0.2.2_master", "test.txt"):       "test\n",
+		filepath.Join("192.0.2.3_public_agent", "test.txt"): "test\n",
+		reportFileName: `{"id":"bundle-0","nodes":{"192.0.2.1":{"status":"Done"},"192.0.2.2":{"status":"Done"},"192.0.2.3":{"status":"Done"},"192.0.2.4":{"status":"Failed","error":"some error"},"192.0.2.5":{"status":"Failed","error":"bundle creation context finished before bundle creation finished"}}}`,
 	}
 
-	filenames := []string{}
+	files := map[string]string{}
 	for _, f := range zipReader.File {
-		filenames = append(filenames, f.Name)
+		rc, err := f.Open()
+		require.NoError(t, err)
+		raw, err := ioutil.ReadAll(rc)
+		assert.NoError(t, err)
+		files[f.Name] = string(raw)
 	}
-	sort.Strings(filenames)
 
-	assert.Equal(t, expectedContents, filenames)
+	assert.Equal(t, expectedFiles, files)
+
 }
 
 func TestAppendToZipErrorsWithMalformedZip(t *testing.T) {
@@ -296,7 +305,7 @@ func TestHandlingForCanceledContext(t *testing.T) {
 
 	localBundleID := "bundle-0"
 
-	c := NewParallelCoordinator(client, time.Millisecond, workDir)
+	c := NewParallelCoordinator(client, time.Nanosecond, workDir)
 
 	ctx, _ := context.WithTimeout(context.TODO(), 10*time.Millisecond)
 
@@ -330,6 +339,13 @@ func TestHandlingForCanceledContext(t *testing.T) {
 			node: n,
 			done: true,
 			err:  errors.New(contextDoneErrMsg),
+		},
+		// when the context is canceled, the response should be done with an error
+		{
+			id:   localBundleID,
+			node: n,
+			done: false,
+			err:  errors.New("could not check status: context deadline exceeded"),
 		},
 	}
 

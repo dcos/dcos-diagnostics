@@ -2,6 +2,7 @@ package rest
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 
 const numberOfWorkers = 10
 const contextDoneErrMsg = "bundle creation context finished before bundle creation finished"
+const reportFileName = "report.json"
 
 // BundleStatus tracks the status of local bundle creation requests
 type BundleStatus struct {
@@ -58,6 +60,16 @@ func NewParallelCoordinator(client Client, interval time.Duration, workDir strin
 	}
 }
 
+type bundleReport struct {
+	ID    string                      `json:"id"`
+	Nodes map[string]bundleNodeReport `json:"nodes"`
+}
+
+type bundleNodeReport struct {
+	Status Status `json:"status"`
+	Err    string `json:"error,omitempty"`
+}
+
 // job is a function that will be called by the worker function. The output will be added to results channel
 type job func(context.Context) BundleStatus
 
@@ -96,16 +108,6 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
 		jobs <- func(ctx context.Context) BundleStatus {
-			select {
-			case <-ctx.Done():
-				return BundleStatus{
-					id:   id,
-					node: tmpNode,
-					err:  errors.New(contextDoneErrMsg),
-				}
-			default:
-			}
-
 			return c.createBundle(ctx, tmpNode, id, jobs)
 		}
 	}
@@ -120,45 +122,47 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 	// holds the paths to the downloaded local bundles before merging
 	var bundlePaths []string
 
-	finishedBundles := 0
-	for finishedBundles < numBundles {
-		select {
-		case <-ctx.Done():
-			// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
-			logrus.WithField("ID", bundleID).Warn("context cancelled before all node bundles finished")
-			return mergeZips(bundleID, bundlePaths, c.workDir)
-		case s := <-statuses:
-			if !s.done {
-				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
-				continue
-			}
-
-			// even if the bundle finished with an error, it's now finished so increment finishedBundles
-			finishedBundles++
-			if s.err != nil {
-				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
-				logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
-				continue
-			}
-
-			bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
-			err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
-			if err != nil {
-				// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle and not just printed in the journal
-				logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
-				continue
-			}
-
-			bundlePaths = append(bundlePaths, bundlePath)
-		}
+	report := bundleReport{
+		ID:    bundleID,
+		Nodes: make(map[string]bundleNodeReport, numBundles),
 	}
 
-	return mergeZips(bundleID, bundlePaths, c.workDir)
+	for finishedBundles := 0; finishedBundles < numBundles; {
+
+		s := <-statuses
+
+		if !s.done {
+			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle not ready.")
+			continue
+		}
+
+		// even if the bundle finished with an error, it's now finished so increment finishedBundles
+		finishedBundles++
+		if s.err != nil {
+			report.Nodes[s.node.IP.String()] = bundleNodeReport{Status: Failed, Err: s.err.Error()}
+			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
+			continue
+		}
+
+		bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
+		err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
+		if err != nil {
+			report.Nodes[s.node.IP.String()] = bundleNodeReport{Status: Failed, Err: err.Error()}
+			logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
+			continue
+		}
+
+		logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle READY.")
+		report.Nodes[s.node.IP.String()] = bundleNodeReport{Status: Done}
+		bundlePaths = append(bundlePaths, bundlePath)
+	}
+
+	return mergeZips(report, bundlePaths, c.workDir)
 }
 
-func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, error) {
+func mergeZips(report bundleReport, bundlePaths []string, workDir string) (string, error) {
 
-	bundlePath := filepath.Join(workDir, fmt.Sprintf("bundle-%s.zip", bundleID))
+	bundlePath := filepath.Join(workDir, fmt.Sprintf("bundle-%s.zip", report.ID))
 	mergedZip, err := os.Create(bundlePath)
 	if err != nil {
 		return "", err
@@ -168,8 +172,16 @@ func mergeZips(bundleID string, bundlePaths []string, workDir string) (string, e
 	zipWriter := zip.NewWriter(mergedZip)
 	defer zipWriter.Close()
 
+	reportFile, err := zipWriter.Create(reportFileName)
+	if err != nil {
+		return "", fmt.Errorf("could not create file %s: %s", reportFileName, err)
+	}
+	_, err = io.Copy(reportFile, bytes.NewReader(jsonMarshal(report)))
+	if err != nil {
+		return "", fmt.Errorf("could not copy file %s to zip: %s", reportFileName, err)
+	}
+
 	for _, p := range bundlePaths {
-		// TODO (https://jira.mesosphere.com/browse/DCOS_OSS-5303): this should be noted in the generated bundle
 		err = appendToZip(zipWriter, p)
 		if err != nil {
 			return "", err

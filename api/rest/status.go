@@ -15,6 +15,7 @@ const (
 	Done                     // Diagnostics finished and the file is ready to be downloaded
 	Canceled                 // Diagnostics has been cancelled
 	Deleted                  // Diagnostics was finished but was deleted
+	Failed                   // Diagnostics could not be downloaded
 )
 
 func (s Status) String() string {
@@ -28,6 +29,7 @@ var toString = map[Status]string{
 	Done:       "Done",
 	Canceled:   "Canceled",
 	Deleted:    "Deleted",
+	Failed:     "Failed",
 }
 
 var toID = map[string]Status{
@@ -37,6 +39,7 @@ var toID = map[string]Status{
 	"Done":       Done,
 	"Canceled":   Canceled,
 	"Deleted":    Deleted,
+	"Failed":     Failed,
 }
 
 // MarshalJSON marshals the enum as a quoted json string
