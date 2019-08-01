@@ -62,10 +62,10 @@ func NewParallelCoordinator(client Client, interval time.Duration, workDir strin
 
 type bundleReport struct {
 	ID    string                      `json:"id"`
-	Nodes map[string]bundleNodeReport `json:"nodes"`
+	Nodes map[string]nodeBundleReport `json:"nodes"`
 }
 
-type bundleNodeReport struct {
+type nodeBundleReport struct {
 	Status Status `json:"status"`
 	Err    string `json:"error,omitempty"`
 }
@@ -124,7 +124,7 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 
 	report := bundleReport{
 		ID:    bundleID,
-		Nodes: make(map[string]bundleNodeReport, numBundles),
+		Nodes: make(map[string]nodeBundleReport, numBundles),
 	}
 
 	for finishedBundles := 0; finishedBundles < numBundles; {
@@ -139,7 +139,7 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		// even if the bundle finished with an error, it's now finished so increment finishedBundles
 		finishedBundles++
 		if s.err != nil {
-			report.Nodes[s.node.IP.String()] = bundleNodeReport{Status: Failed, Err: s.err.Error()}
+			report.Nodes[s.node.IP.String()] = nodeBundleReport{Status: Failed, Err: s.err.Error()}
 			logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Bundle errored")
 			continue
 		}
@@ -147,13 +147,13 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
 		err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
 		if err != nil {
-			report.Nodes[s.node.IP.String()] = bundleNodeReport{Status: Failed, Err: err.Error()}
+			report.Nodes[s.node.IP.String()] = nodeBundleReport{Status: Failed, Err: err.Error()}
 			logrus.WithError(err).WithField("IP", s.node.IP).WithField("ID", s.id).Warn("Could not download file")
 			continue
 		}
 
 		logrus.WithError(s.err).WithField("IP", s.node.IP).WithField("ID", s.id).Info("Got status update. Bundle READY.")
-		report.Nodes[s.node.IP.String()] = bundleNodeReport{Status: Done}
+		report.Nodes[s.node.IP.String()] = nodeBundleReport{Status: Done}
 		bundlePaths = append(bundlePaths, bundlePath)
 	}
 
