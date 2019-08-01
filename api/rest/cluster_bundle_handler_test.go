@@ -41,7 +41,7 @@ func TestRemoteBundleCreationConflictErrorWhenBundleExists(t *testing.T) {
 
 	tools := new(MockedTools)
 
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 
 	coord := new(mockCoordinator)
 	bh := ClusterBundleHandler{
@@ -94,7 +94,7 @@ func TestDeleteBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Delete", ctx, "http://192.0.2.2", id).Return(&DiagnosticsBundleNotFoundError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.4", id).Return(nil)
 	client.On("Delete", ctx, "http://192.0.2.5", id).Return(&DiagnosticsBundleNotFoundError{id: id})
@@ -150,7 +150,7 @@ func TestDeleteAlreadyDeletedBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Delete", ctx, "http://192.0.2.2", id).Return(&DiagnosticsBundleNotFoundError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.4", id).Return(&DiagnosticsBundleNotCompletedError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.5", id).Return(&DiagnosticsBundleNotFoundError{id: id})
@@ -206,7 +206,7 @@ func TestDeleteBundleThatIsntFound(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Delete", ctx, "http://192.0.2.2", id).Return(&DiagnosticsBundleNotFoundError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.4", id).Return(&DiagnosticsBundleNotFoundError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.5", id).Return(&DiagnosticsBundleNotFoundError{id: id})
@@ -262,7 +262,7 @@ func TestDeleteUnreadableBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Delete", ctx, "http://192.0.2.2", id).Return(&DiagnosticsBundleNotFoundError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.4", id).Return(&DiagnosticsBundleUnreadableError{id: id})
 	client.On("Delete", ctx, "http://192.0.2.5", id).Return(&DiagnosticsBundleNotFoundError{id: id})
@@ -317,7 +317,7 @@ func TestStatusForBundle(t *testing.T) {
 
 	ctx := context.TODO()
 
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(nil, fmt.Errorf("asdf"))
 	client.On("Status", ctx, "http://192.0.2.4", "bundle-0").Return(&Bundle{
 		ID:      "bundle-0",
@@ -384,7 +384,7 @@ func TestStatusOnMissingBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.5", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
@@ -432,7 +432,7 @@ func TestStatusForUnreadableBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleUnreadableError{id: id})
 
 	coord := new(mockCoordinator)
@@ -492,7 +492,7 @@ func TestDownloadBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.5", id).Return(&Bundle{
@@ -559,7 +559,7 @@ func TestDownloadMissingBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.5", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
@@ -615,7 +615,7 @@ func TestDownloadUnreadableBundle(t *testing.T) {
 	ctx := context.TODO()
 
 	id := "bundle-0"
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.5", id).Return(nil, &DiagnosticsBundleUnreadableError{id: id})
@@ -682,7 +682,7 @@ func TestListWithBundlesOnMultipleMasters(t *testing.T) {
 		},
 	}
 
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("List", ctx, "http://192.0.2.2").Return([]*Bundle{expectedBundles[0]}, nil)
 	client.On("List", ctx, "http://192.0.2.4").Return([]*Bundle{expectedBundles[1]}, nil)
 	client.On("List", ctx, "http://192.0.2.5").Return([]*Bundle{expectedBundles[2]}, nil)
@@ -747,7 +747,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 
 	ctx := context.TODO()
 
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(&Bundle{
 		ID:      "bundle-0",
 		Started: now.Add(time.Hour),
