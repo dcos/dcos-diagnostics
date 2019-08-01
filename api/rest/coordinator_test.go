@@ -18,7 +18,7 @@ import (
 
 func TestCoordinator_CreatorShouldCreateAbundleAndReturnUpdateChan(t *testing.T) {
 
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	interval := time.Millisecond
 	workDir := os.TempDir()
 
@@ -82,7 +82,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 100 * time.Millisecond)
 	downloaded := make(chan bool)
 
-	client := &AlternativeMockClient{
+	client := &MockClient{
 		createBundle: func(ctx context.Context, node string, ID string) (bundle *Bundle, e error) {
 			return &Bundle{ID: localBundleID, Status: Started}, nil
 		},
@@ -144,7 +144,6 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 	}
 
 	assert.Equal(t, expectedFiles, files)
-
 }
 
 func TestAppendToZipErrorsWithMalformedZip(t *testing.T) {
@@ -168,7 +167,7 @@ func TestAppendToZipErrorsWithMalformedZip(t *testing.T) {
 }
 
 func TestHandlingForBundleUpdateInProgress(t *testing.T) {
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	interval := time.Millisecond
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
@@ -218,7 +217,7 @@ func TestHandlingForBundleUpdateInProgress(t *testing.T) {
 }
 
 func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	interval := time.Millisecond
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
@@ -246,7 +245,7 @@ func TestErrorHandlingFromClientCreateBundle(t *testing.T) {
 }
 
 func TestErrorHandlingFromClientStatus(t *testing.T) {
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	interval := time.Millisecond
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
@@ -299,7 +298,7 @@ func TestErrorHandlingFromClientStatus(t *testing.T) {
 }
 
 func TestHandlingForCanceledContext(t *testing.T) {
-	client := new(MockClient)
+	client := new(TestifyMockClient)
 	workDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
