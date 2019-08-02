@@ -32,6 +32,7 @@ type Config struct {
 	FlagRole                       string `mapstructure:"role"`
 	FlagIAMConfig                  string `mapstructure:"iam-config"`
 	FlagHostname                   string `mapstructure:"hostname"`
+	FlagIPDiscoveryCommandLocation string `mapstructure:"ip-discovery-command-location"`
 
 	// diagnostics job flags
 	FlagDiagnosticsBundleDir                     string   `mapstructure:"diagnostics-bundle-dir"`

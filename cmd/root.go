@@ -111,6 +111,8 @@ func init() {
 		defaultConfig.FlagIAMConfig, "A path to identity and access management config")
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagHostname, "hostname",
 		defaultConfig.FlagHostname, "A host name (by default it uses system hostname)")
+	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagIPDiscoveryCommandLocation, "ip-discovery-command-location",
+		defaultConfig.FlagIPDiscoveryCommandLocation, "A command used to get local IP address")
 	// diagnostics job flags
 	daemonCmd.PersistentFlags().StringVar(&defaultConfig.FlagDiagnosticsBundleDir,
 		"diagnostics-bundle-dir", diagnosticsBundleDir, "Set a path to store diagnostic bundles")
