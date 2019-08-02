@@ -158,6 +158,9 @@ func getNodeInfo(tr http.RoundTripper) (nodeutil.NodeInfo, error) {
 	if defaultConfig.FlagForceTLS {
 		options = append(options, nodeutil.OptionMesosStateURL(defaultStateURL.String()))
 	}
+	if defaultConfig.FlagIPDiscoveryCommandLocation != "" {
+		options = append(options, nodeutil.OptionDetectIP(defaultConfig.FlagIPDiscoveryCommandLocation))
+	}
 	return nodeutil.NewNodeInfo(util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr), defaultConfig.FlagRole, options...)
 }
 
