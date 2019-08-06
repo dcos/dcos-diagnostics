@@ -195,13 +195,12 @@ func LoadCollectors(cfg *config.Config, tools dcos.Tooler, client *http.Client) 
 		collectors = append(collectors, c)
 	}
 
-	// trim left "/" and replace all slashes with underscores.
 	for _, fileProvider := range providers.LocalFiles {
 		if !roleMatched(role, fileProvider.Role) {
 			continue
 		}
 
-		key := strings.Replace(strings.TrimLeft(fileProvider.Location, "/"), "/", "_", -1)
+		key := strings.TrimLeft(fileProvider.Location, "/")
 		c := collector.NewFile(key, fileProvider.Optional, fileProvider.Location)
 		collectors = append(collectors, c)
 	}

@@ -10,6 +10,7 @@ import (
 )
 
 func TestLoadCollectors(t *testing.T) {
+	t.Parallel()
 	tools := new(MockedTools)
 
 	tools.On("GetNodeRole").Return("master", nil)
@@ -31,9 +32,9 @@ func TestLoadCollectors(t *testing.T) {
 		"uri_not_avail.txt",
 		"5050-system_stats_json.json",
 		"dcos-diagnostics-health.json",
-		"var_lib_dcos_exhibitor_zookeeper_snapshot_myid",
-		"var_lib_dcos_exhibitor_conf_zoo.cfg",
-		"not_existing_file",
+		"var/lib/dcos/exhibitor/zookeeper/snapshot/myid",
+		"var/lib/dcos/exhibitor/conf/zoo.cfg",
+		"not/existing/file",
 		"dmesg_-T.output",
 		"ps_aux_ww_Z.output",
 		"binsh_-c_cat etc*-release.output",
@@ -48,6 +49,7 @@ func TestLoadCollectors(t *testing.T) {
 }
 
 func TestLoadCollectors_GetNodeRoleErrors(t *testing.T) {
+	t.Parallel()
 	tools := new(MockedTools)
 
 	tools.On("GetNodeRole").Return("master", errors.New("some error"))
@@ -65,6 +67,7 @@ func TestLoadCollectors_GetNodeRoleErrors(t *testing.T) {
 }
 
 func TestLoadCollectors_GetUnitNamesErrors(t *testing.T) {
+	t.Parallel()
 	tools := new(MockedTools)
 
 	tools.On("GetUnitNames").Return([]string{}, errors.New("some error"))
@@ -81,6 +84,7 @@ func TestLoadCollectors_GetUnitNamesErrors(t *testing.T) {
 }
 
 func TestLoadCollectors_GetNodeRoleReturnsInvalidRole(t *testing.T) {
+	t.Parallel()
 	tools := new(MockedTools)
 
 	tools.On("GetNodeRole").Return("invalid", nil)
