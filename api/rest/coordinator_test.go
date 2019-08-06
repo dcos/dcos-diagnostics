@@ -131,6 +131,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 		filepath.Join("192.0.2.1_agent", "test.txt"):        "test\n",
 		filepath.Join("192.0.2.2_master", "test.txt"):       "test\n",
 		filepath.Join("192.0.2.3_public_agent", "test.txt"): "test\n",
+		summaryErrorsReportFileName: "error\nerror\nerror\n",
 		reportFileName: `{"id":"bundle-0","nodes":{"192.0.2.1":{"status":"Done"},"192.0.2.2":{"status":"Done"},"192.0.2.3":{"status":"Done"},"192.0.2.4":{"status":"Failed","error":"some error"},"192.0.2.5":{"status":"Failed","error":"bundle creation context finished before bundle creation finished"}}}`,
 	}
 
@@ -162,8 +163,10 @@ func TestAppendToZipErrorsWithMalformedZip(t *testing.T) {
 	defer zipWriter.Close()
 
 	invalidZipPath := filepath.Join(testDataDir, "not_a_zip.txt")
-	err = appendToZip(zipWriter, invalidZipPath)
+	rc, err := appendToZip(zipWriter, invalidZipPath)
+	assert.Nil(t, rc)
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "zip: not a valid zip file")
 }
 
 func TestHandlingForBundleUpdateInProgress(t *testing.T) {

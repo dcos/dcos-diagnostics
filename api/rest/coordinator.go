@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,32 +182,67 @@ func mergeZips(report bundleReport, bundlePaths []string, workDir string) (strin
 		return "", fmt.Errorf("could not copy file %s to zip: %s", reportFileName, err)
 	}
 
+	errorBuffer := bytes.NewBuffer(nil)
+
 	for _, p := range bundlePaths {
-		err = appendToZip(zipWriter, p)
-		if err != nil {
-			return "", err
+		rc, e := appendToZip(zipWriter, p)
+		if e != nil {
+			return "", e
 		}
+		_, e = io.Copy(errorBuffer, rc)
+		if e != nil {
+			return "", e
+		}
+		_, e = errorBuffer.WriteString("\n")
+		if e != nil {
+			return "", fmt.Errorf("could not write to buffer: %s", e)
+		}
+
+	}
+
+	summaryErrorsReportFile, err := zipWriter.Create(summaryErrorsReportFileName)
+	if err != nil {
+		return "", fmt.Errorf("could not create file %s: %s", summaryErrorsReportFileName, err)
+	}
+	_, err = io.Copy(summaryErrorsReportFile, errorBuffer)
+	if err != nil {
+		return "", fmt.Errorf("could not copy file %s to zip: %s", summaryErrorsReportFileName, err)
 	}
 
 	return mergedZip.Name(), nil
 }
 
-func appendToZip(writer *zip.Writer, path string) error {
+func appendToZip(writer *zip.Writer, path string) (io.ReadCloser, error) {
+	rc := ioutil.NopCloser(bytes.NewReader(nil))
 	r, err := zip.OpenReader(path)
 	if err != nil {
-		return fmt.Errorf("could not open %s: %s", path, err)
+		return nil, fmt.Errorf("could not open %s: %s", path, err)
 	}
 	defer r.Close()
 
 	base := strings.TrimSuffix(filepath.Base(path), ".zip")
 
 	for _, f := range r.File {
+		if f.Name == summaryErrorsReportFileName {
+			fileReader, err := f.Open()
+			if err != nil {
+				return nil, fmt.Errorf("could not open %s from zip: %s", f.Name, err)
+			}
+
+			buf := bytes.NewBuffer(nil)
+			_, err = io.Copy(buf, fileReader)
+			if err != nil {
+				return nil, fmt.Errorf("could not read %s from zip: %s", f.Name, err)
+			}
+			rc = ioutil.NopCloser(buf)
+			continue
+		}
 		if err := addFileToZip(writer, f, base); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return rc, nil
 }
 
 func addFileToZip(writer *zip.Writer, f *zip.File, base string) error {
