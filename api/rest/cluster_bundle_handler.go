@@ -314,14 +314,7 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	data, err := ioutil.ReadFile(bundleFilename)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to read downloaded bundle file: %s", err))
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	http.ServeFile(w, r, bundleFilename)
 }
 
 func (c *ClusterBundleHandler) getMasterNodes() ([]node, error) {
