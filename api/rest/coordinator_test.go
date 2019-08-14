@@ -131,8 +131,50 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 		filepath.Join("192.0.2.1_agent", "test.txt"):        "test\n",
 		filepath.Join("192.0.2.2_master", "test.txt"):       "test\n",
 		filepath.Join("192.0.2.3_public_agent", "test.txt"): "test\n",
-		summaryErrorsReportFileName: "error\nerror\nerror\n",
+		summaryErrorsReportFileName: "errorerrorerror",
 		reportFileName: `{"id":"bundle-0","nodes":{"192.0.2.1":{"status":"Done"},"192.0.2.2":{"status":"Done"},"192.0.2.3":{"status":"Done"},"192.0.2.4":{"status":"Failed","error":"some error"},"192.0.2.5":{"status":"Failed","error":"bundle creation context finished before bundle creation finished"}}}`,
+	}
+
+	files := map[string]string{}
+	for _, f := range zipReader.File {
+		rc, err := f.Open()
+		require.NoError(t, err)
+		raw, err := ioutil.ReadAll(rc)
+		assert.NoError(t, err)
+		files[f.Name] = string(raw)
+	}
+
+	assert.Equal(t, expectedFiles, files)
+}
+
+func TestCoordinatorCreateAndCollectNoNodes(t *testing.T) {
+	workDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+
+	bundleID := "bundle-0"
+	localBundleID := "bundle-local"
+
+	var testNodes []node
+
+	ctx, _ := context.WithTimeout(context.TODO(), 100 * time.Millisecond)
+
+	c := NewParallelCoordinator(nil, time.Microsecond, workDir)
+
+	statuses := c.CreateBundle(ctx, localBundleID, testNodes)
+
+	bundlePath, err := c.CollectBundle(ctx, bundleID, len(testNodes), statuses)
+	require.NoError(t, err)
+	// ensure that the bundle is placed in the specified directory
+	assert.True(t, filepath.HasPrefix(bundlePath, workDir))
+	defer os.RemoveAll(bundlePath)
+	require.NotEmpty(t, bundlePath)
+
+	zipReader, err := zip.OpenReader(bundlePath)
+	require.NoError(t, err)
+	defer zipReader.Close()
+
+	expectedFiles := map[string]string{
+		reportFileName: `{"id":"bundle-0","nodes":{}}`,
 	}
 
 	files := map[string]string{}

@@ -193,20 +193,17 @@ func mergeZips(report bundleReport, bundlePaths []string, workDir string) (strin
 		if e != nil {
 			return "", e
 		}
-		_, e = errorBuffer.WriteString("\n")
-		if e != nil {
-			return "", fmt.Errorf("could not write to buffer: %s", e)
+	}
+
+	if errorBuffer.Len() > 0 {
+		summaryErrorsReportFile, err := zipWriter.Create(summaryErrorsReportFileName)
+		if err != nil {
+			return "", fmt.Errorf("could not create file %s: %s", summaryErrorsReportFileName, err)
 		}
-
-	}
-
-	summaryErrorsReportFile, err := zipWriter.Create(summaryErrorsReportFileName)
-	if err != nil {
-		return "", fmt.Errorf("could not create file %s: %s", summaryErrorsReportFileName, err)
-	}
-	_, err = io.Copy(summaryErrorsReportFile, errorBuffer)
-	if err != nil {
-		return "", fmt.Errorf("could not copy file %s to zip: %s", summaryErrorsReportFileName, err)
+		_, err = io.Copy(summaryErrorsReportFile, errorBuffer)
+		if err != nil {
+			return "", fmt.Errorf("could not copy file %s to zip: %s", summaryErrorsReportFileName, err)
+		}
 	}
 
 	return mergedZip.Name(), nil
