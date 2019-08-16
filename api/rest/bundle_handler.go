@@ -226,7 +226,8 @@ func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-
+	w.Header().Add("Content-Type", "application/zip, application/octet-stream")
+	w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s.zip", id))
 	http.ServeFile(w, r, filepath.Join(h.workDir, id, dataFileName))
 }
 

@@ -313,7 +313,8 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error downloading bundle: %s", err))
 		return
 	}
-
+	w.Header().Add("Content-Type", "application/zip, application/octet-stream")
+	w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s.zip", id))
 	http.ServeFile(w, r, bundleFilename)
 }
 
