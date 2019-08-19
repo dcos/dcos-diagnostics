@@ -171,6 +171,27 @@ func TestIfListShowsStatusWithoutAFile(t *testing.T) {
 	}]`, rr.Body.String())
 }
 
+func TestIfListFailsWithoutBundleDir(t *testing.T) {
+	t.Parallel()
+
+	bh := NewBundleHandler("/this/dir/does/not/exist", nil, time.Millisecond)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(bh.List)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInsufficientStorage, rr.Code)
+
+	assert.JSONEq(t, `{
+		"code": 507,
+		"error": "could not read work dir: open /this/dir/does/not/exist: no such file or directory"
+	}`, rr.Body.String())
+}
+
 func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *testing.T) {
 	t.Parallel()
 
