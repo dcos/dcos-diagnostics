@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,10 +188,16 @@ func TestIfListFailsWithoutBundleDir(t *testing.T) {
 
 	assert.Equal(t, http.StatusInsufficientStorage, rr.Code)
 
-	assert.JSONEq(t, `{
-		"code": 507,
-		"error": "could not read work dir: open /this/dir/does/not/exist: no such file or directory"
-	}`, rr.Body.String())
+	type Response struct {
+		Code  int
+		Error string
+	}
+	var resp Response
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+
+	assert.Equal(t, resp.Code, 507)
+	assert.True(t, strings.HasPrefix(resp.Error, "could not read work dir: open /this/dir/does/not/exist: "))
 }
 
 func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *testing.T) {
