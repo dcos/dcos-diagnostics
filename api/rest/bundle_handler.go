@@ -235,6 +235,7 @@ func (h BundleHandler) List(w http.ResponseWriter, r *http.Request) {
 	ids, err := ioutil.ReadDir(h.workDir)
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not read work dir: %s", err))
+		return
 	}
 
 	bundles := make([]Bundle, 0, len(ids))

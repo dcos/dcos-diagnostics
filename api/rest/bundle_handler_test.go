@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,6 +171,33 @@ func TestIfListShowsStatusWithoutAFile(t *testing.T) {
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z"
 	}]`, rr.Body.String())
+}
+
+func TestIfListFailsWithoutBundleDir(t *testing.T) {
+	t.Parallel()
+
+	bh := NewBundleHandler("/this/dir/does/not/exist", nil, time.Millisecond)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(bh.List)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInsufficientStorage, rr.Code)
+
+	type Response struct {
+		Code  int
+		Error string
+	}
+	var resp Response
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+
+	assert.Equal(t, resp.Code, 507)
+	assert.True(t, strings.HasPrefix(resp.Error, "could not read work dir: open /this/dir/does/not/exist: "))
 }
 
 func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *testing.T) {
