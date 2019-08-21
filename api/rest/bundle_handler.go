@@ -58,7 +58,7 @@ func (realClock) Now() time.Time { return time.Now() }
 
 func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) BundleHandler {
 	return BundleHandler{
-		mutex:                 &sync.RWMutex{},
+		stateFileLock:         &sync.RWMutex{},
 		clock:                 realClock{},
 		workDir:               workDir,
 		collectors:            collectors,
@@ -69,7 +69,7 @@ func NewBundleHandler(workDir string, collectors []collector.Collector, timeout 
 // BundleHandler is a struct that collects all functions
 // responsible for diagnostics bundle lifecycle
 type BundleHandler struct {
-	mutex                 *sync.RWMutex // used to synchronize access to state file
+	stateFileLock         *sync.RWMutex // used to synchronize access to state file
 	clock                 Clock
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
@@ -343,16 +343,16 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h BundleHandler) writeStateFile(bundle Bundle) ([]byte, error) {
 	stateFilePath := filepath.Join(h.workDir, bundle.ID, stateFileName)
 	newRawState := jsonMarshal(bundle)
-	h.mutex.Lock()
+	h.stateFileLock.Lock()
 	err := ioutil.WriteFile(stateFilePath, newRawState, filePerm)
-	h.mutex.Unlock()
+	h.stateFileLock.Unlock()
 	return newRawState, err
 }
 
 func (h BundleHandler) readStateFile(bundle Bundle) ([]byte, error) {
 	stateFilePath := filepath.Join(h.workDir, bundle.ID, stateFileName)
-	h.mutex.RLock()
-	defer h.mutex.RUnlock()
+	h.stateFileLock.RLock()
+	defer h.stateFileLock.RUnlock()
 	return ioutil.ReadFile(stateFilePath)
 }
 
