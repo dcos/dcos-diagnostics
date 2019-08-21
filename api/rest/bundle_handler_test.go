@@ -742,8 +742,7 @@ func TestIfE2E_(t *testing.T) {
 	t.Run("get bundle-0 status", func(t *testing.T) {
 		for { // busy wait for bundle
 			bundle, err := client.Status(context.TODO(), testServer.URL, "bundle-0")
-			//require.NoError(t, err)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if bundle.Status == Done {
 				break
 			}
