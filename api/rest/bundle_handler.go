@@ -59,12 +59,9 @@ func (realClock) Now() time.Time { return time.Now() }
 func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) (*BundleHandler, error) {
 	f, err := os.Stat(workDir)
 	if err != nil {
-		fmt.Println("error stating workdir")
 		if os.IsNotExist(err) {
-			fmt.Println("workdir does not exist")
 			err = os.Mkdir(workDir, dirPerm)
 			if err != nil {
-				fmt.Println("unable to create")
 				logrus.WithError(err).Errorf("workDir does not exist and could not be created %s", workDir)
 				return nil, err
 			}
