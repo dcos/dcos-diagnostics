@@ -219,7 +219,7 @@ func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *te
 	}]`, rr.Body.String())
 }
 
-func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
+func TestIfShowsStatusWithFileAndDontUpdatesFileSize(t *testing.T) {
 	t.Parallel()
 
 	workdir, err := ioutil.TempDir("", "work-dir")
@@ -229,12 +229,12 @@ func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
 	err = os.Mkdir(bundleWorkDir, dirPerm)
 	require.NoError(t, err)
 	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
-	err = ioutil.WriteFile(stateFilePath,
-		[]byte(`{
+	oldState := `{
 		"id": "bundle",
 		"status": "Done",
 		"started_at":"1991-05-21T00:00:00Z",
-		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
+		"stopped_at":"2019-05-21T00:00:00Z" }`
+	err = ioutil.WriteFile(stateFilePath, []byte(oldState), filePerm)
 	require.NoError(t, err)
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName), []byte(`OK`), filePerm)
 	require.NoError(t, err)
@@ -263,7 +263,7 @@ func TestIfShowsStatusWithFileAndUpdatesFileSize(t *testing.T) {
 	assert.JSONEq(t, "["+expectedState+"]", rr.Body.String())
 
 	newState, err := ioutil.ReadFile(stateFilePath)
-	assert.JSONEq(t, expectedState, string(newState))
+	assert.JSONEq(t, oldState, string(newState))
 }
 
 func TestIfGetShowsStatusWithoutAFileWhenBundleIsDeleted(t *testing.T) {
@@ -828,6 +828,7 @@ func TestIfE2E_(t *testing.T) {
 	})
 
 	t.Run("list bundles", func(t *testing.T) {
+		time.Sleep(10 * time.Millisecond)
 		req, err := http.NewRequest(http.MethodGet, bundlesEndpoint, nil)
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()

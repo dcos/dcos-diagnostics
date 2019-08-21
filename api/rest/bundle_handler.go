@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/collector"
@@ -77,6 +78,7 @@ func NewBundleHandler(workDir string, collectors []collector.Collector, timeout 
 	}
 
 	return &BundleHandler{
+		stateFileLock:         &sync.RWMutex{},
 		clock:                 realClock{},
 		workDir:               workDir,
 		collectors:            collectors,
@@ -87,6 +89,7 @@ func NewBundleHandler(workDir string, collectors []collector.Collector, timeout 
 // BundleHandler is a struct that collects all functions
 // responsible for diagnostics bundle lifecycle
 type BundleHandler struct {
+	stateFileLock         *sync.RWMutex // used to synchronize access to state file
 	clock                 Clock
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
@@ -115,16 +118,13 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
-
 	bundle := Bundle{
 		ID:      id,
 		Started: h.clock.Now(),
 		Status:  Started,
 	}
 
-	bundleStatus := jsonMarshal(bundle)
-	err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
+	bundleStatus, err := h.writeStateFile(bundle)
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not update state file %s: %s", id, err))
 		return
@@ -148,7 +148,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		case bundle.Errors = <-done:
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
-			if e := ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm); e != nil {
+			if _, e := h.writeStateFile(bundle); e != nil {
 				logrus.WithError(e).Errorf("Could not update state file %s", id)
 			}
 		}
@@ -282,8 +282,7 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 		Status: Unknown,
 	}
 
-	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
-	rawState, err := ioutil.ReadFile(stateFilePath)
+	rawState, err := h.readStateFile(bundle)
 	if err != nil {
 		return bundle, fmt.Errorf("could not read state file for bundle %s: %s", id, err)
 	}
@@ -302,16 +301,7 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 		bundle.Status = Unknown
 		return bundle, fmt.Errorf("could not stat data file %s: %s", id, err)
 	}
-
-	if bundle.Size != dataFileStat.Size() {
-		bundle.Size = dataFileStat.Size()
-		// Update status files
-		bundleStatus := jsonMarshal(bundle)
-		err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
-		if err != nil {
-			return bundle, fmt.Errorf("could not update state file %s: %s", id, err)
-		}
-	}
+	bundle.Size = dataFileStat.Size()
 
 	return bundle, nil
 }
@@ -331,7 +321,6 @@ func (h BundleHandler) bundleExists(id string) bool {
 func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	stateFilePath := filepath.Join(h.workDir, id, stateFileName)
 
 	if !h.bundleExists(id) {
 		http.NotFound(w, r)
@@ -362,14 +351,29 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bundle.Status = Deleted
-	newRawState := jsonMarshal(bundle)
-	err = ioutil.WriteFile(stateFilePath, newRawState, filePerm)
+	newRawState, err := h.writeStateFile(bundle)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError,
 			fmt.Errorf("bundle %s was deleted but state could not be updated: %s", id, err))
 		return
 	}
 	write(w, newRawState)
+}
+
+func (h BundleHandler) writeStateFile(bundle Bundle) ([]byte, error) {
+	stateFilePath := filepath.Join(h.workDir, bundle.ID, stateFileName)
+	newRawState := jsonMarshal(bundle)
+	h.stateFileLock.Lock()
+	err := ioutil.WriteFile(stateFilePath, newRawState, filePerm)
+	h.stateFileLock.Unlock()
+	return newRawState, err
+}
+
+func (h BundleHandler) readStateFile(bundle Bundle) ([]byte, error) {
+	stateFilePath := filepath.Join(h.workDir, bundle.ID, stateFileName)
+	h.stateFileLock.RLock()
+	defer h.stateFileLock.RUnlock()
+	return ioutil.ReadFile(stateFilePath)
 }
 
 func writeJSONError(w http.ResponseWriter, code int, e error) {
