@@ -4,10 +4,10 @@ import "context"
 
 type MockClient struct {
 	createBundle func(ctx context.Context, node string, ID string) (*Bundle, error)
-	status func(ctx context.Context, node string, ID string) (*Bundle, error)
-	getFile func(ctx context.Context, node string, ID string, path string) (err error)
-	list func(ctx context.Context, node string) ([]*Bundle, error)
-	delete func(ctx context.Context, node string, id string) error
+	status       func(ctx context.Context, node string, ID string) (*Bundle, error)
+	getFile      func(ctx context.Context, node string, ID string, path string) (err error)
+	list         func(ctx context.Context, node string) ([]*Bundle, error)
+	delete       func(ctx context.Context, node string, id string) error
 }
 
 func (_m *MockClient) CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error) {
