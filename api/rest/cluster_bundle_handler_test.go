@@ -871,6 +871,39 @@ func TestRemoteBundleCreation(t *testing.T) {
 	})
 }
 
+func TestClusterBundleHandlerWorkDirIsCreatedIfNotExists(t *testing.T) {
+	t.Parallel()
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	err = os.RemoveAll(workdir)
+	require.NoError(t, err)
+
+	coord := mockCoordinator{}
+	client := &MockClient{}
+	tools := &MockedTools{}
+	urlBuilder := MockURLBuilder{}
+	_, err = NewClusterBundleHandler(coord, client, tools, workdir, time.Millisecond, urlBuilder)
+	require.NoError(t, err)
+
+	assert.DirExists(t, workdir)
+}
+
+func TestClusterBundleHandlerWorkDirInitFailsWhenFileExists(t *testing.T) {
+	t.Parallel()
+
+	// note TempFile and not TempDir
+	workdir, err := ioutil.TempFile("", "work-dir")
+	require.NoError(t, err)
+
+	coord := mockCoordinator{}
+	client := &MockClient{}
+	tools := &MockedTools{}
+	urlBuilder := MockURLBuilder{}
+	_, err = NewClusterBundleHandler(coord, client, tools, workdir.Name(), time.Millisecond, urlBuilder)
+	assert.Error(t, err)
+}
+
 type mockCoordinator struct{}
 
 func (c mockCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
