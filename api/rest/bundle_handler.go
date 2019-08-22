@@ -189,7 +189,10 @@ func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteClos
 func collect(ctx context.Context, c collector.Collector, zipWriter *zip.Writer) error {
 	rc, err := c.Collect(ctx)
 	if err != nil {
-		return fmt.Errorf("could not collect %s: %s", c.Name(), err)
+		if !c.Optional() {
+			return fmt.Errorf("could not collect %s: %s", c.Name(), err)
+		}
+		rc = ioutil.NopCloser(bytes.NewReader([]byte(err.Error())))
 	}
 	defer rc.Close()
 
