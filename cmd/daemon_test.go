@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_getNodeInfo(t *testing.T) {
@@ -25,7 +26,6 @@ func Test_getNodeInfo(t *testing.T) {
 	assert.Empty(t, ip)
 	assert.EqualError(t, err, "stat /opt/mesosphere/bin/detect_ip: no such file or directory")
 
-
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "detect-ip.")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
@@ -35,7 +35,7 @@ func Test_getNodeInfo(t *testing.T) {
 
 	oldValue := defaultConfig.FlagIPDiscoveryCommandLocation
 	defaultConfig.FlagIPDiscoveryCommandLocation = tmpFile.Name()
-	defer func() {defaultConfig.FlagIPDiscoveryCommandLocation = oldValue }()
+	defer func() { defaultConfig.FlagIPDiscoveryCommandLocation = oldValue }()
 
 	node, err = getNodeInfo(nil)
 	assert.NoError(t, err)

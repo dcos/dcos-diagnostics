@@ -27,7 +27,7 @@ type Client interface {
 	// List will get the list of available bundles on the given node
 	List(ctx context.Context, node string) ([]*Bundle, error)
 	// Delete will delete the bundle with the given id from the given node
-	Delete(ctx context.Context, node string, id string) error
+	Delete(ctx context.Context, node string, ID string) error
 }
 
 type DiagnosticsClient struct {
