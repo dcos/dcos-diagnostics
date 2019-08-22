@@ -31,7 +31,11 @@ type ClusterBundleHandler struct {
 }
 
 func NewClusterBundleHandler(c Coordinator, client Client, tools dcos.Tooler, workDir string, timeout time.Duration,
-	urlBuilder dcos.NodeURLBuilder) *ClusterBundleHandler {
+	urlBuilder dcos.NodeURLBuilder) (*ClusterBundleHandler, error) {
+	err := initializeWorkDir(workDir)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ClusterBundleHandler{
 		coord:      c,
@@ -41,7 +45,7 @@ func NewClusterBundleHandler(c Coordinator, client Client, tools dcos.Tooler, wo
 		tools:      tools,
 		clock:      &realClock{},
 		urlBuilder: urlBuilder,
-	}
+	}, nil
 }
 
 // Create will send the initial creation request for the bundle to all nodes. The created

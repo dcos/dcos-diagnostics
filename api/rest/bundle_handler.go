@@ -57,14 +57,19 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) BundleHandler {
-	return BundleHandler{
+func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) (*BundleHandler, error) {
+	err := initializeWorkDir(workDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BundleHandler{
 		stateFileLock:         &sync.RWMutex{},
 		clock:                 realClock{},
 		workDir:               workDir,
 		collectors:            collectors,
 		bundleCreationTimeout: timeout,
-	}
+	}, nil
 }
 
 // BundleHandler is a struct that collects all functions
@@ -388,4 +393,14 @@ func jsonMarshal(v interface{}) []byte {
 		logrus.WithError(err).Fatalf("Could not marshal %v: %s", v, err)
 	}
 	return rawJSON
+}
+
+// initializeWorkDir will create the specified bundle working directory if it doesn't already exist
+// and will do nothing if it does.
+func initializeWorkDir(workDir string) error {
+	err := os.MkdirAll(workDir, dirPerm)
+	if err != nil {
+		return fmt.Errorf("could not create workdir: %s", err)
+	}
+	return nil
 }
