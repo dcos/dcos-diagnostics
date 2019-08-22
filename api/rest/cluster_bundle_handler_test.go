@@ -321,6 +321,7 @@ func TestStatusForBundle(t *testing.T) {
 	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(nil, fmt.Errorf("asdf"))
 	client.On("Status", ctx, "http://192.0.2.4", "bundle-0").Return(&Bundle{
 		ID:      "bundle-0",
+		Type:    Cluster,
 		Status:  Done,
 		Started: now,
 		Stopped: now.Add(1 * time.Hour),
@@ -350,6 +351,7 @@ func TestStatusForBundle(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.JSONEq(t, string(jsonMarshal(Bundle{
 		ID:      "bundle-0",
+		Type:    Cluster,
 		Status:  Done,
 		Started: now,
 		Stopped: now.Add(time.Hour),
@@ -496,7 +498,8 @@ func TestDownloadBundle(t *testing.T) {
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.5", id).Return(&Bundle{
-		ID: "bundle-0",
+		ID:   "bundle-0",
+		Type: Cluster,
 	}, nil)
 	client.On("GetFile", ctx, "http://192.0.2.5", id, mock.AnythingOfType("string")).Return(func(ctx context.Context, url string, id string, tempZipFile string) error {
 		// copy the testdata zip to the location Client is expected to put the downloaded zip
@@ -672,13 +675,16 @@ func TestListWithBundlesOnMultipleMasters(t *testing.T) {
 
 	expectedBundles := []*Bundle{
 		{
-			ID: "bundle-0",
+			ID:   "bundle-0",
+			Type: Cluster,
 		},
 		{
-			ID: "bundle-1",
+			ID:   "bundle-1",
+			Type: Cluster,
 		},
 		{
-			ID: "bundle-2",
+			ID:   "bundle-2",
+			Type: Cluster,
 		},
 	}
 
@@ -750,6 +756,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 	client := new(TestifyMockClient)
 	client.On("Status", ctx, "http://192.0.2.2", "bundle-0").Return(&Bundle{
 		ID:      "bundle-0",
+		Type:    Cluster,
 		Started: now.Add(time.Hour),
 		Stopped: now.Add(2 * time.Hour),
 		Status:  Done,
@@ -790,6 +797,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
+			Type:    Cluster,
 			Status:  Started,
 			Started: now.Add(time.Hour),
 		})), rr.Body.String())
@@ -826,6 +834,7 @@ func TestRemoteBundleCreation(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
+			Type:    Cluster,
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),

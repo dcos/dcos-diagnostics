@@ -12,7 +12,7 @@ func TestType_MarshalUnmarshalJSON(t *testing.T) {
 		s      string
 		j      string
 		actual Type
-	}{{"Local", `"Local"`, Local}, {"Remote", `"Remote"`, Remote}} {
+	}{{"Local", `"Local"`, Local}, {"Cluster", `"Cluster"`, Cluster}} {
 
 		t.Run(tt.s, func(t *testing.T) {
 			var actual Type

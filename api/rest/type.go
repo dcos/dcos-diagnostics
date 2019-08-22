@@ -11,7 +11,7 @@ type Type int
 
 const (
 	Local Type = iota
-	Remote
+	Cluster
 )
 
 func (s Type) String() string {
@@ -19,13 +19,13 @@ func (s Type) String() string {
 }
 
 var typeToString = map[Type]string{
-	Local:  "Local",
-	Remote: "Remote",
+	Local:   "Local",
+	Cluster: "Cluster",
 }
 
 var stringToType = map[string]Type{
-	"Local":  Local,
-	"Remote": Remote,
+	"Local":   Local,
+	"Cluster": Cluster,
 }
 
 // MarshalJSON marshals the enum as a quoted json string
