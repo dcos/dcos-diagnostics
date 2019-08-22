@@ -70,6 +70,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	bundle := Bundle{
 		ID:      id,
+		Type:    Cluster,
 		Started: c.clock.Now(),
 		Status:  Started,
 	}

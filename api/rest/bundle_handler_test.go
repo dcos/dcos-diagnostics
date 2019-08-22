@@ -102,18 +102,21 @@ func TestIfDirsAsBundlesIdsWithStatusUnknown(t *testing.T) {
 	assert.JSONEq(t, `[
 	{
 	    "id":"bundle-0",
+		"type": "Local",
 		"status": "Unknown",
 	    "started_at":"0001-01-01T00:00:00Z",
 	    "stopped_at":"0001-01-01T00:00:00Z"
 	},
 	{
     	"id":"bundle-1",
+		"type": "Local",
 		"status": "Unknown",
 	    "started_at":"0001-01-01T00:00:00Z",
 	    "stopped_at":"0001-01-01T00:00:00Z"
   	},
   	{
 	    "id":"bundle-2",
+		"type": "Local",
 		"status": "Unknown",
 	    "started_at":"0001-01-01T00:00:00Z",
 	    "stopped_at":"0001-01-01T00:00:00Z"
@@ -132,6 +135,7 @@ func TestIfListShowsStatusWithoutAFile(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
 		[]byte(`{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Deleted",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
@@ -152,6 +156,7 @@ func TestIfListShowsStatusWithoutAFile(t *testing.T) {
 
 	assert.JSONEq(t, `[{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Deleted",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z"
@@ -213,6 +218,7 @@ func TestIfShowsStatusWithoutAFileButStatusDoneShouldChangeStatusToUnknown(t *te
 
 	assert.JSONEq(t, `[{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Unknown",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z"
@@ -231,6 +237,7 @@ func TestIfShowsStatusWithFileAndDontUpdatesFileSize(t *testing.T) {
 	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
 	oldState := `{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Done",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z" }`
@@ -254,6 +261,7 @@ func TestIfShowsStatusWithFileAndDontUpdatesFileSize(t *testing.T) {
 
 	expectedState := `{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Done",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z",
@@ -278,6 +286,7 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDeleted(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
 		[]byte(`{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Deleted",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
@@ -298,6 +307,7 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDeleted(t *testing.T) {
 
 	assert.JSONEq(t, `{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Deleted",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z"
@@ -316,6 +326,7 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDone(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, stateFileName),
 		[]byte(`{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Done",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z" }`), filePerm)
@@ -336,7 +347,7 @@ func TestIfGetShowsStatusWithoutAFileWhenBundleIsDone(t *testing.T) {
 
 	assert.Contains(t,
 		rr.Body.String(),
-		`{"id":"bundle","status":"Unknown","started_at":"1991-05-21T00:00:00Z","stopped_at":"2019-05-21T00:00:00Z","errors":["could not stat data file bundle: `,
+		`{"id":"bundle","type":"Local","status":"Unknown","started_at":"1991-05-21T00:00:00Z","stopped_at":"2019-05-21T00:00:00Z","errors":["could not stat data file bundle: `,
 	)
 }
 
@@ -366,6 +377,7 @@ func TestIfGetReturns500WhenBundleStateIsNotJson(t *testing.T) {
 	assert.JSONEq(t,
 		`{
    			"id":"bundle-state-not-json",
+			"type": "Local",
 			"status":"Unknown",
    			"started_at":"0001-01-01T00:00:00Z",
    			"stopped_at":"0001-01-01T00:00:00Z",
@@ -425,7 +437,7 @@ func TestIfDeleteReturns500WhenNoBundleStateFound(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t,
 		rr.Body.String(),
-		`{"id":"not-existing-bundle-state","status":"Unknown","started_at":"0001-01-01T00:00:00Z","stopped_at":"0001-01-01T00:00:00Z","errors":["could not read state file for bundle not-existing-bundle-state:`,
+		`{"id":"not-existing-bundle-state","type":"Local","status":"Unknown","started_at":"0001-01-01T00:00:00Z","stopped_at":"0001-01-01T00:00:00Z","errors":["could not read state file for bundle not-existing-bundle-state:`,
 	)
 }
 
@@ -458,6 +470,7 @@ func TestIfDeleteReturns500WhenBundleStateIsNotJson(t *testing.T) {
 	assert.JSONEq(t,
 		`{
    			"id":"bundle-state-not-json",
+			"type": "Local",
    			"status":"Unknown",
    			"started_at":"0001-01-01T00:00:00Z",
    			"stopped_at":"0001-01-01T00:00:00Z",
@@ -480,6 +493,7 @@ func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
 	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
 	bundleState := `{
 		"id": "bundle",
+		"type": "Local",
 		"status": "Deleted",
 		"started_at":"1991-05-21T00:00:00Z",
 		"stopped_at":"2019-05-21T00:00:00Z" }`
@@ -533,7 +547,7 @@ func TestIfDeleteReturns500WhenBundleFileIsMissing(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t,
 		rr.Body.String(),
-		`{"id":"bundle","status":"Unknown","started_at":"1991-05-21T00:00:00Z","stopped_at":"2019-05-21T00:00:00Z","errors":["could not stat data file missing-data-file: `,
+		`{"id":"bundle","type":"Local","status":"Unknown","started_at":"1991-05-21T00:00:00Z","stopped_at":"2019-05-21T00:00:00Z","errors":["could not stat data file missing-data-file: `,
 		rr.Body.String(),
 	)
 }
@@ -549,6 +563,7 @@ func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
 	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
 	err = ioutil.WriteFile(stateFilePath, []byte((`{
 		"id": "bundle-0",
+		"type": "Local",
 		"status": "Done",
 		"size": 2,
 		"started_at":"1991-05-21T00:00:00Z",
@@ -572,6 +587,7 @@ func TestIfDeleteReturns200WhenBundleWasDeleted(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.JSONEq(t, `{
 		"id": "bundle-0",
+		"type": "Local",
 		"status": "Deleted",
 		"size": 2,
 		"started_at":"1991-05-21T00:00:00Z",
@@ -735,6 +751,7 @@ func TestIfE2E_(t *testing.T) {
 
 		assert.Equal(t, &Bundle{
 			ID:      "bundle-0",
+			Type:    Local,
 			Status:  Started,
 			Started: now.Add(time.Hour),
 		}, bundle)
@@ -754,6 +771,7 @@ func TestIfE2E_(t *testing.T) {
 
 		assert.Equal(t, &Bundle{
 			ID:      "bundle-0",
+			Type:    Local,
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
@@ -828,6 +846,7 @@ func TestIfE2E_(t *testing.T) {
 
 		assert.JSONEq(t, string(jsonMarshal(Bundle{
 			ID:      "bundle-0",
+			Type:    Local,
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
@@ -847,6 +866,7 @@ func TestIfE2E_(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.JSONEq(t, string(jsonMarshal([]Bundle{{
 			ID:      "bundle-0",
+			Type:    Local,
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
