@@ -846,7 +846,7 @@ func TestIfE2E_(t *testing.T) {
 	})
 }
 
-func TestBundleDirIsCreatedIfNotExists(t *testing.T) {
+func TestBundleHandlerWorkDirIsCreatedIfNotExists(t *testing.T) {
 	t.Parallel()
 
 	workdir, err := ioutil.TempDir("", "work-dir")
@@ -858,6 +858,17 @@ func TestBundleDirIsCreatedIfNotExists(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.DirExists(t, workdir)
+}
+
+func TestBundleHandlerWorkDirInitFailsWhenFileExists(t *testing.T) {
+	t.Parallel()
+
+	// note TempFile and not TempDir
+	workdir, err := ioutil.TempFile("", "work-dir")
+	require.NoError(t, err)
+
+	_, err = NewBundleHandler(workdir.Name(), nil, time.Millisecond)
+	assert.Error(t, err)
 }
 
 // MockClock is a monotonic clock. Every call to Now() adds one hour

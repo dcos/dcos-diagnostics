@@ -57,20 +57,8 @@ type realClock struct{}
 func (realClock) Now() time.Time { return time.Now() }
 
 func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) (*BundleHandler, error) {
-	f, err := os.Stat(workDir)
+	err := initializeWorkDir(workDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(workDir, dirPerm)
-			if err != nil {
-				logrus.WithError(err).Errorf("workDir does not exist and could not be created %s", workDir)
-				return nil, err
-			}
-		} else {
-			logrus.Errorf("Could not open workDir %s", workDir)
-			return nil, err
-		}
-	} else if f.Mode().IsRegular() {
-		logrus.Errorf("workDir exists but is not a directory: %s", workDir)
 		return nil, err
 	}
 
@@ -401,4 +389,14 @@ func jsonMarshal(v interface{}) []byte {
 		logrus.WithError(err).Fatalf("Could not marshal %v: %s", v, err)
 	}
 	return rawJSON
+}
+
+// initializeWorkDir will create the specified bundle working directory if it doesn't already exist
+// and will do nothing if it does.
+func initializeWorkDir(workDir string) error {
+	err := os.MkdirAll(workDir, dirPerm)
+	if err != nil {
+		return fmt.Errorf("could not create workdir: %s", err)
+	}
+	return nil
 }
