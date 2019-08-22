@@ -79,7 +79,7 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 
 	testNodes = append(testNodes, failingNode, nodeInProgress)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), 100 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
 	downloaded := make(chan bool)
 
 	client := &MockClient{
@@ -88,12 +88,18 @@ func TestCoordinatorCreateAndCollect(t *testing.T) {
 		},
 		status: func(ctx context.Context, node string, ID string) (bundle *Bundle, e error) {
 			if node == nodeInProgress.baseURL {
-				return  &Bundle{ID: localBundleID, Status: InProgress}, nil
+				return &Bundle{ID: localBundleID, Status: InProgress}, nil
 			}
 			return &Bundle{ID: localBundleID, Status: Done}, nil
 		},
 		getFile: func(ctx context.Context, node string, ID string, path string) (err error) {
 			defer func() { downloaded <- true }()
+			if node == failingNode.baseURL {
+				return fmt.Errorf("some error")
+			}
+			return nil
+		},
+		delete: func(ctx context.Context, node string, ID string) (err error) {
 			if node == failingNode.baseURL {
 				return fmt.Errorf("some error")
 			}
@@ -156,7 +162,7 @@ func TestCoordinatorCreateAndCollectNoNodes(t *testing.T) {
 
 	var testNodes []node
 
-	ctx, _ := context.WithTimeout(context.TODO(), 100 * time.Millisecond)
+	ctx, _ := context.WithTimeout(context.TODO(), 100*time.Millisecond)
 
 	c := NewParallelCoordinator(nil, time.Microsecond, workDir)
 

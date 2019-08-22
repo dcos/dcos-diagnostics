@@ -71,6 +71,11 @@ type nodeBundleReport struct {
 	Err    string `json:"error,omitempty"`
 }
 
+type bundleToDelete struct {
+	baseURL       string
+	localBundleID string
+}
+
 // job is a function that will be called by the worker function. The output will be added to results channel
 type job func(context.Context) BundleStatus
 
@@ -128,6 +133,8 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		Nodes: make(map[string]nodeBundleReport, numBundles),
 	}
 
+	var bundlesToDelete = make([]bundleToDelete, numBundles)
+
 	for finishedBundles := 0; finishedBundles < numBundles; {
 
 		s := <-statuses
@@ -137,6 +144,7 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			continue
 		}
 
+		bundlesToDelete[finishedBundles] = bundleToDelete{baseURL: s.node.baseURL, localBundleID: s.id}
 		// even if the bundle finished with an error, it's now finished so increment finishedBundles
 		finishedBundles++
 		if s.err != nil {
@@ -157,6 +165,18 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 		report.Nodes[s.node.IP.String()] = nodeBundleReport{Status: Done}
 		bundlePaths = append(bundlePaths, bundlePath)
 	}
+
+	// Run cleanup in separated goroutine so it will not block bundle generation process
+	go func() {
+		for _, b := range bundlesToDelete {
+			// Using context.Background prevents interruptions during cleanup
+			err := c.client.Delete(context.Background(), b.baseURL, b.localBundleID)
+			if err != nil {
+				logrus.WithError(err).WithField("URL", b.baseURL).
+					WithField("ID", b.localBundleID).Warn("Could not delete local bundle")
+			}
+		}
+	}()
 
 	return mergeZips(report, bundlePaths, c.workDir)
 }
