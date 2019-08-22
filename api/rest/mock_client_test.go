@@ -38,16 +38,16 @@ func (_m *TestifyMockClient) CreateBundle(ctx context.Context, node string, ID s
 }
 
 // Delete provides a mock function with given fields: ctx, node, id
-func (_m *TestifyMockClient) Delete(ctx context.Context, node string, id string) error {
+func (_m *TestifyMockClient) Delete(ctx context.Context, node string, ID string) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
-	ret := _m.Called(ctx, node, id)
+	ret := _m.Called(ctx, node, ID)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, node, id)
+		r0 = rf(ctx, node, ID)
 	} else {
 		r0 = ret.Error(0)
 	}
