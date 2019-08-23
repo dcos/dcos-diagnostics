@@ -44,6 +44,10 @@ type Bundle struct {
 	Errors  []string  `json:"errors,omitempty"`
 }
 
+func (b *Bundle) IsFinished() bool {
+	return b.Status == Done || b.Status == Deleted || b.Status == Canceled || b.Status == Failed
+}
+
 func (b *Bundle) Failed(when time.Time, why error) {
 	b.Status = Failed
 	b.Stopped = when
@@ -296,7 +300,7 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 		return bundle, fmt.Errorf("could not unmarshal state file %s: %s", id, err)
 	}
 
-	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown {
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown || bundle.Status == Failed {
 		return bundle, nil
 	}
 
