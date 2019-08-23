@@ -66,8 +66,6 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stateFilePath := filepath.Join(c.workDir, id, stateFileName)
-
 	bundle := Bundle{
 		ID:      id,
 		Type:    Cluster,
@@ -75,25 +73,33 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Status:  Started,
 	}
 
-	bundleStatus := jsonMarshal(bundle)
-	err = ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
+	bundleStatus, err := c.writeStateFile(bundle)
 	if err != nil {
-		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not update state file %s: %s", id, err))
+		writeJSONError(w, http.StatusInsufficientStorage, err)
 		return
 	}
 
 	dataFile, err := os.Create(filepath.Join(c.workDir, id, dataFileName))
 	if err != nil {
+		if e := c.failed(bundle, err); e != nil {
+			logrus.WithField("ID", bundle.ID).Error(e.Error())
+		}
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
 		return
 	}
 	masters, err := c.tools.GetMasterNodes()
 	if err != nil {
+		if e := c.failed(bundle, err); e != nil {
+			logrus.WithField("ID", bundle.ID).Error(e.Error())
+		}
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error getting master nodes for bundle %s: %s", id, err))
 		return
 	}
 	agents, err := c.tools.GetAgentNodes()
 	if err != nil {
+		if e := c.failed(bundle, err); e != nil {
+			logrus.WithField("ID", bundle.ID).Error(e.Error())
+		}
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error getting agent nodes for bundle %s: %s", id, err))
 		return
 	}
@@ -122,18 +128,27 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	localBundleID, err := uuid.NewUUID()
 	if err != nil {
+		if e := c.failed(bundle, err); e != nil {
+			logrus.WithField("ID", bundle.ID).Error(e.Error())
+		}
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("unable to create local bundle id for bundle %s: %s", id, err))
 		return
 	}
 	statuses := c.coord.CreateBundle(ctx, localBundleID.String(), nodes)
 
-	go c.waitAndCollectRemoteBundle(ctx, &bundle, len(nodes), dataFile, stateFilePath, statuses)
+	go c.waitAndCollectRemoteBundle(ctx, bundle, len(nodes), dataFile, statuses)
 
 	write(w, bundleStatus)
 }
 
-func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle *Bundle, numBundles int,
-	dataFile io.WriteCloser, stateFilePath string, statuses <-chan BundleStatus) {
+func (c *ClusterBundleHandler) failed(bundle Bundle, err error) error {
+	bundle.Failed(c.clock.Now(), err)
+	_, e := c.writeStateFile(bundle)
+	return e
+}
+
+func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, bundle Bundle, numBundles int,
+	dataFile io.WriteCloser, statuses <-chan BundleStatus) {
 
 	defer dataFile.Close()
 
@@ -141,26 +156,43 @@ func (c *ClusterBundleHandler) waitAndCollectRemoteBundle(ctx context.Context, b
 	if err != nil {
 		bundle.Errors = append(bundle.Errors, err.Error())
 	}
-	bundle.Stopped = c.clock.Now()
-	bundle.Status = Done
-
-	err = ioutil.WriteFile(stateFilePath, jsonMarshal(bundle), filePerm)
-	if err != nil {
-		logrus.WithError(err).WithField("ID", bundle.ID).Error("Could not update state file.")
-		return
-	}
 
 	bundleFile, err := os.Open(bundleFilePath)
 	if err != nil {
 		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to open bundle for copying")
+		if e := c.failed(bundle, err); e != nil {
+			logrus.WithField("ID", bundle.ID).Error(e.Error())
+		}
 		return
 	}
 
 	_, err = io.Copy(dataFile, bundleFile)
 	if err != nil {
 		logrus.WithError(err).WithField("ID", bundle.ID).Error("unable to copy bundle from temp dir working directory")
+		if e := c.failed(bundle, err); e != nil {
+			logrus.WithField("ID", bundle.ID).Error(e.Error())
+		}
 		return
 	}
+
+	bundle.Stopped = c.clock.Now()
+	bundle.Status = Done
+
+	_, err = c.writeStateFile(bundle)
+	if err != nil {
+		logrus.WithError(err).WithField("ID", bundle.ID).Error("Could not update state file.")
+		return
+	}
+}
+
+func (c *ClusterBundleHandler) writeStateFile(bundle Bundle) ([]byte, error) {
+	stateFilePath := filepath.Join(c.workDir, bundle.ID, stateFileName)
+	bundleStatus := jsonMarshal(bundle)
+	err := ioutil.WriteFile(stateFilePath, bundleStatus, filePerm)
+	if err != nil {
+		err = fmt.Errorf("could not update state file %s: %s", bundle.ID, err)
+	}
+	return bundleStatus, err
 }
 
 // List will get a list of all bundles available across all masters

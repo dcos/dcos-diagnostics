@@ -717,6 +717,115 @@ func TestListWithBundlesOnMultipleMasters(t *testing.T) {
 	assert.JSONEq(t, string(jsonMarshal(expectedBundles)), rr.Body.String())
 }
 
+func TestRemoteBundleCreationShouldFailWhenCantFindMasters(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{}, fmt.Errorf("some error"))
+
+	bh := ClusterBundleHandler{
+		workDir:    workdir,
+		coord:      nil,
+		client:     nil,
+		tools:      tools,
+		timeout:    time.Second,
+		clock:      &MockClock{now: now},
+		urlBuilder: MockURLBuilder{},
+	}
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Create).Methods(http.MethodPut)
+	router.HandleFunc(bundleEndpoint, bh.Status).Methods(http.MethodGet)
+
+
+	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.JSONEq(t, `{
+			"code":500,
+			"error":"error getting master nodes for bundle bundle-0: some error"
+		}`,
+	rr.Body.String())
+
+	stateFilePath := filepath.Join(workdir, "bundle-0", stateFileName)
+	state, err := ioutil.ReadFile(stateFilePath)
+	require.NoError(t, err)
+
+	assert.JSONEq(t, `{
+	  "id":"bundle-0",
+	  "type":"Cluster",
+	  "status":"Failed",
+	  "started_at":"2015-08-05T09:40:51.62Z",
+	  "stopped_at":"2015-08-05T10:40:51.62Z",
+	  "errors":[
+		"some error"
+	  ]
+	}`, string(state))
+}
+
+func TestRemoteBundleCreationShouldFailWhenCantFindAgents(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+
+	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
+	require.NoError(t, err)
+
+	tools := new(MockedTools)
+	tools.On("GetMasterNodes").Return([]dcos.Node{}, nil)
+	tools.On("GetAgentNodes").Return([]dcos.Node{}, fmt.Errorf("some error"))
+
+	bh := ClusterBundleHandler{
+		workDir:    workdir,
+		coord:      nil,
+		client:     nil,
+		tools:      tools,
+		timeout:    time.Second,
+		clock:      &MockClock{now: now},
+		urlBuilder: MockURLBuilder{},
+	}
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.Create).Methods(http.MethodPut)
+	router.HandleFunc(bundleEndpoint, bh.Status).Methods(http.MethodGet)
+
+
+	req, err := http.NewRequest(http.MethodPut, bundlesEndpoint+"/bundle-0", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.JSONEq(t, `{
+			"code":500,
+			"error":"error getting agent nodes for bundle bundle-0: some error"
+		}`,
+		rr.Body.String())
+
+	stateFilePath := filepath.Join(workdir, "bundle-0", stateFileName)
+	state, err := ioutil.ReadFile(stateFilePath)
+	require.NoError(t, err)
+
+	assert.JSONEq(t, `{
+	  "id":"bundle-0",
+	  "type":"Cluster",
+	  "status":"Failed",
+	  "started_at":"2015-08-05T09:40:51.62Z",
+	  "stopped_at":"2015-08-05T10:40:51.62Z",
+	  "errors":[
+		"some error"
+	  ]
+	}`, string(state))
+}
+
 func TestRemoteBundleCreation(t *testing.T) {
 	workdir, err := ioutil.TempDir("", "work-dir")
 	require.NoError(t, err)
