@@ -675,7 +675,7 @@ func TestIfGetFileReturns404WhenBundleIsStarted(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	assert.JSONEq(t, `{
 		"code":404,
-		"bundle bundle-0 is not done yet (status Started), try again later"
+		"error": "bundle bundle-0 is not done yet (status Started), try again later"
 	}`, rr.Body.String())
 }
 
