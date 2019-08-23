@@ -241,6 +241,12 @@ func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Failed {
+		writeJSONError(w, http.StatusNotFound,
+			fmt.Errorf("bundle %s was %s", bundle.ID, bundle.Status))
+		return
+	}
+
 	if bundle.Status != Done {
 		writeJSONError(w, http.StatusNotFound,
 			fmt.Errorf("bundle %s is not done yet (status %s), try again later", bundle.ID, bundle.Status))
