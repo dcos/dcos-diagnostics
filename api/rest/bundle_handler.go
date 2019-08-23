@@ -44,6 +44,16 @@ type Bundle struct {
 	Errors  []string  `json:"errors,omitempty"`
 }
 
+func (b *Bundle) IsFinished() bool {
+	return b.Status == Done || b.Status == Deleted || b.Status == Canceled || b.Status == Failed
+}
+
+func (b *Bundle) Failed(when time.Time, why error) {
+	b.Status = Failed
+	b.Stopped = when
+	b.Errors = append(b.Errors, why.Error())
+}
+
 type ErrorResponse struct {
 	Code  int    `json:"code"`
 	Error string `json:"error"`
@@ -118,7 +128,16 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	dataFile, err := os.Create(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {
+		bundle.Status = Failed
+		bundle.Stopped = h.clock.Now()
+		bundle.Errors = append(bundle.Errors, err.Error())
+		_, err := h.writeStateFile(bundle)
+		if err != nil {
+			writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not update state file %s: %s", id, err))
+			return
+		}
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
+		return
 	}
 
 	//TODO(janisz): use context cancel function to cancel bundle creation https://jira.mesosphere.com/browse/DCOS_OSS-5222
@@ -299,7 +318,7 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 		return bundle, fmt.Errorf("could not unmarshal state file %s: %s", id, err)
 	}
 
-	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown {
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown || bundle.Status == Failed {
 		return bundle, nil
 	}
 
