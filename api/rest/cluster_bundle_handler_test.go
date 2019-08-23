@@ -473,6 +473,10 @@ func TestDownloadBundle(t *testing.T) {
 	tools.On("GetMasterNodes").Return([]dcos.Node{
 		{
 			Role: "master",
+			IP:   "192.0.2.1",
+		},
+		{
+			Role: "master",
 			IP:   "192.0.2.2",
 		},
 		{
@@ -495,11 +499,17 @@ func TestDownloadBundle(t *testing.T) {
 
 	id := "bundle-0"
 	client := new(TestifyMockClient)
+	client.On("Status", ctx, "http://192.0.2.1", id).Return(&Bundle{
+		ID:   "bundle-0",
+		Type: Cluster,
+		Status: Unknown,
+	}, nil)
 	client.On("Status", ctx, "http://192.0.2.2", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.4", id).Return(nil, &DiagnosticsBundleNotFoundError{id: id})
 	client.On("Status", ctx, "http://192.0.2.5", id).Return(&Bundle{
 		ID:   "bundle-0",
 		Type: Cluster,
+		Status: Done,
 	}, nil)
 	client.On("GetFile", ctx, "http://192.0.2.5", id, mock.AnythingOfType("string")).Return(func(ctx context.Context, url string, id string, tempZipFile string) error {
 		// copy the testdata zip to the location Client is expected to put the downloaded zip

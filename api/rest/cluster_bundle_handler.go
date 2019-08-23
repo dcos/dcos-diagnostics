@@ -281,19 +281,21 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 	var masterWithBundle node
 	found := false
 	for _, n := range masters {
-		_, err = c.client.Status(ctx, n.baseURL, id)
-		if err != nil {
-			switch err.(type) {
+		bundle, statusErr := c.client.Status(ctx, n.baseURL, id)
+		if statusErr != nil {
+			switch statusErr.(type) {
 			case *DiagnosticsBundleUnreadableError:
-				writeJSONError(w, http.StatusInternalServerError, err)
+				writeJSONError(w, http.StatusInternalServerError, statusErr)
 				return
 			case *DiagnosticsBundleNotCompletedError:
-				writeJSONError(w, http.StatusNotFound, err)
+				writeJSONError(w, http.StatusNotFound, statusErr)
 				return
 			case *DiagnosticsBundleNotFoundError:
 				continue
 			}
-		} else {
+		}
+
+		if bundle.Status == Done {
 			masterWithBundle = n
 			found = true
 			break

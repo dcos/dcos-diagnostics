@@ -235,6 +235,24 @@ func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
+
+	bundle, err := h.getBundleState(id)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Failed {
+		writeJSONError(w, http.StatusNotFound,
+			fmt.Errorf("bundle %s was %s", bundle.ID, bundle.Status))
+		return
+	}
+
+	if bundle.Status != Done {
+		writeJSONError(w, http.StatusNotFound,
+			fmt.Errorf("bundle %s is not done yet (status %s), try again later", bundle.ID, bundle.Status))
+		return
+	}
+
 	w.Header().Add("Content-Type", "application/zip, application/octet-stream")
 	w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s.zip", id))
 	http.ServeFile(w, r, filepath.Join(h.workDir, id, dataFileName))
