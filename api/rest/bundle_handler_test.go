@@ -603,6 +603,17 @@ func TestIfGetFileReturnsBundle(t *testing.T) {
 	bundleWorkDir := filepath.Join(workdir, "bundle")
 	err = os.Mkdir(bundleWorkDir, dirPerm)
 	require.NoError(t, err)
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	bundle := `{
+		"id": "bundle-0",
+		"status": "Done",
+		"size": 2,
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z",
+		"type": "Local"
+	}`
+	err = ioutil.WriteFile(stateFilePath, []byte(bundle), filePerm)
+	require.NoError(t, err)
 	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName),
 		[]byte(`OK`), filePerm)
 	require.NoError(t, err)
@@ -623,6 +634,96 @@ func TestIfGetFileReturnsBundle(t *testing.T) {
 
 }
 
+func TestIfGetFileReturns404WhenBundleIsStarted(t *testing.T) {
+	t.Parallel()
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(workdir)
+
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, dirPerm)
+	require.NoError(t, err)
+
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	bundle := `{
+		"id": "bundle-0",
+		"status": "Started",
+		"size": 2,
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z",
+		"type": "Local"
+	}`
+	err = ioutil.WriteFile(stateFilePath, []byte(bundle), filePerm)
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName),
+		[]byte(`OK`), filePerm)
+	require.NoError(t, err)
+
+	bh, err := NewBundleHandler(workdir, nil, time.Millisecond)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.GetFile)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.JSONEq(t, `{
+		"code":404,
+		"error": "bundle bundle-0 is not done yet (status Started), try again later"
+	}`, rr.Body.String())
+}
+
+func TestIfGetFileReturns404WhenBundleIsNotDone(t *testing.T) {
+	t.Parallel()
+
+	workdir, err := ioutil.TempDir("", "work-dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(workdir)
+
+	bundleWorkDir := filepath.Join(workdir, "bundle")
+	err = os.Mkdir(bundleWorkDir, dirPerm)
+	require.NoError(t, err)
+
+	stateFilePath := filepath.Join(bundleWorkDir, stateFileName)
+	bundle := `{
+		"id": "bundle-0",
+		"status": "Deleted",
+		"size": 2,
+		"started_at":"1991-05-21T00:00:00Z",
+		"stopped_at":"2019-05-21T00:00:00Z",
+		"type": "Local"
+	}`
+	err = ioutil.WriteFile(stateFilePath, []byte(bundle), filePerm)
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(filepath.Join(bundleWorkDir, dataFileName),
+		[]byte(`OK`), filePerm)
+	require.NoError(t, err)
+
+	bh, err := NewBundleHandler(workdir, nil, time.Millisecond)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, bundlesEndpoint+"/bundle", nil)
+	require.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc(bundleEndpoint, bh.GetFile)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.JSONEq(t, `{
+		"code":404,
+		"error":"bundle bundle-0 was Deleted"
+	}`, rr.Body.String())
+}
+
 func TestIfGetFileReturnsErrorWhenBundleDoesNotExists(t *testing.T) {
 	t.Parallel()
 
@@ -641,8 +742,8 @@ func TestIfGetFileReturnsErrorWhenBundleDoesNotExists(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Equal(t, "404 page not found\n", rr.Body.String())
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), `{"code":500,"error":"could not read state file for bundle bundle: `)
 
 }
 
