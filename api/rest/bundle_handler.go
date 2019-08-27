@@ -44,6 +44,16 @@ type Bundle struct {
 	Errors  []string  `json:"errors,omitempty"`
 }
 
+func (b *Bundle) IsFinished() bool {
+	return b.Status == Done || b.Status == Deleted || b.Status == Canceled || b.Status == Failed
+}
+
+func (b *Bundle) Failed(when time.Time, why error) {
+	b.Status = Failed
+	b.Stopped = when
+	b.Errors = append(b.Errors, why.Error())
+}
+
 type ErrorResponse struct {
 	Code  int    `json:"code"`
 	Error string `json:"error"`
@@ -118,7 +128,16 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	dataFile, err := os.Create(filepath.Join(h.workDir, id, dataFileName))
 	if err != nil {
+		bundle.Status = Failed
+		bundle.Stopped = h.clock.Now()
+		bundle.Errors = append(bundle.Errors, err.Error())
+		_, err := h.writeStateFile(bundle)
+		if err != nil {
+			writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not update state file %s: %s", id, err))
+			return
+		}
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
+		return
 	}
 
 	//TODO(janisz): use context cancel function to cancel bundle creation https://jira.mesosphere.com/browse/DCOS_OSS-5222
@@ -235,6 +254,24 @@ func (h BundleHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
+
+	bundle, err := h.getBundleState(id)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Failed {
+		writeJSONError(w, http.StatusNotFound,
+			fmt.Errorf("bundle %s was %s", bundle.ID, bundle.Status))
+		return
+	}
+
+	if bundle.Status != Done {
+		writeJSONError(w, http.StatusNotFound,
+			fmt.Errorf("bundle %s is not done yet (status %s), try again later", bundle.ID, bundle.Status))
+		return
+	}
+
 	w.Header().Add("Content-Type", "application/zip, application/octet-stream")
 	w.Header().Add("Content-disposition", fmt.Sprintf("attachment; filename=%s.zip", id))
 	http.ServeFile(w, r, filepath.Join(h.workDir, id, dataFileName))
@@ -281,7 +318,7 @@ func (h BundleHandler) getBundleState(id string) (Bundle, error) {
 		return bundle, fmt.Errorf("could not unmarshal state file %s: %s", id, err)
 	}
 
-	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown {
+	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Unknown || bundle.Status == Failed {
 		return bundle, nil
 	}
 

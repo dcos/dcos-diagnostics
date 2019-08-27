@@ -345,7 +345,7 @@ func (c ParallelCoordinator) waitForDone(ctx context.Context, node node, id stri
 		return BundleStatus{id: id, node: node, err: fmt.Errorf("could not check status: %s", err)}
 	}
 	// If bundle is in terminal state (its state won't change)
-	if bundle.Status == Done || bundle.Status == Deleted || bundle.Status == Canceled {
+	if bundle.IsFinished() {
 		logrus.WithField("IP", node.IP).Info("Node bundle is finished.")
 		// mark it as done
 		return BundleStatus{id: id, node: node, done: true}
