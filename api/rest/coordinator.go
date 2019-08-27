@@ -101,16 +101,14 @@ func worker(ctx context.Context, jobs <-chan job, statuses chan<- BundleStatus) 
 // on the returned channel.
 func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
-	jobs := make(chan job)
-	statuses := make(chan BundleStatus)
+	jobs := make(chan job, len(nodes))
+	statuses := make(chan BundleStatus, len(nodes))
 
 	for i := 0; i < numberOfWorkers; i++ {
 		go worker(ctx, jobs, statuses)
 	}
 
 	for _, n := range nodes {
-		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
-
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
 		jobs <- func(ctx context.Context) BundleStatus {
