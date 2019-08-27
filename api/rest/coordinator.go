@@ -101,8 +101,8 @@ func worker(ctx context.Context, jobs <-chan job, statuses chan<- BundleStatus) 
 // on the returned channel.
 func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes []node) <-chan BundleStatus {
 
-	jobs := make(chan job)
-	statuses := make(chan BundleStatus)
+	jobs := make(chan job, len(nodes))
+	statuses := make(chan BundleStatus, len(nodes))
 
 	for i := 0; i < numberOfWorkers; i++ {
 		go worker(ctx, jobs, statuses)
