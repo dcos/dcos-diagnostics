@@ -109,8 +109,6 @@ func (c ParallelCoordinator) CreateBundle(ctx context.Context, id string, nodes 
 	}
 
 	for _, n := range nodes {
-		logrus.WithField("IP", n.IP).Info("Sending creation request to node.")
-
 		// necessary to prevent the closure from giving the same node to all the calls
 		tmpNode := n
 		jobs <- func(ctx context.Context) BundleStatus {
