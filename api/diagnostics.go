@@ -607,6 +607,7 @@ func (j *DiagnosticsJob) getBundleReportStatus() bundleReportStatus {
 	// use a temp var `used`, since disk.Usage panics if partition does not exist.
 	var used float64
 	cfg := j.Cfg
+	//TODO(janisz): Inject disk.Usage to DiagnosticsJob so this could be tested.
 	usageStat, err := disk.Usage(cfg.FlagDiagnosticsBundleDir)
 	if err == nil {
 		used = usageStat.UsedPercent
@@ -632,9 +633,9 @@ func (j *DiagnosticsJob) getBundleReportStatus() bundleReportStatus {
 		Status:                stat,
 		Errors:                errors,
 		LastBundlePath:        j.LastBundlePath,
-		JobStarted:            duration,
+		JobStarted:            j.JobStarted.String(),
 		JobEnded:              ended,
-		JobDuration:           time.Since(j.JobStarted).String(),
+		JobDuration:           duration,
 		JobProgressPercentage: jobProgressPercentage,
 
 		DiagnosticBundlesBaseDir:                 cfg.FlagDiagnosticsBundleDir,
