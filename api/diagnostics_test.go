@@ -371,10 +371,46 @@ func TestFindRequestedNodes(t *testing.T) {
 func TestGetStatus(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	config := testCfg()
-	job := &DiagnosticsJob{Cfg: config, DCOSTools: tools}
 
-	status := job.getBundleReportStatus()
-	assert.Equal(t, status.DiagnosticBundlesBaseDir, config.FlagDiagnosticsBundleDir)
+	parameters := []struct {
+		job *DiagnosticsJob
+		expected bundleReportStatus
+	}{
+		{
+			&DiagnosticsJob{Running: true, Cfg: config, DCOSTools: tools,
+				JobStarted: time.Date(2019, 9, 1, 4, 45, 0, 0, time.UTC),
+			},
+			bundleReportStatus{
+				Running: true,
+				JobStarted: "2019-09-01 04:45:00 +0000 UTC",
+				Errors: []string{},
+				DiagnosticBundlesBaseDir: config.FlagDiagnosticsBundleDir,
+				DiagnosticsJobTimeoutMin: config.FlagDiagnosticsJobTimeoutMinutes,
+				DiagnosticsUnitsLogsSinceHours: config.FlagDiagnosticsBundleUnitsLogsSinceString,
+			},
+		}, {
+			&DiagnosticsJob{Running: false, Cfg: config, DCOSTools: tools,
+				JobStarted: time.Date(2019, 9, 1, 4, 45, 0, 0, time.UTC),
+				JobEnded: time.Date(2019, 9, 1, 5, 00, 0, 0, time.UTC),
+			},
+			bundleReportStatus{
+				Running: false,
+				JobStarted: "2019-09-01 04:45:00 +0000 UTC",
+				JobEnded: "2019-09-01 05:00:00 +0000 UTC",
+				JobDuration: "15m0s",
+				Errors: []string{},
+				DiagnosticBundlesBaseDir: config.FlagDiagnosticsBundleDir,
+				DiagnosticsJobTimeoutMin: config.FlagDiagnosticsJobTimeoutMinutes,
+				DiagnosticsUnitsLogsSinceHours: config.FlagDiagnosticsBundleUnitsLogsSinceString,
+			},
+		},
+	}
+
+	for _, i := range parameters {
+		actual := i.job.getBundleReportStatus()
+		i.expected.DiskUsedPercent = actual.DiskUsedPercent //TODO(janisz): Inject disk.Usage to DiagnosticsJob so this could be tested.
+		assert.Equal(t, i.expected, actual)
+	}
 }
 
 func TestGetStatusWhenJobIsRunning(t *testing.T) {
