@@ -261,7 +261,7 @@ func (h BundleHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if bundle.Status == Deleted || bundle.Status == Canceled || bundle.Status == Failed {
-		writeJSONError(w, http.StatusNotFound,
+		writeJSONError(w, http.StatusGone,
 			fmt.Errorf("bundle %s was %s", bundle.ID, bundle.Status))
 		return
 	}
@@ -363,7 +363,7 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if bundle.Status == Deleted || bundle.Status == Canceled {
-		w.WriteHeader(http.StatusNotModified)
+		w.WriteHeader(http.StatusOK)
 		write(w, jsonMarshal(bundle))
 		return
 	}

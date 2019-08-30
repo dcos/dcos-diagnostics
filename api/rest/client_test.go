@@ -391,7 +391,7 @@ func TestDeleteWhenBundleAlreadyDeleted(t *testing.T) {
 		assert.Equal(t, "/system/health/v1/node/diagnostics/bundle-0", r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
 
-		w.WriteHeader(http.StatusNotModified)
+		w.WriteHeader(http.StatusOK)
 	}))
 
 	client := DiagnosticsClient{
@@ -399,7 +399,7 @@ func TestDeleteWhenBundleAlreadyDeleted(t *testing.T) {
 	}
 
 	err := client.Delete(context.TODO(), testServer.URL, "bundle-0")
-	assert.EqualError(t, err, "bundle bundle-0 canceled or already deleted")
+	assert.NoError(t, err)
 }
 
 func TestDeleteWhenBundleUnreadable(t *testing.T) {
