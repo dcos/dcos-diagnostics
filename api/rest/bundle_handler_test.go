@@ -679,7 +679,7 @@ func TestIfGetFileReturns404WhenBundleIsStarted(t *testing.T) {
 	}`, rr.Body.String())
 }
 
-func TestIfGetFileReturns404WhenBundleIsNotDone(t *testing.T) {
+func TestIfGetFileReturns410WhenBundleIsNotDone(t *testing.T) {
 	t.Parallel()
 
 	workdir, err := ioutil.TempDir("", "work-dir")
@@ -717,9 +717,9 @@ func TestIfGetFileReturns404WhenBundleIsNotDone(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, http.StatusGone, rr.Code)
 	assert.JSONEq(t, `{
-		"code":404,
+		"code":410,
 		"error":"bundle bundle-0 was Deleted"
 	}`, rr.Body.String())
 }
