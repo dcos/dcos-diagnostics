@@ -482,7 +482,7 @@ func TestIfDeleteReturns500WhenBundleStateIsNotJson(t *testing.T) {
 	)
 }
 
-func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
+func TestIfDeleteReturns200WhenBundleWasDeletedBefore(t *testing.T) {
 	t.Parallel()
 	workdir, err := ioutil.TempDir("", "work-dir")
 	defer os.RemoveAll(workdir)
@@ -512,7 +512,7 @@ func TestIfDeleteReturns304WhenBundleWasDeletedBefore(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotModified, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.JSONEq(t, bundleState, rr.Body.String())
 }
 

@@ -363,7 +363,7 @@ func (h BundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if bundle.Status == Deleted || bundle.Status == Canceled {
-		w.WriteHeader(http.StatusNotModified)
+		w.WriteHeader(http.StatusOK)
 		write(w, jsonMarshal(bundle))
 		return
 	}

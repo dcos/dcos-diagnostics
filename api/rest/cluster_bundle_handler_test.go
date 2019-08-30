@@ -152,7 +152,7 @@ func TestDeleteAlreadyDeletedBundle(t *testing.T) {
 	id := "bundle-0"
 	client := new(TestifyMockClient)
 	client.On("Delete", ctx, "http://192.0.2.2", id).Return(&DiagnosticsBundleNotFoundError{id: id})
-	client.On("Delete", ctx, "http://192.0.2.4", id).Return(&DiagnosticsBundleNotCompletedError{id: id})
+	client.On("Delete", ctx, "http://192.0.2.4", id).Return(nil)
 	client.On("Delete", ctx, "http://192.0.2.5", id).Return(&DiagnosticsBundleNotFoundError{id: id})
 
 	coord := new(mockCoordinator)
@@ -175,7 +175,7 @@ func TestDeleteAlreadyDeletedBundle(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusNotModified, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
 func TestDeleteBundleThatIsntFound(t *testing.T) {
