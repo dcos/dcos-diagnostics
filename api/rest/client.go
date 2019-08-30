@@ -203,8 +203,6 @@ func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) e
 
 func handleErrorCode(resp *http.Response, url string, bundleID string) error {
 	switch {
-	case resp.StatusCode == http.StatusNotModified:
-		return &DiagnosticsBundleNotCompletedError{id: bundleID}
 	case resp.StatusCode == http.StatusNotFound:
 		return &DiagnosticsBundleNotFoundError{id: bundleID}
 	case resp.StatusCode == http.StatusInternalServerError:

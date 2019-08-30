@@ -236,11 +236,7 @@ func (c *ClusterBundleHandler) Status(w http.ResponseWriter, r *http.Request) {
 	for _, n := range masters {
 		bundle, err := c.client.Status(ctx, n.baseURL, id)
 		if err != nil {
-			switch err.(type) {
-			case *DiagnosticsBundleNotCompletedError:
-				writeJSONError(w, http.StatusNotFound, err)
-				return
-			case *DiagnosticsBundleUnreadableError:
+			if _, ok := err.(*DiagnosticsBundleUnreadableError); ok {
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
 			}
@@ -276,11 +272,7 @@ func (c *ClusterBundleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// some errors tell us the bundle was found on a master but something else was wrong so we end and return an error status
 			// but a NotFound error means it should keep going
-			switch err.(type) {
-			case *DiagnosticsBundleNotCompletedError:
-				w.WriteHeader(http.StatusNotModified)
-				return
-			case *DiagnosticsBundleUnreadableError:
+			if _, ok := err.(*DiagnosticsBundleUnreadableError); ok {
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
 			}
@@ -318,9 +310,6 @@ func (c *ClusterBundleHandler) Download(w http.ResponseWriter, r *http.Request) 
 			switch statusErr.(type) {
 			case *DiagnosticsBundleUnreadableError:
 				writeJSONError(w, http.StatusInternalServerError, statusErr)
-				return
-			case *DiagnosticsBundleNotCompletedError:
-				writeJSONError(w, http.StatusNotFound, statusErr)
 				return
 			case *DiagnosticsBundleNotFoundError:
 				continue

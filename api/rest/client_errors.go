@@ -20,14 +20,6 @@ func (d *DiagnosticsBundleUnreadableError) Error() string {
 	return fmt.Sprintf("bundle %s not readable", d.id)
 }
 
-type DiagnosticsBundleNotCompletedError struct {
-	id string
-}
-
-func (d *DiagnosticsBundleNotCompletedError) Error() string {
-	return fmt.Sprintf("bundle %s canceled or already deleted", d.id)
-}
-
 type DiagnosticsBundleAlreadyExists struct {
 	id string
 }
