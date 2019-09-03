@@ -151,7 +151,7 @@ func (c ParallelCoordinator) CollectBundle(ctx context.Context, bundleID string,
 			continue
 		}
 
-		bundlePath := filepath.Join(c.workDir, nodeBundleFilename(s.node))
+		bundlePath := filepath.Join(c.workDir, bundleID, nodeBundleFilename(s.node))
 		err := c.client.GetFile(ctx, s.node.baseURL, s.id, bundlePath)
 		if err != nil {
 			report.Nodes[s.node.IP.String()] = nodeBundleReport{Status: Failed, Err: err.Error()}

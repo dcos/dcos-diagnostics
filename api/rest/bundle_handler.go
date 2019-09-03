@@ -144,6 +144,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx, _ := context.WithTimeout(context.Background(), h.bundleCreationTimeout) //nolint:govet
 	done := make(chan []string)
 
+	logrus.WithField("ID", bundle.ID).Info("Creating local bundle")
 	go collectAll(ctx, done, dataFile, h.collectors)
 
 	go func() {
@@ -151,10 +152,11 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			break
 		case bundle.Errors = <-done:
+			logrus.WithField("ID", bundle.ID).WithField("errors", bundle.Errors).Info("Local bundle finished")
 			bundle.Status = Done
 			bundle.Stopped = h.clock.Now()
 			if _, e := h.writeStateFile(bundle); e != nil {
-				logrus.WithError(e).Errorf("Could not update state file %s", id)
+				logrus.WithField("ID", bundle.ID).WithError(e).Errorf("Could not update state file")
 			}
 		}
 	}()
@@ -165,27 +167,11 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collector.Collector) {
 	zipWriter := zip.NewWriter(dataFile)
 	var errors []string
-	// summaryReport is a log of a diagnostics job
-	summaryReport := new(bytes.Buffer)
 
 	for _, c := range collectors {
-		if ctx.Err() != nil {
-			errors = append(errors, ctx.Err().Error())
-			break
-		}
-		summaryReport.WriteString(fmt.Sprintf("[START GET %s]\n", c.Name()))
 		err := collect(ctx, c, zipWriter)
-		summaryReport.WriteString(fmt.Sprintf("[STOP GET %s]\n", c.Name()))
+		logrus.WithError(err).WithField("collector", c.Name()).Info("Fetched data to local bundle")
 		if err != nil && !c.Optional() {
-			errors = append(errors, err.Error())
-		}
-	}
-
-	summaryReportFile, err := zipWriter.Create(summaryReportFileName)
-	if err != nil {
-		errors = append(errors, err.Error())
-	} else {
-		if _, err := io.Copy(summaryReportFile, summaryReport); err != nil {
 			errors = append(errors, err.Error())
 		}
 	}
