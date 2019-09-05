@@ -231,7 +231,7 @@ func collect(ctx context.Context, c collector.Collector, zipWriter *zip.Writer) 
 		return fmt.Errorf("could not create a %s in the zip: %s", c.Name(), err)
 	}
 	if _, err := io.Copy(zipFile, rc); err != nil {
-		return fmt.Errorf("could not copy data to zip: %s", err)
+		return fmt.Errorf("could not copy %s data to zip: %s", c.Name(), err)
 	}
 
 	return nil

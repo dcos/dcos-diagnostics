@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-diagnostics/collector"
+	diagio "github.com/dcos/dcos-diagnostics/io"
 
 	"github.com/gorilla/mux"
 
@@ -818,16 +819,14 @@ func TestIfE2E_(t *testing.T) {
 	now, err := time.Parse(time.RFC3339, "2015-08-05T08:40:51.620Z")
 	require.NoError(t, err)
 
-	bh, err := NewBundleHandler(
-		workdir,
-		[]collector.Collector{
-			MockCollector{name: "collector-1", err: fmt.Errorf("some error")},
-			MockCollector{name: "collector-2", rc: ioutil.NopCloser(bytes.NewReader([]byte("OK")))},
-			MockCollector{name: "collector-3", err: fmt.Errorf("some other error"), optional: true},
-		},
-		time.Second,
-		collectorTimeout,
-	)
+	collectors := []collector.Collector{
+		MockCollector{name: "collector-1", err: fmt.Errorf("some error")},
+		MockCollector{name: "collector-2", rc: ioutil.NopCloser(bytes.NewReader([]byte("OK")))},
+		MockCollector{name: "collector-3", err: fmt.Errorf("some other error"), optional: true},
+		MockCollector{name: "collector-4", rc: slowReader{delay: time.Millisecond}},
+	}
+
+	bh, err := NewBundleHandler(workdir, collectors, time.Second, 5 * time.Millisecond)
 	require.NoError(t, err)
 	bh.clock = &MockClock{now: now}
 
@@ -879,8 +878,11 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    636,
-			Errors:  []string{"could not collect collector-1: some error"},
+			Size:    803,
+			Errors: []string{
+				"could not collect collector-1: some error",
+				"could not copy collector-4 data to zip: context deadline exceeded",
+			},
 		}, bundle)
 	})
 
@@ -897,11 +899,12 @@ func TestIfE2E_(t *testing.T) {
 		reader, err := zip.OpenReader(f.Name())
 		require.NoError(t, err)
 
-		require.Len(t, reader.File, 4)
+		require.Len(t, reader.File, 5)
 		assert.Equal(t, "collector-2", reader.File[0].Name)
 		assert.Equal(t, "collector-3", reader.File[1].Name)
-		assert.Equal(t, "summaryReport.txt", reader.File[2].Name)
-		assert.Equal(t, "summaryErrorsReport.txt", reader.File[3].Name)
+		assert.Equal(t, "collector-4", reader.File[2].Name)
+		assert.Equal(t, "summaryReport.txt", reader.File[3].Name)
+		assert.Equal(t, "summaryErrorsReport.txt", reader.File[4].Name)
 
 		rc, err := reader.File[0].Open()
 		require.NoError(t, err)
@@ -919,6 +922,12 @@ func TestIfE2E_(t *testing.T) {
 		require.NoError(t, err)
 		content, err = ioutil.ReadAll(rc)
 		require.NoError(t, err)
+		assert.Empty(t, content)
+
+		rc, err = reader.File[3].Open()
+		require.NoError(t, err)
+		content, err = ioutil.ReadAll(rc)
+		require.NoError(t, err)
 		assert.Equal(t,
 			`[START GET collector-1]
 [STOP GET collector-1]
@@ -926,13 +935,17 @@ func TestIfE2E_(t *testing.T) {
 [STOP GET collector-2]
 [START GET collector-3]
 [STOP GET collector-3]
+[START GET collector-4]
+[STOP GET collector-4]
 `, string(content))
 
-		rc, err = reader.File[3].Open()
+		rc, err = reader.File[4].Open()
 		require.NoError(t, err)
 		content, err = ioutil.ReadAll(rc)
 		require.NoError(t, err)
-		assert.Equal(t, "could not collect collector-1: some error", string(content))
+		assert.Equal(t,
+			`could not collect collector-1: some error
+could not copy collector-4 data to zip: context deadline exceeded`, string(content))
 	})
 
 	t.Run("delete bundle-0", func(t *testing.T) {
@@ -954,8 +967,11 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    636,
-			Errors:  []string{"could not collect collector-1: some error"},
+			Size:    803,
+			Errors:  []string{
+				"could not collect collector-1: some error",
+				"could not copy collector-4 data to zip: context deadline exceeded",
+			},
 		})), string(body))
 	})
 
@@ -974,8 +990,11 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    636,
-			Errors:  []string{"could not collect collector-1: some error"},
+			Size:    803,
+			Errors:  []string{
+				"could not collect collector-1: some error",
+				"could not copy collector-4 data to zip: context deadline exceeded",
+			},
 		}})), rr.Body.String())
 	})
 }
@@ -1031,5 +1050,18 @@ func (m MockCollector) Optional() bool {
 }
 
 func (m MockCollector) Collect(ctx context.Context) (io.ReadCloser, error) {
-	return m.rc, m.err
+	return diagio.ReadCloserWithContext(ctx, m.rc), m.err
+}
+
+type slowReader struct {
+	delay time.Duration
+}
+
+func (s slowReader) Read(p []byte) (n int, err error) {
+	time.Sleep(s.delay)
+	return 0, nil
+}
+
+func (s slowReader) Close() error {
+	return nil
 }
