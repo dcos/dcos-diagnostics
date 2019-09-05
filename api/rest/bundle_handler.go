@@ -178,8 +178,8 @@ func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteClos
 		}
 		summaryReport.WriteString(fmt.Sprintf("[START GET %s]\n", c.Name()))
 		collectorCtx, cancel := context.WithTimeout(ctx, collectorTimeout) //nolint: govet
-		defer cancel()
 		err := collect(collectorCtx, c, zipWriter)
+		cancel()
 		summaryReport.WriteString(fmt.Sprintf("[STOP GET %s]\n", c.Name()))
 		if err != nil && !c.Optional() {
 			errors = append(errors, err.Error())
