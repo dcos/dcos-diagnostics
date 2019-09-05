@@ -177,7 +177,8 @@ func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteClos
 			break
 		}
 		summaryReport.WriteString(fmt.Sprintf("[START GET %s]\n", c.Name()))
-		collectorCtx, _ := context.WithTimeout(ctx, collectorTimeout) //nolint: govet
+		collectorCtx, cancel := context.WithTimeout(ctx, collectorTimeout) //nolint: govet
+		defer cancel()
 		err := collect(collectorCtx, c, zipWriter)
 		summaryReport.WriteString(fmt.Sprintf("[STOP GET %s]\n", c.Name()))
 		if err != nil && !c.Optional() {
