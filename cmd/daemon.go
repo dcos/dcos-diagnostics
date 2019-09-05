@@ -91,7 +91,7 @@ func startDiagnosticsDaemon() {
 		logrus.Fatalf("Could not init diagnostics job properly: %s", err)
 	}
 
-	client := util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr)
+	client := util.NewHTTPClient(defaultConfig.GetSingleEntryTimeout(), tr)
 
 	collectors, err := api.LoadCollectors(defaultConfig, DCOSTools, client)
 	if err != nil {
@@ -99,7 +99,12 @@ func startDiagnosticsDaemon() {
 	}
 
 	bundleTimeout := time.Minute * time.Duration(defaultConfig.FlagDiagnosticsJobTimeoutMinutes)
-	bundleHandler, err := rest.NewBundleHandler(defaultConfig.FlagDiagnosticsBundleDir, collectors, bundleTimeout)
+	bundleHandler, err := rest.NewBundleHandler(
+		defaultConfig.FlagDiagnosticsBundleDir,
+		collectors,
+		bundleTimeout,
+		defaultConfig.GetSingleEntryTimeout(),
+	)
 	if err != nil {
 		logrus.WithError(err).Fatal("BundleHandler could not be created")
 	}
@@ -167,7 +172,7 @@ func getNodeInfo(tr http.RoundTripper) (nodeutil.NodeInfo, error) {
 	if defaultConfig.FlagIPDiscoveryCommandLocation != "" {
 		options = append(options, nodeutil.OptionDetectIP(defaultConfig.FlagIPDiscoveryCommandLocation))
 	}
-	return nodeutil.NewNodeInfo(util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr), defaultConfig.FlagRole, options...)
+	return nodeutil.NewNodeInfo(util.NewHTTPClient(defaultConfig.GetSingleEntryTimeout(), tr), defaultConfig.FlagRole, options...)
 }
 
 func initTransport() (http.RoundTripper, error) {

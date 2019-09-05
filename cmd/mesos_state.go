@@ -40,7 +40,7 @@ func getMesosState(tr http.RoundTripper, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	client := util.NewHTTPClient(defaultConfig.GetHTTPTimeout(), tr)
+	client := util.NewHTTPClient(defaultConfig.GetSingleEntryTimeout(), tr)
 
 	resp, err := client.Get(stateURL)
 	if err != nil {
