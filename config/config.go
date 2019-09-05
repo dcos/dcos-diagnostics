@@ -44,6 +44,6 @@ type Config struct {
 	FlagDiagnosticsBundleFetchersCount           int      `mapstructure:"fetchers-count"`
 }
 
-func (c Config) GetHTTPTimeout() time.Duration {
+func (c Config) GetSingleEntryTimeout() time.Duration {
 	return time.Duration(c.FlagDiagnosticsJobGetSingleURLTimeoutMinutes) * time.Minute
 }
