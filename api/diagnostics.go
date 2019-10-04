@@ -710,7 +710,7 @@ func (j *DiagnosticsJob) cancel() (response diagnosticsReportResponse, err error
 		status := "Attempting to cancel a job on a remote host. POST " + url
 		logrus.Debug(status)
 		j.setStatus(status)
-		response, _, err := j.DCOSTools.Post(url, j.Cfg.GetHTTPTimeout())
+		response, _, err := j.DCOSTools.Post(url, j.Cfg.GetSingleEntryTimeout())
 		if err != nil {
 			return prepareResponseWithErr(http.StatusServiceUnavailable, err)
 		}
@@ -950,7 +950,7 @@ func (j *DiagnosticsJob) Init() error {
 		}
 	}
 
-	j.client = util.NewHTTPClient(j.Cfg.GetHTTPTimeout(), j.Transport)
+	j.client = util.NewHTTPClient(j.Cfg.GetSingleEntryTimeout(), j.Transport)
 
 	return nil
 }

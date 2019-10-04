@@ -67,7 +67,7 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func NewBundleHandler(workDir string, collectors []collector.Collector, timeout time.Duration) (*BundleHandler, error) {
+func NewBundleHandler(workDir string, collectors []collector.Collector, timeout, collectorTimeout time.Duration) (*BundleHandler, error) {
 	err := initializeWorkDir(workDir)
 	if err != nil {
 		return nil, err
@@ -79,6 +79,7 @@ func NewBundleHandler(workDir string, collectors []collector.Collector, timeout 
 		workDir:               workDir,
 		collectors:            collectors,
 		bundleCreationTimeout: timeout,
+		collectorTimeout:      collectorTimeout,
 	}, nil
 }
 
@@ -90,6 +91,7 @@ type BundleHandler struct {
 	workDir               string                // location where bundles are generated and stored
 	collectors            []collector.Collector // information what should be in the bundle
 	bundleCreationTimeout time.Duration         // limits how long bundle creation could take
+	collectorTimeout      time.Duration         // limits how long single collection can take
 }
 
 type node struct {
@@ -144,7 +146,7 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx, _ := context.WithTimeout(context.Background(), h.bundleCreationTimeout) //nolint:govet
 	done := make(chan []string)
 
-	go collectAll(ctx, done, dataFile, h.collectors)
+	go collectAll(ctx, done, dataFile, h.collectors, h.collectorTimeout)
 
 	go func() {
 		select {
@@ -162,7 +164,8 @@ func (h BundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	write(w, bundleStatus)
 }
 
-func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser, collectors []collector.Collector) {
+func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteCloser,
+	collectors []collector.Collector, collectorTimeout time.Duration) {
 	zipWriter := zip.NewWriter(dataFile)
 	var errors []string
 	// summaryReport is a log of a diagnostics job
@@ -174,7 +177,9 @@ func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteClos
 			break
 		}
 		summaryReport.WriteString(fmt.Sprintf("[START GET %s]\n", c.Name()))
-		err := collect(ctx, c, zipWriter)
+		collectorCtx, cancel := context.WithTimeout(ctx, collectorTimeout) //nolint: govet
+		err := collect(collectorCtx, c, zipWriter)
+		cancel()
 		summaryReport.WriteString(fmt.Sprintf("[STOP GET %s]\n", c.Name()))
 		if err != nil && !c.Optional() {
 			errors = append(errors, err.Error())
@@ -226,7 +231,7 @@ func collect(ctx context.Context, c collector.Collector, zipWriter *zip.Writer) 
 		return fmt.Errorf("could not create a %s in the zip: %s", c.Name(), err)
 	}
 	if _, err := io.Copy(zipFile, rc); err != nil {
-		return fmt.Errorf("could not copy data to zip: %s", err)
+		return fmt.Errorf("could not copy %s data to zip: %s", c.Name(), err)
 	}
 
 	return nil

@@ -66,7 +66,7 @@ func Test_initConfig(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, defaultConfig)
-	assert.Equal(t, time.Minute, defaultConfig.GetHTTPTimeout())
+	assert.Equal(t, time.Minute, defaultConfig.GetSingleEntryTimeout())
 
 }
 
@@ -106,7 +106,7 @@ func Test_initConfig_multiple_endpints_configs(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, defaultConfig)
-	assert.Equal(t, time.Minute, defaultConfig.GetHTTPTimeout())
+	assert.Equal(t, time.Minute, defaultConfig.GetSingleEntryTimeout())
 
 }
 
