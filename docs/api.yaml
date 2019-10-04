@@ -1,0 +1,210 @@
+openapi: "3.0.0"
+info:
+  version: "1.0.0"
+  title: "Diagnostics Cluster Bundle API"
+
+servers:
+  - url: https://mesos.master/system/health/v1
+    description: Mesos master
+
+paths:
+  /report/diagnostics:
+    get:
+      summary: List all bundles
+      responses:
+        200:
+          description: "List of all cluster bundles and their metadata"
+          content:
+            application/json:
+              examples:
+                bundle:
+                  $ref: "#/components/examples/bundles"
+              schema:
+                $ref: "#/components/schemas/bundles"
+
+  /report/diagnostics/{id}:
+    get:
+      summary: Get specific bundle metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Bundle metadata"
+          content:
+            application/json:
+              examples:
+                bundle:
+                  $ref: "#/components/examples/bundle"
+              schema:
+                $ref: "#/components/schemas/bundle"
+    put:
+      summary: Generate new bundle
+      description: Starts process of generating new bundle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/bundleOptions"
+      responses:
+        200:
+          description: "Bundle metadata"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/bundle"
+        409:
+          description: "Bundle with given id already exists"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+              example:
+                code: 409
+                error: bundle 123e4567-e89b-12d3-a456-426655440001 already exists
+        507:
+          description: There is a problem with storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+              example:
+                code: 507
+                error: could not create bundle 123e4567-e89b-12d3-a456-426655440001 workdir
+    delete:
+      summary: Remove bundle file
+      description: Removes bundle but keeps its metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Bundle metadata"
+          content:
+            application/zip:
+              examples:
+                bundle:
+                  $ref: "#/components/examples/bundle"
+              schema:
+                $ref: "#/components/schemas/bundle"
+  /report/diagnostics/{id}/file:
+    get:
+      summary: Get bundle data
+      description: Return bundle content
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+components:
+
+  examples:
+    bundle:
+      value: &deleted
+        id: 123e4567-e89b-12d3-a456-426655440001
+        size: 494
+        status: Deleted
+        started_at: '2015-08-05T09:40:51.62Z'
+        stopped_at: '2015-08-05T10:40:51.62Z'
+        errors:
+          - 'could not collect collector-1: some error'
+    bundle-started:
+      value: &started
+        id: 123e4567-e89b-12d3-a456-426655440002
+        size: 0
+        status: Started
+        started_at: '2015-08-05T09:40:51.62Z'
+    bundle-unknown:
+      value: &unknown
+        id: bundle-state-not-json
+        status: Unknown
+        started_at: '0001-01-01T00:00:00Z'
+        stopped_at: '0001-01-01T00:00:00Z'
+        errors:
+          - 'could not unmarshal state file bundle-state-not-json: invalid character ''i'' looking for beginning of value'
+    bundles:
+      value:
+        - *deleted
+        - *started
+        - *unknown
+
+  schemas:
+    bundleOptions:
+      type: "object"
+      properties:
+        masters:
+          type: "boolean"
+          description: "information if we should include information about masters"
+
+    bundles:
+      type: "array"
+      items:
+        $ref: "#/components/schemas/bundle"
+
+    bundle:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+        started_at:
+          type: "string"
+          format: "date-time"
+        stoped_at:
+          type: "string"
+          format: "date-time"
+        size:
+          type: "integer"
+        errors:
+          type: array
+          items:
+            type: string
+        status:
+          type: "string"
+          enum:
+            - "Unknown"
+            - "Started"
+            - "InProgress"
+            - "Done"
+            - "Canceled"
+            - "Deleted"
+            - "Failed"
+          description: >
+            Status:
+              * `Unknown` - No information about this bundle
+              * `Started` - Diagnostics is preparing
+              * `InProgress` - Diagnostics in progress
+              * `Done` - Diagnostics finished and the file is ready to be downloaded
+              * `Canceled` - Diagnostics has been cancelled
+              * `Deleted` - Diagnostics was finished but was deleted
+              * `Failed` - Diagnostics could not be downloaded
+
+    error:
+      type: "object"
+      properties:
+        code:
+          type: integer
+        error:
+          type: string
