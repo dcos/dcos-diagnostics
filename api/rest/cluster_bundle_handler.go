@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -54,13 +55,19 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
+	options, err := getOptionsFromRequest(r)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("could not parse request body %s", err))
+		return
+	}
+
 	if c.bundleExists(id) {
 		writeJSONError(w, http.StatusConflict, fmt.Errorf("bundle %s already exists", id))
 		return
 	}
 
 	bundleWorkDir := filepath.Join(c.workDir, id)
-	err := os.MkdirAll(bundleWorkDir, dirPerm)
+	err = os.MkdirAll(bundleWorkDir, dirPerm)
 	if err != nil {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create bundle %s workdir: %s", id, err))
 		return
@@ -87,21 +94,29 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInsufficientStorage, fmt.Errorf("could not create data file %s: %s", id, err))
 		return
 	}
-	masters, err := c.tools.GetMasterNodes()
-	if err != nil {
-		if e := c.failed(bundle, err); e != nil {
-			logrus.WithField("ID", bundle.ID).Error(e.Error())
+
+	var masters, agents []dcos.Node
+
+	if options.Masters == nil || *options.Masters == true {
+		masters, err = c.tools.GetMasterNodes()
+		if err != nil {
+			if e := c.failed(bundle, err); e != nil {
+				logrus.WithField("ID", bundle.ID).Error(e.Error())
+			}
+			writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error getting master nodes for bundle %s: %s", id, err))
+			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error getting master nodes for bundle %s: %s", id, err))
-		return
 	}
-	agents, err := c.tools.GetAgentNodes()
-	if err != nil {
-		if e := c.failed(bundle, err); e != nil {
-			logrus.WithField("ID", bundle.ID).Error(e.Error())
+
+	if options.Agents == nil || *options.Agents == true {
+		agents, err = c.tools.GetAgentNodes()
+		if err != nil {
+			if e := c.failed(bundle, err); e != nil {
+				logrus.WithField("ID", bundle.ID).Error(e.Error())
+			}
+			writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error getting agent nodes for bundle %s: %s", id, err))
+			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("error getting agent nodes for bundle %s: %s", id, err))
-		return
 	}
 
 	allNodes := append(masters, agents...)
@@ -139,6 +154,22 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	go c.waitAndCollectRemoteBundle(ctx, bundle, len(nodes), dataFile, statuses)
 
 	write(w, bundleStatus)
+}
+
+type options struct {
+	Masters *bool `json:"masters"`
+	Agents  *bool `json:"agents"`
+}
+
+func getOptionsFromRequest(r *http.Request) (o options, err error) {
+	if r.Body != nil {
+		if err = json.NewDecoder(r.Body).Decode(&o); err != nil {
+			if err != io.EOF { // Accept empty body
+				return options{}, err
+			}
+		}
+	}
+	return o, nil
 }
 
 func (c *ClusterBundleHandler) failed(bundle Bundle, err error) error {
