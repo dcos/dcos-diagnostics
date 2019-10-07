@@ -109,7 +109,7 @@ func startDiagnosticsDaemon() {
 		logrus.WithError(err).Fatal("BundleHandler could not be created")
 	}
 	diagClient := rest.NewDiagnosticsClient(client)
-	coord := rest.NewParallelCoordinator(diagClient, 5*time.Second, defaultConfig.FlagDiagnosticsBundleDir)
+	coord := rest.NewParallelCoordinator(diagClient, time.Minute, defaultConfig.FlagDiagnosticsBundleDir)
 	urlBuilder := diagDcos.NewURLBuilder(defaultConfig.FlagAgentPort, defaultConfig.FlagMasterPort, defaultConfig.FlagForceTLS)
 	clusterBundleHandler, err := rest.NewClusterBundleHandler(coord, diagClient, DCOSTools, defaultConfig.FlagDiagnosticsBundleDir,
 		bundleTimeout, &urlBuilder)
