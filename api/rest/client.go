@@ -44,7 +44,7 @@ func NewDiagnosticsClient(client *http.Client) DiagnosticsClient {
 func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID string) (*Bundle, error) {
 	url := remoteURL(node, ID)
 
-	logrus.WithField("ID", ID).WithField("url", url).Info("sending bundle creation request")
+	logrus.WithField("ID", ID).WithField("url", url).Debug("sending bundle creation request")
 
 	type payload struct {
 		Type Type `json:"type"`
@@ -84,7 +84,7 @@ func (d DiagnosticsClient) CreateBundle(ctx context.Context, node string, ID str
 func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (*Bundle, error) {
 	url := remoteURL(node, ID)
 
-	logrus.WithField("ID", ID).WithField("url", url).Info("checking status of bundle")
+	logrus.WithField("ID", ID).WithField("url", url).Debug("checking status of bundle")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -117,7 +117,7 @@ func (d DiagnosticsClient) Status(ctx context.Context, node string, ID string) (
 func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, path string) error {
 	url := fmt.Sprintf("%s/file", remoteURL(node, ID))
 
-	logrus.WithField("ID", ID).WithField("url", url).Info("downloading local bundle from node")
+	logrus.WithField("ID", ID).WithField("url", url).Debug("downloading local bundle from node")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -152,7 +152,7 @@ func (d DiagnosticsClient) GetFile(ctx context.Context, node string, ID string, 
 func (d DiagnosticsClient) List(ctx context.Context, node string) ([]*Bundle, error) {
 	url := fmt.Sprintf("%s%s", node, bundlesEndpoint)
 
-	logrus.WithField("node", node).Info("getting list of bundles from node")
+	logrus.WithField("node", node).Debug("getting list of bundles from node")
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -185,7 +185,7 @@ func (d DiagnosticsClient) List(ctx context.Context, node string) ([]*Bundle, er
 func (d DiagnosticsClient) Delete(ctx context.Context, node string, id string) error {
 	url := remoteURL(node, id)
 
-	logrus.WithField("node", node).WithField("ID", id).Info("deleting bundle from node")
+	logrus.WithField("node", node).WithField("ID", id).Debug("deleting bundle from node")
 
 	request, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
