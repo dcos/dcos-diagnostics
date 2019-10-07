@@ -108,7 +108,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if options.Agents == true {
+	if options.Agents {
 		agents, err = c.tools.GetAgentNodes()
 		if err != nil {
 			if e := c.failed(bundle, err); e != nil {
