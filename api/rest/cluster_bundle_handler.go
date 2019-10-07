@@ -97,7 +97,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var masters, agents []dcos.Node
 
-	if options.Masters == nil || *options.Masters == true {
+	if options.Masters {
 		masters, err = c.tools.GetMasterNodes()
 		if err != nil {
 			if e := c.failed(bundle, err); e != nil {
@@ -108,7 +108,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if options.Agents == nil || *options.Agents == true {
+	if options.Agents {
 		agents, err = c.tools.GetAgentNodes()
 		if err != nil {
 			if e := c.failed(bundle, err); e != nil {
@@ -157,15 +157,21 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 type options struct {
-	Masters *bool `json:"masters"`
-	Agents  *bool `json:"agents"`
+	Masters bool `json:"masters"`
+	Agents  bool `json:"agents"`
 }
 
-func getOptionsFromRequest(r *http.Request) (o options, err error) {
+var defaultOptions = options{
+	Masters: true,
+	Agents:  true,
+}
+
+func getOptionsFromRequest(r *http.Request) (options, error) {
+	o := defaultOptions
 	if r.Body != nil {
-		if err = json.NewDecoder(r.Body).Decode(&o); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&o); err != nil {
 			if err != io.EOF { // Accept empty body
-				return options{}, err
+				return o, err
 			}
 		}
 	}
