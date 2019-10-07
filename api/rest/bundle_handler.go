@@ -28,7 +28,6 @@ const (
 	dataFileName  = "file.zip"   // data gathered by diagnostics
 
 	summaryErrorsReportFileName = "summaryErrorsReport.txt" // error log in bundle
-	summaryReportFileName       = "summaryReport.txt"       // error log in bundle
 
 	filePerm = 0600
 	dirPerm  = 0700
@@ -168,29 +167,16 @@ func collectAll(ctx context.Context, done chan<- []string, dataFile io.WriteClos
 	collectors []collector.Collector, collectorTimeout time.Duration) {
 	zipWriter := zip.NewWriter(dataFile)
 	var errors []string
-	// summaryReport is a log of a diagnostics job
-	summaryReport := new(bytes.Buffer)
 
 	for _, c := range collectors {
 		if ctx.Err() != nil {
 			errors = append(errors, ctx.Err().Error())
 			break
 		}
-		summaryReport.WriteString(fmt.Sprintf("[START GET %s]\n", c.Name()))
 		collectorCtx, cancel := context.WithTimeout(ctx, collectorTimeout) //nolint: govet
 		err := collect(collectorCtx, c, zipWriter)
 		cancel()
-		summaryReport.WriteString(fmt.Sprintf("[STOP GET %s]\n", c.Name()))
 		if err != nil && !c.Optional() {
-			errors = append(errors, err.Error())
-		}
-	}
-
-	summaryReportFile, err := zipWriter.Create(summaryReportFileName)
-	if err != nil {
-		errors = append(errors, err.Error())
-	} else {
-		if _, err := io.Copy(summaryReportFile, summaryReport); err != nil {
 			errors = append(errors, err.Error())
 		}
 	}
