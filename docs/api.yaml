@@ -157,6 +157,11 @@ components:
       properties:
         masters:
           type: "boolean"
+          default: true
+          description: "information if we should include information about masters"
+        agents:
+          type: "boolean"
+          default: true
           description: "information if we should include information about masters"
 
     bundles:
