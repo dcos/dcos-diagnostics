@@ -97,7 +97,7 @@ func (c *ClusterBundleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var masters, agents []dcos.Node
 
-	if options.Masters == true {
+	if options.Masters {
 		masters, err = c.tools.GetMasterNodes()
 		if err != nil {
 			if e := c.failed(bundle, err); e != nil {
