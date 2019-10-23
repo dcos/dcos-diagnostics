@@ -878,7 +878,7 @@ func TestIfE2E_(t *testing.T) {
 			Status:  Done,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    803,
+			Size:    618,
 			Errors: []string{
 				"could not collect collector-1: some error",
 				"could not copy collector-4 data to zip: context deadline exceeded",
@@ -899,12 +899,11 @@ func TestIfE2E_(t *testing.T) {
 		reader, err := zip.OpenReader(f.Name())
 		require.NoError(t, err)
 
-		require.Len(t, reader.File, 5)
+		require.Len(t, reader.File, 4)
 		assert.Equal(t, "collector-2", reader.File[0].Name)
 		assert.Equal(t, "collector-3", reader.File[1].Name)
 		assert.Equal(t, "collector-4", reader.File[2].Name)
-		assert.Equal(t, "summaryReport.txt", reader.File[3].Name)
-		assert.Equal(t, "summaryErrorsReport.txt", reader.File[4].Name)
+		assert.Equal(t, "summaryErrorsReport.txt", reader.File[3].Name)
 
 		rc, err := reader.File[0].Open()
 		require.NoError(t, err)
@@ -925,21 +924,6 @@ func TestIfE2E_(t *testing.T) {
 		assert.Empty(t, content)
 
 		rc, err = reader.File[3].Open()
-		require.NoError(t, err)
-		content, err = ioutil.ReadAll(rc)
-		require.NoError(t, err)
-		assert.Equal(t,
-			`[START GET collector-1]
-[STOP GET collector-1]
-[START GET collector-2]
-[STOP GET collector-2]
-[START GET collector-3]
-[STOP GET collector-3]
-[START GET collector-4]
-[STOP GET collector-4]
-`, string(content))
-
-		rc, err = reader.File[4].Open()
 		require.NoError(t, err)
 		content, err = ioutil.ReadAll(rc)
 		require.NoError(t, err)
@@ -967,7 +951,7 @@ could not copy collector-4 data to zip: context deadline exceeded`, string(conte
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    803,
+			Size:    618,
 			Errors:  []string{
 				"could not collect collector-1: some error",
 				"could not copy collector-4 data to zip: context deadline exceeded",
@@ -990,7 +974,7 @@ could not copy collector-4 data to zip: context deadline exceeded`, string(conte
 			Status:  Deleted,
 			Started: now.Add(time.Hour),
 			Stopped: now.Add(2 * time.Hour),
-			Size:    803,
+			Size:    618,
 			Errors:  []string{
 				"could not collect collector-1: some error",
 				"could not copy collector-4 data to zip: context deadline exceeded",
