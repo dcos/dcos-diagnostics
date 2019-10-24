@@ -843,7 +843,7 @@ func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos
 	if len(matchedNodes) > 0 {
 		return matchedNodes, nil
 	}
-	return matchedNodes, fmt.Errorf("requested nodes: %s not found", requestedNodes)
+	return nil, fmt.Errorf("requested nodes: %s not found", requestedNodes)
 }
 
 func findRequestedNodes(requestedNodes []string, tools dcos.Tooler) ([]dcos.Node, error) {
