@@ -812,8 +812,11 @@ func (j *DiagnosticsJob) findLocalBundle() (bundles []string, err error) {
 func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos.Node) ([]dcos.Node, error) {
 	var matchedNodes []dcos.Node
 	clusterNodes := append(masterNodes, agentNodes...)
-	if len(requestedNodes) == 0 || len(clusterNodes) == 0 {
-		return matchedNodes, errors.New("Cannot match requested nodes to clusterNodes")
+	if len(requestedNodes) == 0 {
+		return matchedNodes, errors.New("no nodes were requested")
+	}
+	if len(clusterNodes) == 0 {
+		return matchedNodes, errors.New("can't find any nodes")
 	}
 
 	for _, requestedNode := range requestedNodes {
@@ -840,18 +843,18 @@ func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos
 	if len(matchedNodes) > 0 {
 		return matchedNodes, nil
 	}
-	return matchedNodes, fmt.Errorf("Requested nodes: %s not found", requestedNodes)
+	return matchedNodes, fmt.Errorf("requested nodes: %s not found", requestedNodes)
 }
 
 func findRequestedNodes(requestedNodes []string, tools dcos.Tooler) ([]dcos.Node, error) {
 	masterNodes, err := tools.GetMasterNodes()
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not get master nodes")
+		return nil, fmt.Errorf("could not get master nodes: %s", err)
 	}
 
 	agentNodes, err := tools.GetAgentNodes()
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not get agent nodes")
+		return nil, fmt.Errorf("could not get agent nodes: %s", err)
 	}
 	return matchRequestedNodes(requestedNodes, masterNodes, agentNodes)
 }
