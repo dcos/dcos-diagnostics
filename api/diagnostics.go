@@ -816,7 +816,7 @@ func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos
 		return nil, errors.New("no nodes were requested")
 	}
 	if len(clusterNodes) == 0 {
-		return matchedNodes, errors.New("can't find any nodes")
+		return nil, errors.New("can't find any nodes")
 	}
 
 	for _, requestedNode := range requestedNodes {
