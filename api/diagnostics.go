@@ -813,7 +813,7 @@ func matchRequestedNodes(requestedNodes []string, masterNodes, agentNodes []dcos
 	var matchedNodes []dcos.Node
 	clusterNodes := append(masterNodes, agentNodes...)
 	if len(requestedNodes) == 0 {
-		return matchedNodes, errors.New("no nodes were requested")
+		return nil, errors.New("no nodes were requested")
 	}
 	if len(clusterNodes) == 0 {
 		return matchedNodes, errors.New("can't find any nodes")
