@@ -368,12 +368,42 @@ func TestFindRequestedNodes(t *testing.T) {
 	tools.AssertExpectations(t)
 }
 
+func TestFindRequestedNodesError(t *testing.T) {
+	var tests = []struct {
+		requestedNodes []string
+		expectedErr    string
+		masterErr      error
+		agentErr       error
+	}{
+		{[]string{"all"}, "can't find any nodes", nil, nil},
+		{[]string{}, "no nodes were requested", nil, nil},
+		{[]string{""}, "can't find any nodes", nil, nil},
+		{[]string{}, "could not get master nodes: x", errors.New("x"), nil},
+		{[]string{}, "could not get agent nodes: y", nil, errors.New("y")},
+		{[]string{}, "could not get master nodes: x", errors.New("x"), errors.New("y")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expectedErr+ "_" + strings.Join(tt.requestedNodes, "_"), func(t *testing.T) {
+			tools := new(MockedTools)
+			tools.On("GetMasterNodes").Return([]dcos.Node{}, tt.masterErr)
+			tools.On("GetAgentNodes").Return([]dcos.Node{}, tt.agentErr).Maybe()
+
+			actualNodes, err := findRequestedNodes(tt.requestedNodes, tools)
+
+			require.EqualError(t, err, tt.expectedErr)
+			assert.Empty(t, actualNodes)
+			tools.AssertExpectations(t)
+		})
+	}
+}
+
 func TestGetStatus(t *testing.T) {
 	tools := &fakeDCOSTools{}
 	config := testCfg()
 
 	parameters := []struct {
-		job *DiagnosticsJob
+		job      *DiagnosticsJob
 		expected bundleReportStatus
 	}{
 		{
@@ -381,26 +411,26 @@ func TestGetStatus(t *testing.T) {
 				JobStarted: time.Date(2019, 9, 1, 4, 45, 0, 0, time.UTC),
 			},
 			bundleReportStatus{
-				Running: true,
-				JobStarted: "2019-09-01 04:45:00 +0000 UTC",
-				Errors: []string{},
-				DiagnosticBundlesBaseDir: config.FlagDiagnosticsBundleDir,
-				DiagnosticsJobTimeoutMin: config.FlagDiagnosticsJobTimeoutMinutes,
+				Running:                        true,
+				JobStarted:                     "2019-09-01 04:45:00 +0000 UTC",
+				Errors:                         []string{},
+				DiagnosticBundlesBaseDir:       config.FlagDiagnosticsBundleDir,
+				DiagnosticsJobTimeoutMin:       config.FlagDiagnosticsJobTimeoutMinutes,
 				DiagnosticsUnitsLogsSinceHours: config.FlagDiagnosticsBundleUnitsLogsSinceString,
 			},
 		}, {
 			&DiagnosticsJob{Running: false, Cfg: config, DCOSTools: tools,
 				JobStarted: time.Date(2019, 9, 1, 4, 45, 0, 0, time.UTC),
-				JobEnded: time.Date(2019, 9, 1, 5, 00, 0, 0, time.UTC),
+				JobEnded:   time.Date(2019, 9, 1, 5, 00, 0, 0, time.UTC),
 			},
 			bundleReportStatus{
-				Running: false,
-				JobStarted: "2019-09-01 04:45:00 +0000 UTC",
-				JobEnded: "2019-09-01 05:00:00 +0000 UTC",
-				JobDuration: "15m0s",
-				Errors: []string{},
-				DiagnosticBundlesBaseDir: config.FlagDiagnosticsBundleDir,
-				DiagnosticsJobTimeoutMin: config.FlagDiagnosticsJobTimeoutMinutes,
+				Running:                        false,
+				JobStarted:                     "2019-09-01 04:45:00 +0000 UTC",
+				JobEnded:                       "2019-09-01 05:00:00 +0000 UTC",
+				JobDuration:                    "15m0s",
+				Errors:                         []string{},
+				DiagnosticBundlesBaseDir:       config.FlagDiagnosticsBundleDir,
+				DiagnosticsJobTimeoutMin:       config.FlagDiagnosticsJobTimeoutMinutes,
 				DiagnosticsUnitsLogsSinceHours: config.FlagDiagnosticsBundleUnitsLogsSinceString,
 			},
 		},
@@ -1049,7 +1079,7 @@ func TestFailRunSnapshotJob(t *testing.T) {
 	var responseJSON diagnosticsReportResponse
 	err := json.Unmarshal(response, &responseJSON)
 	require.NoError(t, err)
-	assert.Equal(t, responseJSON.Status, "Requested nodes: [192.168.0.1] not found")
+	assert.Equal(t, responseJSON.Status, "requested nodes: [192.168.0.1] not found")
 }
 
 func TestDeleteBundleWithInvalidName(t *testing.T) {
