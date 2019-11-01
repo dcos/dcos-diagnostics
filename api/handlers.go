@@ -361,7 +361,6 @@ func downloadBundleHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		director := func(req *http.Request) {
-			req = r
 			req.URL.Scheme = scheme
 			req.URL.Host = net.JoinHostPort(node, strconv.Itoa(dt.Cfg.FlagMasterPort))
 			req.URL.Path = location
