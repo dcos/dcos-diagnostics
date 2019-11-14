@@ -131,7 +131,7 @@ func (st *Tools) GetUnitNames() (units []string, err error) {
 		panic(err)
 	}
 	exPath := filepath.Dir(ex)
-	servicelistpath := exPath + "\\" + WindowsServiceListFile
+	servicelistpath := exPath + "\\..\\etc\\" + WindowsServiceListFile
 
 	file, err := os.Open(servicelistpath)
 	if err != nil {
