@@ -1,0 +1,41 @@
+title Cluster Bundle Creation
+
+User ->+ Master: PUT diagnostics/1
+Master ->-User: Started
+
+Master->+Node: PUT node/diagnostics/1234
+Node ->-Master: Started
+
+note right of Node: Node prepares a bunle for itself \n It reads the configuration \n and copy all files to a single ZIP
+
+note left of User: User pings Master to track progress
+User->+Master : GET diagnostics/1
+Master->-User: InProgress
+
+Master->+Node: GET node/diagnostics/1234
+Node ->-Master: InProgress
+
+note over Master: Master pings Node to track progress
+
+Master->+Node: GET node/diagnostics/1234
+Node ->-Master: InProgress
+
+Master->+Node: GET node/diagnostics/1234
+Node ->-Master: Done
+
+Master->+Node: GET node/diagnostics/1234/file
+note over Master: When bundle is done \n Master downloads it and adds to a cluster bundle
+Node ->-Master: 1234.zip
+
+Master->+Node: DELETE node/diagnostics/1234
+Node ->-Master: Deleted
+
+
+
+note left of User: User pings Master to track progress
+User->+Master : GET diagnostics/1
+Master->-User: Done
+
+note left of User: When cluster bundle is done \n User can download it
+User ->+Master : GET diagnostics/1/file
+Master  ->-User: 1.zip
