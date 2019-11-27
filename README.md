@@ -38,7 +38,7 @@ See: [dcos-docs-site#2253](https://github.com/mesosphere/dcos-docs-site/pull/225
 #### API
 
 API documentation could be find in [docs](/docs) directory. It's using
-[OpenApi v3.0](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md)
+[OpenAPI v3.0](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md)
 You can see rendered version
 [here](https://temando.github.io/open-api-renderer/demo/?url=https://raw.githubusercontent.com/dcos/dcos-diagnostics/master/docs/api.yaml).
 There are two versions of bundle API.
@@ -48,12 +48,12 @@ There are two versions of bundle API.
 ![deprecated cluster bundle creation diagram](docs/diagrams/deprecated_cluster_bundle_creation_diagram.png)
 
 2. New parallel API – single master schedules local bundle creation for every node in a cluster. Then master wait until
-nodes finishes bundles. Master downloads finished bundles and merge them into a single cluster bundle zip.
+nodes finish bundles. Master downloads finished bundles and merges them into a single cluster bundle zip.
 
 ![cluster bundle creation diagram](docs/diagrams/cluster_bundle_creation_diagram.png)
 
-Old API is faster for smaller clusters but it's slow for large cluster, so we recomend using only new API that's available
-since DC/OS 2.0.
+Old API is faster for smaller clusters but it's slow for large clusters, so we recommend to only use the new API
+that's available since DC/OS 2.0.
 
 To get more information read [the design doc](https://docs.google.com/document/d/1UU47_ZVBPQRzzSc9D57W4h7VtzRyMxiLTcZ4XKfwA5I/edit?usp=sharing)
 
@@ -67,7 +67,7 @@ In the past dcos-diagnostics was bundled with:
 – see: https://github.com/dcos/dcos-diagnostics/pull/35
 In that time dcos-diagnostics was called `3dt`
 ([DC/OS Distributed Diagnostics Tool](https://github.com/dcos/3dt/tree/master)).
-It was deprecated in Jun, 2017 but some references might still exists.
+It was deprecated in Jun, 2017 but some references might still exist.
 
 
 ## Build

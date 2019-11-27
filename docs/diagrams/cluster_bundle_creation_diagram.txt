@@ -6,7 +6,7 @@ Master ->-User: Started
 Master->+Node: PUT node/diagnostics/1234
 Node ->-Master: Started
 
-note right of Node: Node prepares a bunle for itself \n It reads the configuration \n and copy all files to a single ZIP
+note right of Node: Node prepares a bundle for itself \n It reads the configuration \n and copy all files to a single ZIP
 
 note left of User: User pings Master to track progress
 User->+Master : GET diagnostics/1
