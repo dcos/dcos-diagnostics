@@ -1,0 +1,25 @@
+title [Deprecated] Cluster Bundle Creation
+
+User ->+ Master: POST report/diagnostics/create
+Master ->-User: Started
+
+note left of User: User pings Master to track progress
+User ->+ Master: GET report/diagnostics/status
+Master ->-User: Running 1.zip
+
+note right of Master: Master gather list of node's endpoints to fetch
+Master->+Node: GET logs
+Node ->-Master:
+
+note over Master: Master query every endpoint returned by node and adds response to a cluster bundle
+
+loop
+Master->+Node: GET logs/{provider}/{entitiy}
+Node ->-Master:
+end
+
+User ->+ Master: GET report/diagnostics/status
+Master ->-User: Done
+
+User ->+ Master: GET report/diagnostics/serve/1.zip
+Master ->-User: 1.zip

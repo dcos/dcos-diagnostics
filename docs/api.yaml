@@ -1,15 +1,273 @@
 openapi: "3.0.0"
 info:
+  description: "This is API documentation for [DC/OS Diagnostics](https://github.com/dcos/dcos-diagnostics)"
   version: "1.0.0"
-  title: "Diagnostics Cluster Bundle API"
+  title: "DC/OS Diagnostics API"
+  license:
+    name: "Apache 2.0"
+    url: "https://github.com/dcos/dcos-diagnostics/blob/master/LICENSE"
+
+tags:
+  - name: "Cluster Bundle"
+    description: "API for CRUD on Cluster Bundle. Works on masters only."
+    externalDocs:
+      description: "Code"
+      url: "https://github.com/dcos/dcos-diagnostics/blob/master/api/rest/cluster_bundle_handler.go"
+  - name: "Local Bundle"
+    description: "API for local node bundle"
+    externalDocs:
+      description: "Code"
+      url: "https://github.com/dcos/dcos-diagnostics/blob/master/api/rest/bundle_handler.go"
+  - name: "Deprecated Cluster Bundle"
+    description: "Deprecated API for creating cluster bundle. Works on masters only."
+    externalDocs:
+      description: "Code"
+      url: "https://github.com/dcos/dcos-diagnostics/blob/master/api/diagnostics.go"
+  - name: "Monitoring"
+    description: "Exposes infromations about nodes and its health"
+    externalDocs:
+      description: "Code"
+      url: "https://github.com/dcos/dcos-diagnostics/blob/master/api/monitoring_response.go"
+  - name: "Debug"
+    description: "Endpoints exposed when `--debug` flag is set."
+    externalDocs:
+      description: "Code"
+      url: "https://golang.org/pkg/net/http/pprof/"
+
 
 servers:
   - url: https://mesos.master/system/health/v1
     description: Mesos master
 
 paths:
-  /report/diagnostics:
+
+  /report:
     get:
+      tags: ["Monitoring"]
+      responses:
+        200:
+          description: Get infromation about all systemd units for all nodes
+          content:
+            application/json: {}
+  /report/download:
+    get:
+      tags: ["Monitoring"]
+      responses:
+        200:
+          description: Get infromation about all systemd units for all nodes.
+          headers:
+            Content-disposition:
+              schema:
+                type: string
+              description: "attachment; filename=health-report.json"
+          content:
+            application/json: {}
+
+  /nodes:
+    get:
+      tags: ["Monitoring"]
+      responses:
+        200:
+          description: List all nodes with health
+          content:
+            application/json:
+              examples:
+                list:
+                  value:
+                    nodes:
+                      - host_ip: 172.17.0.3
+                        health: 0
+                        role: agent
+                      - host_ip: 172.17.0.4
+                        health: 0
+                        role: agent_public
+                      - host_ip: 172.17.0.2
+                        health: 0
+                        role: master
+  /nodes/{ip}:
+    get:
+      tags: ["Monitoring"]
+      parameters:
+        - in: path
+          name: ip
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Get single node by its IP
+          content:
+            application/json:
+              examples:
+                list:
+                  value:
+                    host_ip: 172.17.0.3
+                    health: 0
+                    role: agent
+
+  /nodes/{ip}/units/{unit}:
+    get:
+      tags: ["Monitoring"]
+      parameters:
+        - in: path
+          name: ip
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: unit
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Get DC/OS systemd unit by id from specific node. Similar to `/units/{unit}/nodes/{ip}`
+          content:
+            application/json:
+              examples:
+                list:
+                  value:
+                    id: dcos-diagnostics.service
+                    name: DC/OS Diagnostics Agent
+                    health: 0
+                    description: exposes component health
+  /nodes/units:
+    get:
+      tags: ["Monitoring"]
+      responses:
+        200:
+          description: Get host DC/OS systemd units
+          content:
+            application/json: {}
+  /units/{unit}:
+    get:
+      tags: ["Monitoring"]
+      parameters:
+        - in: path
+          name: ip
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: unit
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Get host DC/OS systemd unint by id
+          content:
+            application/json: {}
+  /units/{unit}/nodes:
+    get:
+      tags: ["Monitoring"]
+      parameters:
+        - in: path
+          name: unit
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Get infromathon from all DC/OS nodes about specific unint
+          content:
+            application/json: {}
+  /units/{unit}/nodes/{ip}:
+    get:
+      tags: ["Monitoring"]
+      parameters:
+        - in: path
+          name: ip
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: unit
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Get infromathon for specific DC/OS node about specific unint similar to `/nodes/{ip}/units/{unit}`
+          content:
+            application/json: {}
+  /logs:
+    get:
+      tags: ["Monitoring"]
+      responses:
+        200:
+          description: Get diagnostics bundle conetnt configuration for node. This is used by deprecated cluster bundle API.
+          content:
+            application/json:
+              examples:
+                list:
+                  value:
+                    /etc/resolv.conf:
+                      PortAndPath: ':443/system/health/v1/logs/files/etc_resolv.conf'
+                      Optional: false
+                    5050-master_flags.json:
+                      PortAndPath: ':5050/master/flags'
+                      Optional: true
+                    dcos-adminrouter.service:
+                      PortAndPath: ':443/system/health/v1/logs/units/dcos-adminrouter.service'
+                      Optional: false
+                    iptables-save.output:
+                      PortAndPath: ':443/system/health/v1/logs/cmds/iptables-save.output'
+                      Optional: false
+  /logs/{provider}/{entitiy}:
+    get:
+      tags: ["Monitoring"]
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: entitiy
+          required: true
+          schema:
+            $ref: "#/components/schemas/entity"
+      responses:
+        200:
+          description: Gets file, systemd logs or command output. This is used by deprecated cluster bundle API.
+
+  /metrics:
+    get:
+      responses:
+        200:
+          description: Metrics in prometheus format
+
+  /debug/pprof/:
+    get:
+      tags: ["Debug"]
+      responses:
+        200:
+          description: An HTML page listing the available profiles
+  /debug/pprof/{profile}:
+    get:
+      tags: ["Debug"]
+      parameters:
+        - in: path
+          name: profile
+          required: true
+          schema:
+            $ref: "#/components/schemas/pprofProfile"
+      responses:
+        200:
+          content:
+            application/octet-stream: {}
+            "text/plain; charset=utf-8": {}
+          description: Responds with the execution trace in binary form.
+
+  /diagnostics:
+    get:
+      tags: ["Cluster Bundle"]
       summary: List all bundles
       responses:
         200:
@@ -22,8 +280,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/bundles"
 
-  /report/diagnostics/{id}:
+  /diagnostics/{id}:
     get:
+      tags: ["Cluster Bundle"]
       summary: Get specific bundle metadata
       parameters:
         - in: path
@@ -42,6 +301,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/bundle"
     put:
+      tags: ["Cluster Bundle"]
       summary: Generate new bundle
       description: Starts process of generating new bundle
       parameters:
@@ -82,6 +342,7 @@ paths:
                 code: 507
                 error: could not create bundle 123e4567-e89b-12d3-a456-426655440001 workdir
     delete:
+      tags: ["Cluster Bundle"]
       summary: Remove bundle file
       description: Removes bundle but keeps its metadata
       parameters:
@@ -100,8 +361,9 @@ paths:
                   $ref: "#/components/examples/bundle"
               schema:
                 $ref: "#/components/schemas/bundle"
-  /report/diagnostics/{id}/file:
+  /diagnostics/{id}/file:
     get:
+      tags: ["Cluster Bundle"]
       summary: Get bundle data
       description: Return bundle content
       parameters:
@@ -118,6 +380,248 @@ paths:
               schema:
                 type: string
                 format: binary
+
+  /node/diagnostics:
+    get:
+      tags: ["Local Bundle"]
+      summary: List all bundles
+      responses:
+        200:
+          description: "List of all local bundles and their metadata"
+          content:
+            application/json:
+              examples:
+                bundle:
+                  $ref: "#/components/examples/bundles"
+              schema:
+                $ref: "#/components/schemas/bundles"
+
+  /node/diagnostics/{id}:
+    get:
+      tags: ["Local Bundle"]
+      summary: Get specific bundle metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Bundle metadata"
+          content:
+            application/json:
+              examples:
+                bundle:
+                  $ref: "#/components/examples/bundle"
+              schema:
+                $ref: "#/components/schemas/bundle"
+    put:
+      tags: ["Local Bundle"]
+      summary: Generate new bundle
+      description: Starts process of generating new bundle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/bundleOptions"
+      responses:
+        200:
+          description: "Bundle metadata"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/bundle"
+        409:
+          description: "Bundle with given id already exists"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+              example:
+                code: 409
+                error: bundle 123e4567-e89b-12d3-a456-426655440001 already exists
+        507:
+          description: There is a problem with storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+              example:
+                code: 507
+                error: could not create bundle 123e4567-e89b-12d3-a456-426655440001 workdir
+    delete:
+      tags: ["Local Bundle"]
+      summary: Remove bundle file
+      description: Removes bundle but keeps its metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Bundle metadata"
+          content:
+            application/zip:
+              examples:
+                bundle:
+                  $ref: "#/components/examples/bundle"
+              schema:
+                $ref: "#/components/schemas/bundle"
+  /node/diagnostics/{id}/file:
+    get:
+      tags: ["Local Bundle"]
+      summary: Get bundle data
+      description: Return bundle content
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /report/diagnostics/create:
+    post:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Starts proces of creating cluster bundle. At given time there could only single cluster bundle generation process.
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    response_http_code: 200
+                    version: 1
+                    status: Job has been successfully started
+                    errors: null
+                    extra:
+                      bundle_name: bundle-2019-11-26-1574774004.zip
+
+        409:
+          description: Can't start new cluster bundle generation process because another one is still running
+          content:
+            application/json:
+              examples:
+                error:
+                  value:
+                    response_http_code: 409
+                    version: 1
+                    status: Job is already running
+                    errors: null
+                    extra:
+                      bundle_name: ''
+
+  /report/diagnostics/cancel:
+    post:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Stops proces of creating cluster bundle
+          content:
+            application/json: {}
+  /report/diagnostics/status:
+    get:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Get status of the last cluster bundle generation process from singel master
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    is_running: false
+                    status: Diagnostics job successfully collected all data
+                    last_bundle_dir: /var/lib/dcos/dcos-diagnostics/diag-bundles/bundle-2019-11-26-1574774154.zip
+                    job_started: '2019-11-26 13:15:54.708377755 +0000 UTC m=+286.920941479'
+                    job_ended: '2019-11-26 13:15:59.278120104 +0000 UTC m=+291.490683790'
+                    job_duration: 4.569742311s
+                    job_progress_percentage: 100
+                    diagnostics_bundle_dir: /var/lib/dcos/dcos-diagnostics/diag-bundles
+                    diagnostics_job_timeout_min: 720
+                    journald_logs_since_hours: 24h
+                    diagnostics_job_get_since_url_timeout_min: 8
+                    command_exec_timeout_sec: 50
+                    diagnostics_partition_disk_usage_percent: 58.12225648925586
+
+  /report/diagnostics/status/all:
+    get:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Get status of the last cluster bundle generation process from all masters
+          content:
+            application/json: {}
+  /report/diagnostics/list:
+    get:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Get list of the generated cluster bundles from single master
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    - file_name: /system/health/v1/report/diagnostics/serve/bundle-2019-11-26-1574774004.zip
+                      file_size: 1693145
+                    - file_name: /system/health/v1/report/diagnostics/serve/bundle-2019-11-26-1574774154.zip
+                      file_size: 2783766
+
+  /report/diagnostics/list/all:
+    get:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Get list of the generated cluster bundles from all masters
+          content:
+            application/json: {}
+  /report/diagnostics/serve/{file}:
+    parameters:
+      - in: path
+        name: file
+        required: true
+        schema:
+          type: string
+    get:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Download cluster bundle file
+          content:
+            application/octet-stream: {}
+  /report/diagnostics/delete/{file}:
+    parameters:
+      - in: path
+        name: file
+        required: true
+        schema:
+          type: string
+    post:
+      tags: ["Deprecated Cluster Bundle"]
+      responses:
+        200:
+          description: Delete cluster bundle file
+          content:
+            application/json: {}
 
 components:
 
@@ -213,3 +717,34 @@ components:
           type: integer
         error:
           type: string
+
+    entity:
+      type: "string"
+      enum:
+        - files
+        - units
+        - cmds
+
+    pprofProfile:
+      type: "string"
+      enum:
+        - allocs
+        - block
+        - cmdline
+        - goroutine
+        - heap
+        - mutex
+        - profile
+        - threadcreate
+        - trace
+      description: >
+        Profile:
+          * `allocs` – A sampling of all past memory allocations
+          * `block` – Stack traces that led to blocking on synchronization primitives
+          * `cmdline` – The command line invocation of the current program
+          * `goroutine` – Stack traces of all current goroutines
+          * `heap` – A sampling of memory allocations of live objects. You can specify the gc GET parameter to run GC before taking the heap sample
+          * `mutex` – Stack traces of holders of contended mutexes
+          * `profile` – CPU profile. You can specify the duration in the seconds GET parameter. After you get the profile file, use the go tool pprof command to investigate the profile
+          * `threadcreate` – Stack traces that led to the creation of new OS threads
+          * `trace` – A trace of execution of the current program. You can specify the duration in the seconds GET parameter. After you get the trace file, use the go tool trace command to investigate the trace
