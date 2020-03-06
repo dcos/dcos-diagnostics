@@ -15,8 +15,8 @@ const (
 	name   = "PrettyName"
 )
 
-func TestSystemdUnits_GetUnits(t *testing.T) {
-	s := SystemdUnits{}
+func TestServiceUnits_GetUnits(t *testing.T) {
+	s := ServiceUnits{}
 	os.Setenv(dcosVersionEnvName, "some version")
 	defer os.Unsetenv(dcosVersionEnvName)
 
@@ -35,8 +35,8 @@ func TestSystemdUnits_GetUnits(t *testing.T) {
 	assert.Equal(t, expected, units)
 }
 
-func TestSystemdUnits_GetUnitsProperties(t *testing.T) {
-	s := SystemdUnits{}
+func TestServiceUnits_GetUnitsProperties(t *testing.T) {
+	s := ServiceUnits{}
 	os.Setenv(dcosVersionEnvName, "some version")
 	defer os.Unsetenv(dcosVersionEnvName)
 

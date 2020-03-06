@@ -384,7 +384,7 @@ func TestFindRequestedNodesError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.expectedErr+ "_" + strings.Join(tt.requestedNodes, "_"), func(t *testing.T) {
+		t.Run(tt.expectedErr+"_"+strings.Join(tt.requestedNodes, "_"), func(t *testing.T) {
 			tools := new(MockedTools)
 			tools.On("GetMasterNodes").Return([]dcos.Node{}, tt.masterErr)
 			tools.On("GetAgentNodes").Return([]dcos.Node{}, tt.agentErr).Maybe()

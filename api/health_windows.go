@@ -12,13 +12,13 @@ import (
 
 const dcosVersionEnvName = "DCOS_VERSION"
 
-// SystemdUnits used to make GetUnitsProperties thread safe.
-type SystemdUnits struct {
+// ServiceUnits used to make GetUnitsProperties thread safe.
+type ServiceUnits struct {
 	sync.Mutex
 }
 
 // GetUnits returns a list of found unit properties.
-func (s *SystemdUnits) GetUnits(tools dcos.Tooler) (allUnits []HealthResponseValues, err error) {
+func (s *ServiceUnits) GetUnits(tools dcos.Tooler) (allUnits []HealthResponseValues, err error) {
 	if err = tools.InitializeUnitControllerConnection(); err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (s *SystemdUnits) GetUnits(tools dcos.Tooler) (allUnits []HealthResponseVal
 }
 
 // GetUnitsProperties return a structured units health response of UnitsHealthResponseJsonStruct type.
-func (s *SystemdUnits) GetUnitsProperties(tools dcos.Tooler) (healthReport UnitsHealthResponseJSONStruct, err error) {
+func (s *ServiceUnits) GetUnitsProperties(tools dcos.Tooler) (healthReport UnitsHealthResponseJSONStruct, err error) {
 	s.Lock()
 	defer s.Unlock()
 
