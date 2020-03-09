@@ -1,5 +1,3 @@
-// +build linux windows
-
 package api
 
 import (
@@ -38,6 +36,8 @@ func normalizeProperty(unitProps map[string]interface{}, tools dcos.Tooler) (Hea
 	s := strings.Split(propsResponse.Description, ": ")
 	if len(s) != 2 {
 		description = strings.Join(s, " ")
+		prettyName = propsResponse.ID
+		logrus.Debugf("No name found in description, using ID as name: %s", prettyName)
 
 	} else {
 		prettyName, description = s[0], s[1]
