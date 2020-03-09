@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 
 	"github.com/dcos/dcos-diagnostics/config"
 	"github.com/dcos/dcos-diagnostics/dcos"
+
+	"github.com/sirupsen/logrus"
 )
 
 // LogProviders a structure defines a list of Providers
@@ -44,6 +47,12 @@ type CommandProvider struct {
 	Role     []string
 	Optional bool
 }
+
+const (
+	GoosWindows = "windows"
+
+	GoosDarwin = "darwin"
+)
 
 func loadProviders(cfg *config.Config, DCOSTools dcos.Tooler) (*LogProviders, error) {
 	// load the internal providers
@@ -83,6 +92,11 @@ func loadExternalProviders(endpointsConfgFiles []string) (externalProviders LogP
 }
 
 func loadSystemdCollectors(cfg *config.Config, DCOSTools dcos.Tooler) ([]collector.Collector, error) {
+	if runtime.GOOS == GoosWindows || runtime.GOOS == GoosDarwin {
+		logrus.Debug("Ignoring Systemd collectors on Windows.")
+		return nil, nil
+	}
+
 	units, err := DCOSTools.GetUnitNames()
 	if err != nil {
 		return nil, fmt.Errorf("could not get unit names: %s", err)
