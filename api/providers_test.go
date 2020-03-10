@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,8 +15,9 @@ func TestLoadCollectors(t *testing.T) {
 	tools := new(MockedTools)
 
 	tools.On("GetNodeRole").Return("master", nil)
-	tools.On("GetUnitNames").Return([]string{"dcos-diagnostics"}, nil)
-
+	if runtime.GOOS != GoosWindows && runtime.GOOS != GoosDarwin {
+		tools.On("GetUnitNames").Return([]string{"dcos-diagnostics"}, nil)
+	}
 	cfg := testCfg()
 	cfg.FlagDiagnosticsBundleEndpointsConfigFiles = []string{
 		filepath.Join("testdata", "endpoint-config.json"),
@@ -24,9 +26,13 @@ func TestLoadCollectors(t *testing.T) {
 	got, err := LoadCollectors(cfg, tools, http.DefaultClient)
 
 	assert.NoError(t, err)
-	assert.Len(t, got, 15)
+
+	if runtime.GOOS != GoosWindows && runtime.GOOS != GoosDarwin {
+		assert.Len(t, got, 15)
+	} else {
+		assert.Len(t, got, 14)
+	}
 	expected := []string{
-		"dcos-diagnostics",
 		"5050-master_state-summary.json",
 		"5050-registrar_1__registry.json",
 		"uri_not_avail.txt",
@@ -42,7 +48,9 @@ func TestLoadCollectors(t *testing.T) {
 		"echo_OK.output",
 		"does_not_exist.output",
 	}
-
+	if runtime.GOOS != GoosWindows && runtime.GOOS != GoosDarwin {
+		expected = append([]string{"dcos-diagnostics"}, expected...)
+	}
 	for i, c := range got {
 		assert.Equal(t, expected[i], c.Name())
 	}
@@ -67,6 +75,10 @@ func TestLoadCollectors_GetNodeRoleErrors(t *testing.T) {
 }
 
 func TestLoadCollectors_GetUnitNamesErrors(t *testing.T) {
+	if runtime.GOOS == GoosWindows || runtime.GOOS == GoosDarwin {
+		t.Skip("skipping test; GetUnitNames is not called on Windows.")
+	}
+
 	t.Parallel()
 	tools := new(MockedTools)
 
