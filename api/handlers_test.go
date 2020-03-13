@@ -36,6 +36,9 @@ func testCfg() *config.Config {
 		FlagDiagnosticsJobTimeoutMinutes:   1,
 		FlagDiagnosticsBundleFetchersCount: 3,
 		FlagDiagnosticsBundleUnitsLogsSinceString: "24h",
+
+		FlagPullInterval:   60,
+		FlagPullTimeoutSec: 3,
 	}
 }
 

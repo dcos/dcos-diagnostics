@@ -70,11 +70,18 @@ func (p *pull) runPull() {
 
 	respChan := make(chan *httpResponse, len(clusterNodes))
 
+	// rateLimiter limits number of concurrent status pulls to n
+	n := (len(clusterNodes)*p.cfg.FlagPullTimeoutSec)/p.cfg.FlagPullInterval + 1
+	rateLimiter := make(chan struct{}, n)
+	for i := 0; i < n; i++ {
+		rateLimiter <- struct{}{}
+	}
+
 	// Pull data from each host
 	var wg sync.WaitGroup
 	for _, node := range clusterNodes {
 		wg.Add(1)
-		go p.pullHostStatus(node, respChan, &wg)
+		go p.pullHostStatus(node, respChan, &wg, rateLimiter)
 	}
 	wg.Wait()
 
@@ -119,9 +126,12 @@ func (p *pull) updateHealthStatus(responses <-chan *httpResponse) {
 	}
 }
 
-func (p *pull) pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, wg *sync.WaitGroup) {
+func (p *pull) pullHostStatus(host dcos.Node, respChan chan<- *httpResponse, wg *sync.WaitGroup, rateLimiter chan struct{}) {
 	defer wg.Done()
+	defer func() { rateLimiter <- struct{}{} }()
 	var response httpResponse
+
+	<-rateLimiter
 
 	markNodeHealthAsUnknown := func(statusCode int) {
 		response.Status = statusCode
