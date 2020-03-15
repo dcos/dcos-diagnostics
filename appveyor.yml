@@ -4,7 +4,7 @@ cache:
   - '%LocalAppData%\go-build'
 
 
-stack: go 1.12
+stack: go 1.14
 
 test_script:
   - go test -mod=vendor -coverprofile=coverage.txt -covermode=atomic -v ./...

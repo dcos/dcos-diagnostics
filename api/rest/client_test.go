@@ -225,15 +225,15 @@ func TestGetFileReturnsErrorWhenResponseIs500(t *testing.T) {
 func TestClientReturnsErrorWhenNodeIsInvalid(t *testing.T) {
 	client := DiagnosticsClient{client: http.DefaultClient}
 	bundle, err := client.CreateBundle(context.TODO(), ``, "bundle-0")
-	assert.EqualError(t, err, `Put /system/health/v1/node/diagnostics/bundle-0: unsupported protocol scheme ""`)
+	assert.EqualError(t, err, `Put "/system/health/v1/node/diagnostics/bundle-0": unsupported protocol scheme ""`)
 	assert.Nil(t, bundle)
 
 	bundle, err = client.Status(context.TODO(), ``, "bundle-0")
-	assert.EqualError(t, err, `Get /system/health/v1/node/diagnostics/bundle-0: unsupported protocol scheme ""`)
+	assert.EqualError(t, err, `Get "/system/health/v1/node/diagnostics/bundle-0": unsupported protocol scheme ""`)
 	assert.Nil(t, bundle)
 
 	err = client.GetFile(context.TODO(), ``, "bundle-0", "")
-	assert.EqualError(t, err, `Get /system/health/v1/node/diagnostics/bundle-0/file: unsupported protocol scheme ""`)
+	assert.EqualError(t, err, `Get "/system/health/v1/node/diagnostics/bundle-0/file": unsupported protocol scheme ""`)
 }
 
 func TestGetStatusReturnsErrorWhenResponseIsMalformed(t *testing.T) {

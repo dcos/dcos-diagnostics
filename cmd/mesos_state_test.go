@@ -51,7 +51,7 @@ func Test_getMesosState_errored(t *testing.T) {
 
 	err := getMesosState(tr, nil)
 
-	assert.EqualError(t, err, "Get http://leader.mesos:5050/state: error")
+	assert.EqualError(t, err, `Get "http://leader.mesos:5050/state": error`)
 }
 
 type roundTripFunc func(r *http.Request) (*http.Response, error)
