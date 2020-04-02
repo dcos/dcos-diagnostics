@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -141,23 +140,20 @@ func startDiagnosticsDaemon() {
 		go api.StartPullWithInterval(dt)
 	}
 
-	router := api.NewRouter(dt)
-	srv := &http.Server{Handler: router}
-
 	c := make(chan os.Signal, 1)
 	signal.Notify(c)
 	go func() {
-		s := <-c
-		logrus.WithField("Signal", s).Info("Shutdown the serwer...")
-		srv.Shutdown(context.Background())
+		for s := range c {
+			logrus.WithField("signal", s).Info("Shutdown the server...")
+			os.Exit(0)
+		}
 	}()
+
+	router := api.NewRouter(dt)
 
 	if defaultConfig.FlagDisableUnixSocket {
 		logrus.Infof("Exposing dcos-diagnostics API on 0.0.0.0:%d", defaultConfig.FlagPort)
-		srv.Addr = fmt.Sprintf(":%d", defaultConfig.FlagPort)
-		err := srv.ListenAndServe()
-		logrus.WithError(err).Infof("Server exited")
-		return
+		logrus.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", defaultConfig.FlagPort), router))
 	}
 
 	// try using systemd socket
@@ -170,9 +166,8 @@ func startDiagnosticsDaemon() {
 	if len(listeners) == 0 || listeners[0] == nil {
 		logrus.Fatal("Unix socket not found")
 	}
-
 	logrus.Infof("Using socket: %s", listeners[0].Addr().String())
-	err = srv.Serve(listeners[0])
+	err = http.Serve(listeners[0], router)
 	logrus.WithError(err).Infof("Server exited")
 }
 
