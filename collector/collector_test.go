@@ -148,7 +148,7 @@ func TestEndpoint_CollectShouldReturnErroronTimeout(t *testing.T) {
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
-	assert.EqualError(t, err, "could not fetch url http://192.0.2.0/test: Get http://192.0.2.0/test: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")
+	assert.EqualError(t, err, `could not fetch url http://192.0.2.0/test: Get "http://192.0.2.0/test": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`)
 }
 
 func TestEndpoint_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
@@ -162,7 +162,7 @@ func TestEndpoint_CollectShouldReturnErrorWhenInvalidURL(t *testing.T) {
 	r, err := c.Collect(context.TODO())
 
 	assert.Nil(t, r)
-	assert.Contains(t, err.Error(), "could not fetch url invalid url: Get invalid%20url: unsupported protocol scheme \"\"")
+	assert.Contains(t, err.Error(), `could not fetch url invalid url: Get "invalid%20url": unsupported protocol scheme ""`)
 }
 
 // http://keighl.com/post/mocking-http-responses-in-golang/
