@@ -33,7 +33,7 @@ require (
 	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1 // indirect
 	github.com/spf13/viper v1.1.0
-	github.com/stretchr/testify v1.2.2
+	github.com/stretchr/testify v1.6.0
 	golang.org/x/sys v0.0.0-20181116152217-5ac8a444bdc5
 	golang.org/x/text v0.3.0 // indirect
 	gopkg.in/jarcoal/httpmock.v1 v1.0.0-20180719183105-8007e27cdb32
