@@ -5,7 +5,7 @@ import (
 	goio "io"
 	"time"
 
-	"github.com/coreos/go-systemd/sdjournal"
+	"github.com/coreos/go-systemd/v22/sdjournal"
 
 	"github.com/dcos/dcos-diagnostics/io"
 )
