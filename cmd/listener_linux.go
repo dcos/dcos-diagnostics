@@ -17,7 +17,7 @@ package cmd
 import (
 	"net"
 
-	"github.com/coreos/go-systemd/activation"
+	"github.com/coreos/go-systemd/v22/activation"
 )
 
 func getListener(unsetEnv bool) ([]net.Listener, error) {
