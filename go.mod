@@ -26,7 +26,7 @@ require (
 	github.com/prometheus/common v0.2.0 // indirect
 	github.com/prometheus/procfs v0.0.0-20190227231451-bbced9601137 // indirect
 	github.com/shirou/gopsutil v0.0.0-20180801053943-8048a2e9c577
-	github.com/sirupsen/logrus v1.2.0
+	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/afero v1.1.1 // indirect
 	github.com/spf13/cast v1.2.0 // indirect
 	github.com/spf13/cobra v0.0.3
@@ -34,7 +34,7 @@ require (
 	github.com/spf13/pflag v1.0.1 // indirect
 	github.com/spf13/viper v1.1.0
 	github.com/stretchr/testify v1.2.2
-	golang.org/x/sys v0.0.0-20181116152217-5ac8a444bdc5
+	golang.org/x/sys v0.0.0-20190422165155-953cdadca894
 	golang.org/x/text v0.3.0 // indirect
 	gopkg.in/jarcoal/httpmock.v1 v1.0.0-20180719183105-8007e27cdb32
 	gopkg.in/square/go-jose.v2 v2.1.7 // indirect
