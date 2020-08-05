@@ -14,7 +14,7 @@ require (
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/prometheus/client_golang v1.7.1
-	github.com/shirou/gopsutil v2.20.6+incompatible
+	github.com/shirou/gopsutil v2.20.7+incompatible
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
