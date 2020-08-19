@@ -4,7 +4,7 @@ cache:
   - '%LocalAppData%\go-build'
 
 
-stack: go 1.14
+stack: go 1.15
 image: Visual Studio 2019
 
 test_script:
