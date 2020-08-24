@@ -16,6 +16,8 @@ github.com/dcos/dcos-go/dcos
 github.com/dcos/dcos-go/dcos/http/transport
 github.com/dcos/dcos-go/dcos/nodeutil
 github.com/dcos/dcos-go/exec
+# github.com/felixge/httpsnoop v1.0.1
+github.com/felixge/httpsnoop
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
 # github.com/go-ole/go-ole v1.2.4
@@ -31,7 +33,7 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/uuid v1.1.1
 github.com/google/uuid
-# github.com/gorilla/handlers v1.4.2
+# github.com/gorilla/handlers v1.5.0
 github.com/gorilla/handlers
 # github.com/gorilla/mux v1.7.4
 github.com/gorilla/mux
