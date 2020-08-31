@@ -8,7 +8,7 @@ require (
 	github.com/dcos/dcos-go v0.0.0-20190205125227-3b86d9c7fac3
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/mitchellh/mapstructure v1.3.3
