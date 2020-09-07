@@ -3,6 +3,7 @@ package dcos
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -113,7 +114,7 @@ func (st *Tools) GetUnitProperties(pname string) (map[string]interface{}, error)
 
 	result := make(map[string]interface{})
 	result["id"] = pname
-	result["ActiveState"] = string(status.State)
+	result["ActiveState"] = fmt.Sprin(status.State)
 	result["LoadState"] = string(status.State)
 	result["SubState"] = string(status.State)
 	result["Description"] = config.Description
