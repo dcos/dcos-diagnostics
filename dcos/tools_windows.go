@@ -112,11 +112,12 @@ func (st *Tools) GetUnitProperties(pname string) (map[string]interface{}, error)
 		return nil, err
 	}
 
+	s := fmt.Sprint(status.State)
 	result := make(map[string]interface{})
 	result["id"] = pname
-	result["ActiveState"] = fmt.Sprint(status.State)
-	result["LoadState"] = string(status.State)
-	result["SubState"] = string(status.State)
+	result["ActiveState"] = s
+	result["LoadState"] = s
+	result["SubState"] = s
 	result["Description"] = config.Description
 
 	logrus.WithField("Result", result).WithField("id", pname).Debug("GetUnitProperties for service")
