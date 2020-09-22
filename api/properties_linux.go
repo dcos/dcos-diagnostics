@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/sirupsen/logrus"
