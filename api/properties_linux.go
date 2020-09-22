@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-
 	"github.com/dcos/dcos-diagnostics/dcos"
 	"github.com/dcos/dcos-diagnostics/util"
 	"github.com/sirupsen/logrus"
@@ -44,6 +43,10 @@ func (u *UnitPropertiesResponse) CheckUnitHealth() (dcos.Health, string, error) 
 		if u.InactiveEnterTimestampMonotonic > u.ActiveEnterTimestampMonotonic {
 			return dcos.Unhealthy, fmt.Sprintf("Unit %s is flapping. Please check `systemctl status %s` to check current Unit state.", u.ID, u.ID), nil
 		}
+	}
+
+	if u.ActiveState == "inactive" {
+		return dcos.Unhealthy, fmt.Sprintf("Unit %s is %s", u.ID, u.SubState), nil
 	}
 
 	return dcos.Healthy, "", nil
