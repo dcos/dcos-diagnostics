@@ -35,9 +35,9 @@ func TestSystemdUnits_GetUnitsProperties(t *testing.T) {
 	expected := UnitsHealthResponseJSONStruct{
 		Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "", Role: "master", MesosID: "node-id-123", TdtVersion: "dev",
 		Array: []HealthResponseValues{
-			{UnitID: "unit_a", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
-			{UnitID: "unit_b", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
-			{UnitID: "unit_c", UnitHealth: dcos.Unhealthy, UnitTitle: title, PrettyName: name},
+			{UnitID: "unit_a", UnitHealth: dcos.Healthy, UnitTitle: title, PrettyName: name},
+			{UnitID: "unit_b", UnitHealth: dcos.Healthy, UnitTitle: title, PrettyName: name},
+			{UnitID: "unit_c", UnitHealth: dcos.Healthy, UnitTitle: title, PrettyName: name},
 		},
 	}
 	assert.Equal(t, expected, units)
