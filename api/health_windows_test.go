@@ -24,13 +24,13 @@ func TestSystemdUnits_GetUnits(t *testing.T) {
 
 	assert.NoError(t, err)
 	expected := []HealthResponseValues{
-		{UnitID: "dcos-setup.service", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "dcos-link-env.service", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "dcos-download.service", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_a", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_b", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_c", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_to_fail", UnitHealth: dcos.Healthy},
+		{UnitID: "dcos-setup.service", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "dcos-link-env.service", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "dcos-download.service", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_a", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_b", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_c", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_to_fail", UnitHealth: dcos.Unhealthy},
 	}
 	assert.Equal(t, expected, units)
 }
@@ -44,13 +44,13 @@ func TestSystemdUnits_GetUnitsProperties(t *testing.T) {
 	assert.NoError(t, err)
 
 	expected := UnitsHealthResponseJSONStruct{Array: []HealthResponseValues{
-		{UnitID: "dcos-setup.service", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "dcos-link-env.service", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "dcos-download.service", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_a", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_b", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_c", UnitHealth: dcos.Healthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
-		{UnitID: "unit_to_fail", UnitHealth: dcos.Healthy},
+		{UnitID: "dcos-setup.service", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "dcos-link-env.service", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "dcos-download.service", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_a", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_b", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_c", UnitHealth: dcos.Unhealthy, UnitOutput: output, UnitTitle: title, PrettyName: name},
+		{UnitID: "unit_to_fail", UnitHealth: dcos.Unhealthy},
 	}, Hostname: "MyHostName", IPAddress: "127.0.0.1", DcosVersion: "some version", Role: "master", MesosID: "node-id-123", TdtVersion: "dev"}
 
 	assert.Equal(t, expected, units)
