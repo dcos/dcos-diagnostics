@@ -12,7 +12,7 @@ import (
 func (u *UnitPropertiesResponse) CheckUnitHealth() (dcos.Health, string, error) {
 	if u.ActiveState != fmt.Sprint(svc.Running) {
 		logrus.Infof("The ActiveState is %s, not in running state(4)", u.ActiveState)
-		return dcos.Healthy, fmt.Sprintf("The ActiveState is %s, not in running state(4)", u.ActiveState), nil
+		return dcos.Unhealthy, fmt.Sprintf("The ActiveState is %s, not in running state(4)", u.ActiveState), nil
 	}
-	return dcos.Unhealthy, "", nil
+	return dcos.Healthy, "", nil
 }

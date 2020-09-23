@@ -10,10 +10,10 @@ import (
 type Health int
 
 const (
-	// Unhealthy indicates Unit is not healthy
-	Unhealthy = 0
 	// Healthy indicates Unit is healthy
-	Healthy = 1
+	Healthy = 0
+	// Unhealthy indicates Unit is not healthy
+	Unhealthy = 1
 	// Unknown indicates Unit health could not be determined
 	Unknown = 3
 )

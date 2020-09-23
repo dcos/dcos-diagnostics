@@ -47,7 +47,7 @@ func (s *SystemdUnits) GetUnits(tools dcos.Tooler) (allUnits []HealthResponseVal
 			logrus.Errorf("Unit property error for %s", unit)
 			normalizedProperty = HealthResponseValues{
 				UnitID:     unit,
-				UnitHealth: 1,
+				UnitHealth: dcos.Unhealthy,
 				UnitOutput: "",
 				UnitTitle:  "",
 				Help:       "",
