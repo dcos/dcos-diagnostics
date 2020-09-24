@@ -16,7 +16,8 @@ matrix:
           - $HOME/Library/Caches/go-build
           - $HOME/gopath/pkg/mod
 
-go: 1.15
+go: 
+- 1.15
 
 env:
 - GO111MODULE=on
