@@ -8,14 +8,14 @@ require (
 	github.com/dcos/dcos-go v0.0.0-20190205125227-3b86d9c7fac3
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/google/uuid v1.1.1
-	github.com/gorilla/handlers v1.4.2
-	github.com/gorilla/mux v1.7.4
+	github.com/google/uuid v1.1.2
+	github.com/gorilla/handlers v1.5.0
+	github.com/gorilla/mux v1.8.0
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/prometheus/client_golang v1.7.1
-	github.com/shirou/gopsutil v2.20.7+incompatible
-	github.com/sirupsen/logrus v1.6.0
+	github.com/shirou/gopsutil v2.20.8+incompatible
+	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0
