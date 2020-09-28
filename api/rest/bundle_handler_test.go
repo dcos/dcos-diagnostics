@@ -826,7 +826,7 @@ func TestIfE2E_(t *testing.T) {
 		MockCollector{name: "collector-4", rc: slowReader{delay: time.Millisecond}},
 	}
 
-	bh, err := NewBundleHandler(workdir, collectors, time.Second, 50 * time.Millisecond)
+	bh, err := NewBundleHandler(workdir, collectors, time.Second, time.Second)
 	require.NoError(t, err)
 	bh.clock = &MockClock{now: now}
 
