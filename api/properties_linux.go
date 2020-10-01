@@ -45,9 +45,5 @@ func (u *UnitPropertiesResponse) CheckUnitHealth() (dcos.Health, string, error) 
 		}
 	}
 
-	if u.ActiveState == "inactive" {
-		return dcos.Unhealthy, fmt.Sprintf("Unit %s is %s", u.ID, u.SubState), nil
-	}
-
 	return dcos.Healthy, "", nil
 }

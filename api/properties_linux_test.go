@@ -59,8 +59,8 @@ func TestUnitPropertiesResponse_CheckUnitHealth(t *testing.T) {
 		{
 			name:   "inactive service",
 			in:     UnitPropertiesResponse{ID: "dcos-telegraf.socket", LoadState: "loaded", ActiveState: "inactive", SubState: "dead"},
-			health: dcos.Unhealthy,
-			info:   "Unit dcos-telegraf.socket is dead",
+			health: dcos.Healthy,
+			info:   "",
 		},
 	}
 	for _, tt := range tests {
