@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/pelletier/go-toml v1.8.0 // indirect
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.11.1
 	github.com/shirou/gopsutil v2.20.9+incompatible
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/afero v1.2.2 // indirect
@@ -24,9 +24,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37 // indirect
-	golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1
-	google.golang.org/protobuf v1.24.0 // indirect
+	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40
 	gopkg.in/ini.v1 v1.57.0 // indirect
 	gopkg.in/jarcoal/httpmock.v1 v1.0.0-20180719183105-8007e27cdb32
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
